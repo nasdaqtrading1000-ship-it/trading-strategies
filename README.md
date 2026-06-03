@@ -160,3 +160,17 @@ En Render, pega ese resultado en la variable:
 ```text
 ADMIN_PASSWORD_HASH
 ```
+
+## Base de datos persistente en produccion
+
+En local, la app puede seguir usando SQLite (`strategies.db`). En Render debes usar PostgreSQL para que los enlaces de Telegram y las estrategias no se pierdan cuando el servicio se reinicie.
+
+Configura estas variables en Render:
+
+```text
+ADMIN_PASSWORD_HASH=hash_de_tu_contrasena
+SECRET_KEY=una_clave_larga_y_aleatoria
+DATABASE_URL=url_interna_de_postgresql
+```
+
+La variable `DATABASE_URL` debe venir de una base PostgreSQL creada en Render, Supabase, Neon o Railway.

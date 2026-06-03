@@ -1,5 +1,4 @@
 import os
-import sqlite3
 from functools import wraps
 
 from flask import (
@@ -13,11 +12,26 @@ from flask import (
     session,
     url_for,
 )
+from sqlalchemy import create_engine, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DATABASE = os.path.join(BASE_DIR, "strategies.db")
+SQLITE_DATABASE = os.path.join(BASE_DIR, "strategies.db")
+
+
+def database_url():
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        return f"sqlite:///{SQLITE_DATABASE}"
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
+engine = create_engine(database_url(), future=True)
 
 
 def create_app():
@@ -29,8 +43,7 @@ def create_app():
 
     @app.before_request
     def before_request():
-        g.db = sqlite3.connect(DATABASE)
-        g.db.row_factory = sqlite3.Row
+        g.db = engine.connect()
 
     @app.teardown_request
     def teardown_request(_exception):
@@ -51,6 +64,7 @@ def create_app():
     @app.route("/")
     def index():
         strategies = g.db.execute(
+            text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
                    historical_return, telegram_url, is_active
@@ -58,7 +72,8 @@ def create_app():
             WHERE is_active = 1
             ORDER BY created_at DESC
             """
-        ).fetchall()
+            )
+        ).mappings().fetchall()
         return render_template("index.html", strategies=strategies)
 
     @app.route("/admin/login", methods=["GET", "POST"])
@@ -84,13 +99,15 @@ def create_app():
     @login_required
     def admin_dashboard():
         strategies = g.db.execute(
+            text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
                    historical_return, telegram_url, is_active, created_at
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
-        ).fetchall()
+            )
+        ).mappings().fetchall()
         return render_template("admin/dashboard.html", strategies=strategies)
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])
@@ -125,8 +142,8 @@ def create_app():
         strategy = get_strategy_or_404(strategy_id)
         next_state = 0 if strategy["is_active"] else 1
         g.db.execute(
-            "UPDATE strategies SET is_active = ? WHERE id = ?",
-            (next_state, strategy_id),
+            text("UPDATE strategies SET is_active = :is_active WHERE id = :id"),
+            {"is_active": next_state, "id": strategy_id},
         )
         g.db.commit()
         flash("Estado actualizado.", "success")
@@ -136,15 +153,15 @@ def create_app():
     @login_required
     def strategy_delete(strategy_id):
         get_strategy_or_404(strategy_id)
-        g.db.execute("DELETE FROM strategies WHERE id = ?", (strategy_id,))
+        g.db.execute(text("DELETE FROM strategies WHERE id = :id"), {"id": strategy_id})
         g.db.commit()
         flash("Estrategia eliminada.", "info")
         return redirect(url_for("admin_dashboard"))
 
     def get_strategy_or_404(strategy_id):
         strategy = g.db.execute(
-            "SELECT * FROM strategies WHERE id = ?", (strategy_id,)
-        ).fetchone()
+            text("SELECT * FROM strategies WHERE id = :id"), {"id": strategy_id}
+        ).mappings().fetchone()
         if strategy is None:
             abort(404)
         return strategy
@@ -195,41 +212,48 @@ def create_app():
 
         if strategy_id:
             g.db.execute(
+                text(
                 """
                 UPDATE strategies
-                SET name = ?, description = ?, risk_level = ?, signal_frequency = ?,
-                    historical_return = ?, telegram_url = ?, is_active = ?
-                WHERE id = ?
+                SET name = :name, description = :description, risk_level = :risk_level,
+                    signal_frequency = :signal_frequency,
+                    historical_return = :historical_return,
+                    telegram_url = :telegram_url, is_active = :is_active
+                WHERE id = :id
                 """,
-                (
-                    name,
-                    description,
-                    risk_level,
-                    signal_frequency,
-                    historical_return,
-                    telegram_url,
-                    is_active,
-                    strategy_id,
                 ),
+                {
+                    "name": name,
+                    "description": description,
+                    "risk_level": risk_level,
+                    "signal_frequency": signal_frequency,
+                    "historical_return": historical_return,
+                    "telegram_url": telegram_url,
+                    "is_active": is_active,
+                    "id": strategy_id,
+                },
             )
             flash("Estrategia actualizada.", "success")
         else:
             g.db.execute(
+                text(
                 """
                 INSERT INTO strategies
                 (name, description, risk_level, signal_frequency,
                  historical_return, telegram_url, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (:name, :description, :risk_level, :signal_frequency,
+                        :historical_return, :telegram_url, :is_active)
                 """,
-                (
-                    name,
-                    description,
-                    risk_level,
-                    signal_frequency,
-                    historical_return,
-                    telegram_url,
-                    is_active,
                 ),
+                {
+                    "name": name,
+                    "description": description,
+                    "risk_level": risk_level,
+                    "signal_frequency": signal_frequency,
+                    "historical_return": historical_return,
+                    "telegram_url": telegram_url,
+                    "is_active": is_active,
+                },
             )
             flash("Estrategia creada.", "success")
 
@@ -240,65 +264,72 @@ def create_app():
 
 
 def init_db():
-    connection = sqlite3.connect(DATABASE)
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS strategies (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            risk_level TEXT NOT NULL CHECK (risk_level IN ('Bajo', 'Medio', 'Alto')),
-            signal_frequency TEXT NOT NULL DEFAULT '',
-            historical_return TEXT NOT NULL DEFAULT '',
-            telegram_url TEXT NOT NULL DEFAULT '',
-            is_active INTEGER NOT NULL DEFAULT 1,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-        """
+    id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
     )
-
-    count = connection.execute("SELECT COUNT(*) FROM strategies").fetchone()[0]
-    if count == 0:
-        connection.executemany(
-            """
-            INSERT INTO strategies
-            (name, description, risk_level, signal_frequency,
-             historical_return, telegram_url, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    "Momentum Intradia",
-                    "Entrada en activos con ruptura de volumen y confirmacion de tendencia a corto plazo.",
-                    "Medio",
-                    "3-6 senales por semana",
-                    "+18.4% anualizado",
-                    "https://t.me/tu_canal_momentum",
-                    1,
-                ),
-                (
-                    "Swing Conservador",
-                    "Operativa de varios dias con gestion estricta del riesgo y objetivos parciales.",
-                    "Bajo",
-                    "1-3 senales por semana",
-                    "+11.2% anualizado",
-                    "https://t.me/tu_canal_swing",
-                    1,
-                ),
-                (
-                    "Crypto Breakout",
-                    "Seguimiento de rupturas en criptomonedas liquidas con stops dinamicos.",
-                    "Alto",
-                    "5-10 senales por semana",
-                    "+34.7% anualizado",
-                    "https://t.me/tu_canal_crypto",
-                    1,
-                ),
-            ],
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                f"""
+                CREATE TABLE IF NOT EXISTS strategies (
+                    id {id_column},
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    risk_level TEXT NOT NULL CHECK (risk_level IN ('Bajo', 'Medio', 'Alto')),
+                    signal_frequency TEXT NOT NULL DEFAULT '',
+                    historical_return TEXT NOT NULL DEFAULT '',
+                    telegram_url TEXT NOT NULL DEFAULT '',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
         )
 
-    connection.commit()
-    connection.close()
+        count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
+        if count == 0:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO strategies
+                    (name, description, risk_level, signal_frequency,
+                     historical_return, telegram_url, is_active)
+                    VALUES (:name, :description, :risk_level, :signal_frequency,
+                            :historical_return, :telegram_url, :is_active)
+                    """
+                ),
+                [
+                    {
+                        "name": "Momentum Intradia",
+                        "description": "Entrada en activos con ruptura de volumen y confirmacion de tendencia a corto plazo.",
+                        "risk_level": "Medio",
+                        "signal_frequency": "3-6 senales por semana",
+                        "historical_return": "+18.4% anualizado",
+                        "telegram_url": "https://t.me/tu_canal_momentum",
+                        "is_active": 1,
+                    },
+                    {
+                        "name": "Swing Conservador",
+                        "description": "Operativa de varios dias con gestion estricta del riesgo y objetivos parciales.",
+                        "risk_level": "Bajo",
+                        "signal_frequency": "1-3 senales por semana",
+                        "historical_return": "+11.2% anualizado",
+                        "telegram_url": "https://t.me/tu_canal_swing",
+                        "is_active": 1,
+                    },
+                    {
+                        "name": "Crypto Breakout",
+                        "description": "Seguimiento de rupturas en criptomonedas liquidas con stops dinamicos.",
+                        "risk_level": "Alto",
+                        "signal_frequency": "5-10 senales por semana",
+                        "historical_return": "+34.7% anualizado",
+                        "telegram_url": "https://t.me/tu_canal_crypto",
+                        "is_active": 1,
+                    },
+                ],
+            )
 
 
 init_db()

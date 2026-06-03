@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<section class="container py-4 py-md-5">
+  <div class="form-panel mx-auto p-4 p-md-5">
+    <div class="d-flex justify-content-between gap-3 align-items-start mb-4">
+      <div>
+        <p class="text-info fw-semibold mb-1">Panel</p>
+        <h1 class="h2 mb-0">{{ title }}</h1>
+      </div>
+      <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_dashboard') }}">Volver</a>
+    </div>
+
+    <form method="post" class="row g-3">
+      <div class="col-md-8">
+        <label class="form-label" for="name">Nombre</label>
+        <input class="form-control" id="name" name="name" value="{{ strategy.name if strategy else '' }}" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="risk_level">Nivel de riesgo</label>
+        <select class="form-select" id="risk_level" name="risk_level">
+          {% for risk in ["Bajo", "Medio", "Alto"] %}
+            <option value="{{ risk }}" {% if strategy and strategy.risk_level == risk %}selected{% endif %}>{{ risk }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="description">Descripcion</label>
+        <textarea class="form-control" id="description" name="description" rows="4">{{ strategy.description if strategy else '' }}</textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="signal_frequency">Frecuencia de senales</label>
+        <input class="form-control" id="signal_frequency" name="signal_frequency" value="{{ strategy.signal_frequency if strategy else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="historical_return">Rentabilidad historica</label>
+        <input class="form-control" id="historical_return" name="historical_return" value="{{ strategy.historical_return if strategy else '' }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="telegram_url">Enlace de Telegram</label>
+        <input class="form-control" id="telegram_url" name="telegram_url" value="{{ strategy.telegram_url if strategy else '' }}" placeholder="https://t.me/tu_canal" required>
+      </div>
+      <div class="col-12">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" {% if not strategy or strategy.is_active %}checked{% endif %}>
+          <label class="form-check-label" for="is_active">Estrategia activa</label>
+        </div>
+      </div>
+      <div class="col-12 d-flex justify-content-end gap-2 pt-3">
+        <a class="btn btn-outline-light" href="{{ url_for('admin_dashboard') }}">Cancelar</a>
+        <button class="btn btn-info fw-semibold" type="submit">Guardar</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

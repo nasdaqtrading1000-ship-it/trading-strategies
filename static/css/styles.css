@@ -1,0 +1,126 @@
+:root {
+  --app-bg: #090d12;
+  --panel-bg: #101722;
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --muted: #9aa7b7;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(13, 202, 240, 0.14), transparent 32rem),
+    linear-gradient(180deg, #090d12 0%, #0c1118 48%, #090d12 100%);
+  color: #f5f7fb;
+}
+
+.app-navbar {
+  background: rgba(9, 13, 18, 0.86);
+  backdrop-filter: blur(16px);
+}
+
+.hero-section {
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.stats-panel,
+.strategy-card,
+.login-panel,
+.form-panel,
+.admin-table,
+.empty-state {
+  background: rgba(16, 23, 34, 0.9);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+}
+
+.strategy-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.strategy-card .btn {
+  margin-top: auto;
+}
+
+.strategy-meta {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.strategy-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0.75rem;
+}
+
+.strategy-meta dt {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.strategy-meta dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+}
+
+.risk-bajo {
+  background: rgba(25, 135, 84, 0.18);
+  color: #71e0a9;
+  border: 1px solid rgba(25, 135, 84, 0.45);
+}
+
+.risk-medio {
+  background: rgba(255, 193, 7, 0.18);
+  color: #ffd86b;
+  border: 1px solid rgba(255, 193, 7, 0.45);
+}
+
+.risk-alto {
+  background: rgba(220, 53, 69, 0.18);
+  color: #ff8c9a;
+  border: 1px solid rgba(220, 53, 69, 0.45);
+}
+
+.login-panel {
+  max-width: 480px;
+}
+
+.form-panel {
+  max-width: 920px;
+}
+
+.form-control,
+.form-select {
+  background-color: #0b1119;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #0dcaf0;
+  box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.18);
+}
+
+.table {
+  --bs-table-bg: transparent;
+}
+
+@media (max-width: 575.98px) {
+  .display-5 {
+    font-size: 2.15rem;
+  }
+
+  .strategy-meta div {
+    display: block;
+  }
+
+  .strategy-meta dd {
+    text-align: left;
+    margin-top: 0.2rem;
+  }
+}

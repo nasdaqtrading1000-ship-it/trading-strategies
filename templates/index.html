@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Estrategias de trading{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+  <div class="container py-5">
+    <div class="row align-items-end gy-4">
+      <div class="col-lg-8">
+        <p class="text-info fw-semibold mb-2">Estrategias activas</p>
+        <h1 class="display-5 fw-bold mb-3">Canales de trading con enfoque, riesgo y seguimiento claros.</h1>
+        <p class="lead text-secondary mb-0">Explora estrategias, compara su perfil y unete al canal que mejor encaje con tu operativa.</p>
+      </div>
+      <div class="col-lg-4">
+        <div class="stats-panel p-4">
+          <span class="d-block text-secondary small">Estrategias disponibles</span>
+          <strong class="display-6">{{ strategies|length }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="container py-5">
+  {% if strategies %}
+    <div class="row g-4">
+      {% for strategy in strategies %}
+        <div class="col-md-6 col-xl-4">
+          <article class="strategy-card h-100 p-4">
+            <div class="d-flex justify-content-between gap-3 align-items-start mb-3">
+              <h2 class="h4 mb-0">{{ strategy.name }}</h2>
+              <span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
+            </div>
+            <p class="text-secondary">{{ strategy.description }}</p>
+            <dl class="strategy-meta">
+              <div>
+                <dt>Frecuencia</dt>
+                <dd>{{ strategy.signal_frequency }}</dd>
+              </div>
+              <div>
+                <dt>Rentabilidad historica</dt>
+                <dd>{{ strategy.historical_return }}</dd>
+              </div>
+            </dl>
+            <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
+              Unirme al Telegram
+            </a>
+          </article>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state text-center py-5">
+      <h2 class="h4">No hay estrategias activas</h2>
+      <p class="text-secondary mb-0">Vuelve pronto o activa alguna estrategia desde el panel de administracion.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

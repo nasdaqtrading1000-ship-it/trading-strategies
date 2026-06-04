@@ -199,6 +199,23 @@ Por defecto se valoran hasta 1000 simbolos por ejecucion para evitar limites de 
 MARKET_DATA_MAX_SYMBOLS=1000
 ```
 
+Si quieres valorar todo el universo en una ejecucion diaria, usa:
+
+```text
+MARKET_DATA_MAX_SYMBOLS=0
+```
+
+Tambien puedes lanzar la actualizacion completa con:
+
+```powershell
+python update_market_data.py --full
+```
+
+En el panel admin hay dos botones:
+
+- `Actualizar tanda`: valora solo el bloque configurado en `MARKET_DATA_MAX_SYMBOLS`.
+- `Actualizar mercado completo`: valora todo el universo disponible.
+
 La actualizacion de mercado va por tandas rotatorias. Si el universo tiene 8666 activos y `MARKET_DATA_MAX_SYMBOLS=1000`, cada ejecucion valora una tanda distinta:
 
 ```text
@@ -210,13 +227,15 @@ La actualizacion de mercado va por tandas rotatorias. Si el universo tiene 8666 
 
 El panel admin muestra `Inicio tanda` y `Siguiente tanda`.
 
+El resultado se guarda en PostgreSQL, que es lo que usa la pantalla `Filtrado de activos`. Tambien se exporta una copia a `data/market_data.csv` con las columnas calculadas, pero en Render el almacenamiento de archivos puede ser temporal; la fuente importante y persistente es PostgreSQL.
+
 En Render, el cron del `render.yaml` queda programado en UTC:
 
 ```text
-0 13,15,17,19 * * *
+30 20 * * 1-5
 ```
 
-Eso equivale a 15:00, 17:00, 19:00 y 21:00 en horario de verano de Madrid. En horario de invierno habra que ajustarlo a 14,16,18,20 UTC.
+Eso ejecuta una actualizacion completa de lunes a viernes a las 20:30 UTC. En horario de verano equivale a 22:30 en Madrid, ya con el mercado estadounidense cerrado.
 
 ## Actualizar universo de activos
 

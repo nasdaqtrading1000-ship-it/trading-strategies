@@ -1,11 +1,17 @@
+import argparse
+import csv
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import text
 
 from alpaca_data import get_daily_asset_metrics
 from db import engine
 from market_scanner import load_universe_assets
+
+
+MARKET_DATA_CSV_PATH = Path(__file__).resolve().parent / "data" / "market_data.csv"
 
 
 def ensure_snapshot_table(connection):
@@ -97,9 +103,9 @@ def metric_value(metric, key, fallback=0):
     return metric.get(key) or metric.get("money_volume") or fallback
 
 
-def update_market_data():
+def update_market_data(max_symbols=None, full=False):
     assets = load_universe_assets()
-    max_symbols = int(os.environ.get("MARKET_DATA_MAX_SYMBOLS", "1000"))
+    max_symbols = resolve_max_symbols(max_symbols)
     total_universe = len(assets)
     if not assets:
         return {
@@ -114,15 +120,25 @@ def update_market_data():
         ensure_update_state_table(connection)
         batch_offset = get_batch_offset(connection, total_universe)
 
-    assets = select_asset_batch(assets, batch_offset, max_symbols)
+    full_update = full or max_symbols <= 0 or max_symbols >= total_universe
+    if full_update:
+        batch_offset = 0
+        assets = assets
+        next_offset = 0
+        update_mode = "completa"
+    else:
+        assets = select_asset_batch(assets, batch_offset, max_symbols)
+        next_offset = next_batch_offset(batch_offset, max_symbols, total_universe)
+        update_mode = "tanda"
+
     symbols = [asset["symbol"] for asset in assets]
     metrics, source, diagnostics = get_daily_asset_metrics(symbols)
     diagnostics["loaded_assets"] = len(assets)
     diagnostics["total_universe"] = total_universe
     diagnostics["batch_offset"] = batch_offset
-    diagnostics["next_batch_offset"] = next_batch_offset(
-        batch_offset, max_symbols, total_universe
-    )
+    diagnostics["next_batch_offset"] = next_offset
+    diagnostics["max_symbols"] = max_symbols
+    diagnostics["update_mode"] = update_mode
     diagnostics["source"] = source
     if source != "alpaca" or not metrics:
         print("No se pudo actualizar desde Alpaca. Revisa claves o plan de datos.")
@@ -256,13 +272,84 @@ def update_market_data():
                 )
         set_batch_offset(connection, diagnostics["next_batch_offset"])
 
+    csv_rows = export_market_data_csv()
     print(f"Snapshots actualizados: {len(rows)}")
     return {
         "ok": True,
         "message": f"Snapshots actualizados: {len(rows)}",
         "saved_rows": len(rows),
+        "csv_rows": csv_rows,
         **diagnostics,
     }
+
+
+def resolve_max_symbols(max_symbols):
+    if max_symbols is not None:
+        return int(max_symbols)
+    try:
+        return int(os.environ.get("MARKET_DATA_MAX_SYMBOLS", "1000"))
+    except ValueError:
+        return 1000
+
+
+def export_market_data_csv(path=MARKET_DATA_CSV_PATH):
+    rows = load_snapshot_rows_for_export()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=MARKET_DATA_CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return len(rows)
+
+
+def load_snapshot_rows_for_export():
+    with engine.connect() as connection:
+        ensure_snapshot_table(connection)
+        rows = connection.execute(
+            text(
+                """
+                SELECT symbol, name, sector, market, price, money_volume,
+                       money_volume_1m, money_volume_2m, money_volume_3m,
+                       day_money_volume, week_money_volume,
+                       day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
+                       day_money_volume_4d, day_money_volume_5d,
+                       week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                       week_money_volume_4w, week_money_volume_5w,
+                       day_volume_score, week_volume_score, updated_at
+                FROM asset_snapshots
+                ORDER BY money_volume DESC
+                """
+            )
+        ).mappings().fetchall()
+    return [dict(row) for row in rows]
+
+
+MARKET_DATA_CSV_COLUMNS = [
+    "symbol",
+    "name",
+    "sector",
+    "market",
+    "price",
+    "money_volume",
+    "money_volume_1m",
+    "money_volume_2m",
+    "money_volume_3m",
+    "day_money_volume",
+    "week_money_volume",
+    "day_money_volume_1d",
+    "day_money_volume_2d",
+    "day_money_volume_3d",
+    "day_money_volume_4d",
+    "day_money_volume_5d",
+    "week_money_volume_1w",
+    "week_money_volume_2w",
+    "week_money_volume_3w",
+    "week_money_volume_4w",
+    "week_money_volume_5w",
+    "day_volume_score",
+    "week_volume_score",
+    "updated_at",
+]
 
 
 def ensure_update_state_table(connection):
@@ -327,6 +414,19 @@ def next_batch_offset(offset, limit, total):
 
 
 if __name__ == "__main__":
-    result = update_market_data()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Valora todo el universo de activos en una sola ejecucion.",
+    )
+    parser.add_argument(
+        "--max-symbols",
+        type=int,
+        default=None,
+        help="Numero maximo de simbolos a valorar. Usa 0 para todos.",
+    )
+    args = parser.parse_args()
+    result = update_market_data(max_symbols=args.max_symbols, full=args.full)
     print(result)
     raise SystemExit(0 if result["ok"] else 1)

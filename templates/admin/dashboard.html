@@ -13,7 +13,11 @@
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-light" href="{{ url_for('admin_system') }}">Sistema</a>
       <form method="post" action="{{ url_for('admin_market_data_update') }}">
-        <button class="btn btn-outline-info" type="submit">Actualizar mercado</button>
+        <button class="btn btn-outline-info" type="submit">Actualizar tanda</button>
+      </form>
+      <form method="post" action="{{ url_for('admin_market_data_update') }}">
+        <input type="hidden" name="full_update" value="1">
+        <button class="btn btn-info" type="submit">Actualizar mercado completo</button>
       </form>
       <form method="post" action="{{ url_for('admin_assets_update_csv') }}">
         <button class="btn btn-outline-info" type="submit">Actualizar CSV</button>
@@ -86,6 +90,9 @@
         <div class="col-md-3"><span class="text-secondary small d-block">Universo total</span><strong>{{ update.total_universe or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Metricas Alpaca</span><strong>{{ update.metrics or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Guardados</span><strong>{{ update.saved_rows or 0 }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Modo</span><strong>{{ update.update_mode or "tanda" }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Limite</span><strong>{{ update.max_symbols }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">CSV mercado</span><strong>{{ update.csv_rows or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Inicio tanda</span><strong>{{ update.batch_offset or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Siguiente tanda</span><strong>{{ update.next_batch_offset or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Lotes</span><strong>{{ update.batches }}</strong></div>

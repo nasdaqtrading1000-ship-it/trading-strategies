@@ -14,9 +14,9 @@ services:
   - type: cron
     name: trading-market-data-update
     runtime: python
-    schedule: "0 13,15,17,19 * * *"
+    schedule: "30 20 * * 1-5"
     buildCommand: pip install -r requirements.txt
-    startCommand: python update_market_data.py
+    startCommand: python update_market_data.py --full
     envVars:
       - key: DATABASE_URL
         sync: false

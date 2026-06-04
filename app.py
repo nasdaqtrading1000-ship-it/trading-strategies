@@ -203,7 +203,8 @@ def create_app():
     @app.route("/admin/market-data/update", methods=["POST"])
     @login_required
     def admin_market_data_update():
-        result = update_market_data()
+        full_update = request.form.get("full_update") == "1"
+        result = update_market_data(full=full_update)
         session["last_market_update"] = result
         if result["ok"]:
             flash(

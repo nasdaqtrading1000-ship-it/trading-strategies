@@ -175,6 +175,17 @@ DATABASE_URL=url_interna_de_postgresql
 
 La variable `DATABASE_URL` debe venir de una base PostgreSQL creada en Render, Supabase, Neon o Railway.
 
+## Datos de mercado Alpaca
+
+Para que el filtro de activos pueda calcular precio y volumen con Alpaca, configura en Render:
+
+```text
+ALPACA_API_KEY=tu_api_key
+ALPACA_SECRET_KEY=tu_secret_key
+```
+
+Si esas variables no existen o la API falla, el scanner vuelve automaticamente a los datos de `data/assets.csv`.
+
 ## Actualizar universo de activos
 
 El scanner usa `data/assets.csv` como universo inicial. Puedes regenerarlo con:

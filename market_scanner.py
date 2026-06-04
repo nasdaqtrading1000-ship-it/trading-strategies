@@ -1,6 +1,8 @@
 import csv
 from pathlib import Path
 
+from alpaca_data import get_daily_asset_metrics
+
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "assets.csv"
 
@@ -33,8 +35,30 @@ def available_markets(assets):
     return ["Todos"] + sorted({asset["market"] for asset in assets})
 
 
+def enrich_with_market_data(assets, use_live_data=True):
+    if not use_live_data:
+        return assets, "csv"
+
+    symbols = [asset["symbol"] for asset in assets]
+    metrics, source = get_daily_asset_metrics(symbols)
+    if not metrics:
+        return assets, "csv"
+
+    enriched = []
+    for asset in assets:
+        metric = metrics.get(asset["symbol"])
+        if metric:
+            asset = {**asset, **metric}
+        enriched.append(asset)
+    return enriched, source
+
+
 def filter_assets(filters, assets=None):
     assets = assets or load_assets()
+    assets, source = enrich_with_market_data(
+        assets,
+        use_live_data=filters.get("data_source") == "alpaca",
+    )
     filtered = assets
 
     if filters["sector"] != "Todos":
@@ -64,4 +88,4 @@ def filter_assets(filters, assets=None):
         ),
         reverse=True,
     )
-    return filtered[: filters["limit"]]
+    return filtered[: filters["limit"]], source

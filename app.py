@@ -103,17 +103,19 @@ def create_app():
             "limit": int(request.args.get("limit", 10)),
             "sector": request.args.get("sector", "Todos"),
             "market": request.args.get("market", "Todos"),
+            "data_source": request.args.get("data_source", "csv"),
         }
         assets = load_assets()
         sectors = available_sectors(assets)
         markets = available_markets(assets)
-        results = filter_assets(filters, assets)
+        results, data_source = filter_assets(filters, assets)
         return render_template(
             "asset_filter.html",
             filters=filters,
             results=results,
             sectors=sectors,
             markets=markets,
+            data_source=data_source,
         )
 
     @app.route("/admin/login", methods=["GET", "POST"])

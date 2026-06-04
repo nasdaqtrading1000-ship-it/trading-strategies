@@ -16,6 +16,14 @@
     <div class="col-lg-4">
       <form class="filter-panel p-4" method="get">
         <div class="mb-3">
+          <label class="form-label" for="data_source">Datos de mercado</label>
+          <select class="form-select" id="data_source" name="data_source">
+            <option value="csv" {% if filters.data_source == "csv" %}selected{% endif %}>CSV local</option>
+            <option value="alpaca" {% if filters.data_source == "alpaca" %}selected{% endif %}>Alpaca</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
           <label class="form-label" for="market">Mercado</label>
           <select class="form-select" id="market" name="market">
             {% for market in markets %}
@@ -100,6 +108,10 @@
           <span class="text-secondary small">Minimo</span>
           <strong>{{ filters.min_money_volume }} M USD</strong>
         </div>
+        <div>
+          <span class="text-secondary small">Fuente</span>
+          <strong>{{ data_source|upper }}</strong>
+        </div>
       </div>
 
       <div class="scanner-table">
@@ -142,7 +154,7 @@
 
       <div class="risk-notice p-4 mt-4">
         <p class="eyebrow mb-2">Siguiente fase</p>
-        <p class="text-secondary mb-0">Estos resultados salen de `data/assets.csv`. La siguiente fase sera actualizar precios y volumen con Alpaca o Polygon y dejar el CSV solo como universo de activos y sectores.</p>
+        <p class="text-secondary mb-0">El CSV define el universo, sector y mercado. Si seleccionas Alpaca y hay claves configuradas, precio y volumen se calculan con barras diarias reales; si falla la API, la web vuelve automaticamente al CSV.</p>
       </div>
     </div>
   </div>

@@ -47,6 +47,132 @@ def load_assets(path=DATA_PATH):
         return assets
 
 
+def load_universe_assets():
+    database_assets = load_database_universe_assets()
+    return database_assets or load_assets()
+
+
+def load_database_universe_assets():
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    """
+                    SELECT symbol, name, sector, market, price, money_volume,
+                           money_volume_1m, money_volume_2m, money_volume_3m,
+                           day_money_volume, week_money_volume,
+                           day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
+                           day_money_volume_4d, day_money_volume_5d,
+                           week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                           day_volume_score, week_volume_score
+                    FROM asset_universe
+                    ORDER BY symbol
+                    """
+                )
+            ).mappings().fetchall()
+    except Exception:
+        return []
+    return [dict(row) for row in rows]
+
+
+def universe_count():
+    try:
+        with engine.connect() as connection:
+            return connection.execute(text("SELECT COUNT(*) FROM asset_universe")).scalar_one()
+    except Exception:
+        return 0
+
+
+def save_universe_assets(rows):
+    with engine.begin() as connection:
+        ensure_universe_table(connection)
+        connection.execute(text("DELETE FROM asset_universe"))
+        for row in rows:
+            complete = normalize_asset_row(row)
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO asset_universe
+                    (symbol, name, sector, market, price, money_volume,
+                     money_volume_1m, money_volume_2m, money_volume_3m,
+                     day_money_volume, week_money_volume,
+                     day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
+                     day_money_volume_4d, day_money_volume_5d,
+                     week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                     day_volume_score, week_volume_score)
+                    VALUES
+                    (:symbol, :name, :sector, :market, :price, :money_volume,
+                     :money_volume_1m, :money_volume_2m, :money_volume_3m,
+                     :day_money_volume, :week_money_volume,
+                     :day_money_volume_1d, :day_money_volume_2d, :day_money_volume_3d,
+                     :day_money_volume_4d, :day_money_volume_5d,
+                     :week_money_volume_1w, :week_money_volume_2w, :week_money_volume_3w,
+                     :day_volume_score, :week_volume_score)
+                    """
+                ),
+                complete,
+            )
+
+
+def normalize_asset_row(row):
+    money_volume = float(row.get("money_volume") or 0)
+    return {
+        "symbol": row["symbol"],
+        "name": row.get("name") or row["symbol"],
+        "sector": row.get("sector") or "Sin clasificar",
+        "market": row.get("market") or "Otro",
+        "price": float(row.get("price") or 0),
+        "money_volume": money_volume,
+        "money_volume_1m": float(row.get("money_volume_1m") or money_volume),
+        "money_volume_2m": float(row.get("money_volume_2m") or money_volume),
+        "money_volume_3m": float(row.get("money_volume_3m") or money_volume),
+        "day_money_volume": float(row.get("day_money_volume") or money_volume),
+        "week_money_volume": float(row.get("week_money_volume") or money_volume),
+        "day_money_volume_1d": float(row.get("day_money_volume_1d") or money_volume),
+        "day_money_volume_2d": float(row.get("day_money_volume_2d") or money_volume),
+        "day_money_volume_3d": float(row.get("day_money_volume_3d") or money_volume),
+        "day_money_volume_4d": float(row.get("day_money_volume_4d") or money_volume),
+        "day_money_volume_5d": float(row.get("day_money_volume_5d") or money_volume),
+        "week_money_volume_1w": float(row.get("week_money_volume_1w") or money_volume),
+        "week_money_volume_2w": float(row.get("week_money_volume_2w") or money_volume),
+        "week_money_volume_3w": float(row.get("week_money_volume_3w") or money_volume),
+        "day_volume_score": float(row.get("day_volume_score") or 1),
+        "week_volume_score": float(row.get("week_volume_score") or 1),
+    }
+
+
+def ensure_universe_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS asset_universe (
+                symbol TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                sector TEXT NOT NULL,
+                market TEXT NOT NULL,
+                price FLOAT NOT NULL DEFAULT 0,
+                money_volume FLOAT NOT NULL DEFAULT 0,
+                money_volume_1m FLOAT NOT NULL DEFAULT 0,
+                money_volume_2m FLOAT NOT NULL DEFAULT 0,
+                money_volume_3m FLOAT NOT NULL DEFAULT 0,
+                day_money_volume FLOAT NOT NULL DEFAULT 0,
+                week_money_volume FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_1d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_2d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_3d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_4d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_5d FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_1w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_2w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_3w FLOAT NOT NULL DEFAULT 0,
+                day_volume_score FLOAT NOT NULL DEFAULT 1,
+                week_volume_score FLOAT NOT NULL DEFAULT 1
+            )
+            """
+        )
+    )
+
+
 def csv_updated_at(path=DATA_PATH):
     if not path.exists():
         return "No disponible"

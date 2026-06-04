@@ -24,7 +24,11 @@ from market_scanner import (
     csv_updated_at,
     filter_assets,
     load_assets,
+    load_universe_assets,
+    save_universe_assets,
     snapshot_count,
+    universe_count,
+    ensure_universe_table,
 )
 from update_market_data import update_market_data
 from update_assets import build_assets_from_alpaca, write_assets
@@ -105,8 +109,9 @@ def create_app():
             "data_source": request.args.get("data_source", "csv"),
             "sort_by": request.args.get("sort_by", "money_volume_selected"),
         }
-        assets = load_assets()
+        assets = load_universe_assets()
         csv_total = len(assets)
+        database_universe_total = universe_count()
         snapshots_total = snapshot_count()
         sectors = available_sectors(assets)
         markets = available_markets(assets)
@@ -147,6 +152,7 @@ def create_app():
             data_source=data_source,
             universe_total=universe_total,
             csv_total=csv_total,
+            database_universe_total=database_universe_total,
             snapshots_total=snapshots_total,
             csv_updated_at=csv_updated_at(),
         )
@@ -216,8 +222,9 @@ def create_app():
     def admin_assets_update_csv():
         rows, source = build_assets_from_alpaca()
         write_assets(rows)
+        save_universe_assets(rows)
         flash(
-            f"CSV de activos actualizado correctamente: {len(rows)} activos. Fuente: {source}.",
+            f"CSV y universo de activos actualizados correctamente: {len(rows)} activos. Fuente: {source}.",
             "success",
         )
         return redirect(url_for("admin_dashboard"))
@@ -439,6 +446,7 @@ def init_db():
                 """
             )
         )
+        ensure_universe_table(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
         if count == 0:

@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from alpaca_data import get_daily_asset_metrics
 from db import engine
-from market_scanner import load_assets
+from market_scanner import load_universe_assets
 
 
 def ensure_snapshot_table(connection):
@@ -94,7 +94,7 @@ def metric_value(metric, key, fallback=0):
 
 
 def update_market_data():
-    assets = load_assets()
+    assets = load_universe_assets()
     max_symbols = int(os.environ.get("MARKET_DATA_MAX_SYMBOLS", "1000"))
     assets = assets[:max_symbols]
     symbols = [asset["symbol"] for asset in assets]

@@ -44,6 +44,12 @@ def load_snapshot_assets():
     return [dict(row) for row in rows]
 
 
+def snapshot_count():
+    with engine.connect() as connection:
+        result = connection.execute(text("SELECT COUNT(*) FROM asset_snapshots"))
+        return result.scalar_one()
+
+
 def available_sectors(assets):
     return ["Todos"] + sorted({asset["sector"] for asset in assets})
 

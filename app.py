@@ -21,6 +21,7 @@ from market_scanner import (
     available_sectors,
     filter_assets,
     load_assets,
+    snapshot_count,
 )
 
 
@@ -89,6 +90,8 @@ def create_app():
             "data_source": request.args.get("data_source", "csv"),
         }
         assets = load_assets()
+        csv_total = len(assets)
+        snapshots_total = snapshot_count()
         sectors = available_sectors(assets)
         markets = available_markets(assets)
         results, data_source, universe_total = filter_assets(filters, assets)
@@ -100,6 +103,8 @@ def create_app():
             markets=markets,
             data_source=data_source,
             universe_total=universe_total,
+            csv_total=csv_total,
+            snapshots_total=snapshots_total,
         )
 
     @app.route("/admin/login", methods=["GET", "POST"])

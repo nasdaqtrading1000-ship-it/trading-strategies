@@ -98,10 +98,16 @@ def update_market_data():
     max_symbols = int(os.environ.get("MARKET_DATA_MAX_SYMBOLS", "1000"))
     assets = assets[:max_symbols]
     symbols = [asset["symbol"] for asset in assets]
-    metrics, source = get_daily_asset_metrics(symbols)
+    metrics, source, diagnostics = get_daily_asset_metrics(symbols)
+    diagnostics["loaded_assets"] = len(assets)
+    diagnostics["source"] = source
     if source != "alpaca" or not metrics:
         print("No se pudo actualizar desde Alpaca. Revisa claves o plan de datos.")
-        return 1
+        return {
+            "ok": False,
+            "message": "No se pudo actualizar desde Alpaca.",
+            **diagnostics,
+        }
 
     updated_at = datetime.now(UTC)
     rows = []
@@ -138,7 +144,11 @@ def update_market_data():
 
     if not rows:
         print("Alpaca respondio, pero no se generaron filas.")
-        return 1
+        return {
+            "ok": False,
+            "message": "Alpaca respondio, pero no se generaron filas.",
+            **diagnostics,
+        }
 
     with engine.begin() as connection:
         ensure_snapshot_table(connection)
@@ -215,8 +225,15 @@ def update_market_data():
                 )
 
     print(f"Snapshots actualizados: {len(rows)}")
-    return 0
+    return {
+        "ok": True,
+        "message": f"Snapshots actualizados: {len(rows)}",
+        "saved_rows": len(rows),
+        **diagnostics,
+    }
 
 
 if __name__ == "__main__":
-    raise SystemExit(update_market_data())
+    result = update_market_data()
+    print(result)
+    raise SystemExit(0 if result["ok"] else 1)

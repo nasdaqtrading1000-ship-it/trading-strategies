@@ -198,11 +198,15 @@ def create_app():
     @login_required
     def admin_market_data_update():
         result = update_market_data()
-        if result == 0:
-            flash("Datos de mercado actualizados correctamente.", "success")
+        session["last_market_update"] = result
+        if result["ok"]:
+            flash(
+                f"Datos de mercado actualizados correctamente. {result.get('saved_rows', 0)} activos guardados.",
+                "success",
+            )
         else:
             flash(
-                "No se pudieron actualizar los datos. Revisa las claves de Alpaca y las variables del servicio.",
+                f"No se pudieron actualizar los datos. {result.get('last_error', '')}",
                 "danger",
             )
         return redirect(url_for("admin_dashboard"))

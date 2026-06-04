@@ -75,5 +75,21 @@
       </table>
     </div>
   </div>
+
+  {% if session.get("last_market_update") %}
+    {% set update = session.get("last_market_update") %}
+    <div class="form-panel mt-4 p-4">
+      <h2 class="h5 mb-3">Ultima actualizacion de mercado</h2>
+      <div class="row g-3">
+        <div class="col-md-3"><span class="text-secondary small d-block">Estado</span><strong>{% if update.ok %}OK{% else %}Error{% endif %}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Activos cargados</span><strong>{{ update.loaded_assets }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Metricas Alpaca</span><strong>{{ update.metrics or 0 }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Guardados</span><strong>{{ update.saved_rows or 0 }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Lotes</span><strong>{{ update.batches }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Lotes fallidos</span><strong>{{ update.failed_batches }}</strong></div>
+        <div class="col-md-6"><span class="text-secondary small d-block">Ultimo error</span><strong>{{ update.last_error or "Sin error" }}</strong></div>
+      </div>
+    </div>
+  {% endif %}
 </section>
 {% endblock %}

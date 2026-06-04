@@ -7,8 +7,16 @@ def alpaca_credentials_available():
 
 
 def get_daily_asset_metrics(symbols, lookback_days=90, batch_size=100):
+    diagnostics = {
+        "requested_symbols": len(symbols),
+        "batch_size": batch_size,
+        "batches": 0,
+        "failed_batches": 0,
+        "last_error": "",
+    }
     if not alpaca_credentials_available():
-        return {}, "csv"
+        diagnostics["last_error"] = "Faltan ALPACA_API_KEY o ALPACA_SECRET_KEY."
+        return {}, "csv", diagnostics
 
     try:
         from alpaca.data.enums import DataFeed
@@ -16,7 +24,8 @@ def get_daily_asset_metrics(symbols, lookback_days=90, batch_size=100):
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame
     except ImportError:
-        return {}, "csv"
+        diagnostics["last_error"] = "No esta instalado alpaca-py."
+        return {}, "csv", diagnostics
 
     client = StockHistoricalDataClient(
         os.environ["ALPACA_API_KEY"],
@@ -25,6 +34,7 @@ def get_daily_asset_metrics(symbols, lookback_days=90, batch_size=100):
 
     metrics = {}
     for batch in _chunks(symbols, batch_size):
+        diagnostics["batches"] += 1
         request = StockBarsRequest(
             symbol_or_symbols=batch,
             timeframe=TimeFrame.Day,
@@ -36,6 +46,8 @@ def get_daily_asset_metrics(symbols, lookback_days=90, batch_size=100):
         try:
             bars = client.get_stock_bars(request)
         except Exception as exc:
+            diagnostics["failed_batches"] += 1
+            diagnostics["last_error"] = str(exc)
             print(f"Alpaca batch omitido ({len(batch)} simbolos): {exc}")
             continue
 
@@ -44,7 +56,8 @@ def get_daily_asset_metrics(symbols, lookback_days=90, batch_size=100):
             if metric:
                 metrics[symbol] = metric
 
-    return metrics, "alpaca" if metrics else "csv"
+    diagnostics["metrics"] = len(metrics)
+    return metrics, "alpaca" if metrics else "csv", diagnostics
 
 
 def _bars_to_metrics(symbol_bars):

@@ -210,4 +210,10 @@ python update_assets.py --sectors Tecnologia,Salud
 python update_assets.py --min-money-volume 1000000000
 ```
 
-Mas adelante este script se puede conectar a una API externa para descargar tickers, sectores y mercados automaticamente.
+Para descargar activos desde Alpaca:
+
+```powershell
+python update_assets.py --from-alpaca
+```
+
+Alpaca proporciona simbolo, nombre, mercado y si el activo esta activo/negociable. No proporciona sector en esta llamada, asi que el script conserva sectores conocidos y marca los demas como `Sin clasificar`.

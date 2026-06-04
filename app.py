@@ -25,7 +25,7 @@ from market_scanner import (
     snapshot_count,
 )
 from update_market_data import update_market_data
-from update_assets import build_assets, write_assets
+from update_assets import build_assets_from_alpaca, write_assets
 
 
 def database_status():
@@ -166,9 +166,12 @@ def create_app():
     @app.route("/admin/assets/update-csv", methods=["POST"])
     @login_required
     def admin_assets_update_csv():
-        rows = build_assets()
+        rows, source = build_assets_from_alpaca()
         write_assets(rows)
-        flash(f"CSV de activos actualizado correctamente: {len(rows)} activos.", "success")
+        flash(
+            f"CSV de activos actualizado correctamente: {len(rows)} activos. Fuente: {source}.",
+            "success",
+        )
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])

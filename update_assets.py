@@ -1,5 +1,6 @@
 import argparse
 import csv
+import os
 from pathlib import Path
 
 
@@ -61,6 +62,17 @@ FIELDS = [
     "week_volume_score",
 ]
 
+DEFAULT_METRICS = {
+    row[0]: {
+        "sector": row[2],
+        "price": row[4],
+        "money_volume": row[5],
+        "day_volume_score": row[6],
+        "week_volume_score": row[7],
+    }
+    for row in SEED_ASSETS
+}
+
 
 def parse_csv_list(value):
     if not value:
@@ -82,6 +94,67 @@ def build_assets(markets=None, sectors=None, min_money_volume=0):
     return sorted(rows, key=lambda row: (row["market"], row["sector"], row["symbol"]))
 
 
+def build_assets_from_alpaca(markets=None, sectors=None, min_money_volume=0):
+    try:
+        from alpaca.trading.client import TradingClient
+        from alpaca.trading.enums import AssetClass, AssetStatus
+        from alpaca.trading.requests import GetAssetsRequest
+    except ImportError:
+        return build_assets(markets, sectors, min_money_volume), "seed"
+
+    api_key = os.environ.get("ALPACA_API_KEY")
+    secret_key = os.environ.get("ALPACA_SECRET_KEY")
+    if not api_key or not secret_key:
+        return build_assets(markets, sectors, min_money_volume), "seed"
+
+    client = TradingClient(api_key, secret_key, paper=True)
+    request = GetAssetsRequest(
+        status=AssetStatus.ACTIVE,
+        asset_class=AssetClass.US_EQUITY,
+    )
+    alpaca_assets = client.get_all_assets(request)
+
+    rows = []
+    for asset in alpaca_assets:
+        market = normalize_market(getattr(asset, "exchange", ""))
+        if market not in {"Nasdaq", "NYSE", "AMEX"}:
+            continue
+        if markets and market not in markets:
+            continue
+        if not getattr(asset, "tradable", False):
+            continue
+
+        defaults = DEFAULT_METRICS.get(asset.symbol, {})
+        row = {
+            "symbol": asset.symbol,
+            "name": asset.name or asset.symbol,
+            "sector": defaults.get("sector", "Sin clasificar"),
+            "market": market,
+            "price": defaults.get("price", 0),
+            "money_volume": defaults.get("money_volume", 0),
+            "day_volume_score": defaults.get("day_volume_score", 1),
+            "week_volume_score": defaults.get("week_volume_score", 1),
+        }
+        if sectors and row["sector"] not in sectors:
+            continue
+        if row["money_volume"] < min_money_volume:
+            continue
+        rows.append(row)
+
+    return sorted(rows, key=lambda row: (row["market"], row["symbol"])), "alpaca"
+
+
+def normalize_market(exchange):
+    value = str(exchange).upper()
+    if "NASDAQ" in value:
+        return "Nasdaq"
+    if "NYSE" in value:
+        return "NYSE"
+    if "AMEX" in value or "NYSEAMERICAN" in value:
+        return "AMEX"
+    return value or "Otro"
+
+
 def write_assets(rows, output_path=OUTPUT_PATH):
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as file:
@@ -100,15 +173,23 @@ def main():
         default=0,
         help="Volumen monetario minimo en USD.",
     )
+    parser.add_argument(
+        "--from-alpaca",
+        action="store_true",
+        help="Descarga activos desde Alpaca Trading API.",
+    )
     args = parser.parse_args()
 
-    rows = build_assets(
+    builder = build_assets_from_alpaca if args.from_alpaca else build_assets
+    result = builder(
         markets=parse_csv_list(args.markets),
         sectors=parse_csv_list(args.sectors),
         min_money_volume=args.min_money_volume,
     )
+    rows, source = result if isinstance(result, tuple) else (result, "seed")
     write_assets(rows)
     print(f"CSV actualizado: {OUTPUT_PATH}")
+    print(f"Fuente: {source}")
     print(f"Activos escritos: {len(rows)}")
 
 

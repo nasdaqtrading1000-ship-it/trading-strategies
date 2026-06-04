@@ -300,26 +300,43 @@ html {
     font-size: 1.05rem;
   }
 
-  .strategy-meta div {
-    display: block;
-  }
-
-  .strategy-meta dd {
-    text-align: left;
-    margin-top: 0.2rem;
-  }
-
   .strategy-meta {
     gap: 0.55rem;
     margin: 1rem 0;
   }
 
+  .strategy-meta div {
+    gap: 0.6rem;
+    padding-top: 0.55rem;
+  }
+
+  .strategy-meta dt,
+  .strategy-meta dd {
+    font-size: 0.84rem;
+  }
+
   .section-heading {
-    display: block;
+    align-items: end;
+    gap: 0.65rem;
+  }
+
+  .section-heading > p {
+    max-width: 42%;
+    font-size: 0.82rem;
+    text-align: right;
   }
 
   .hero-metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .hero-metrics div {
+    padding-top: 0.5rem;
+  }
+
+  .hero-metrics span {
+    font-size: 0.68rem;
   }
 
   .filter-panel {
@@ -327,12 +344,17 @@ html {
   }
 
   .scanner-summary {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
+    grid-template-columns: repeat(9, minmax(72px, 1fr));
+    gap: 0.5rem;
+    overflow-x: auto;
   }
 
   .scanner-summary strong {
-    font-size: 0.92rem;
+    font-size: 0.78rem;
+  }
+
+  .scanner-summary .small {
+    font-size: 0.66rem;
   }
 
   .form-label,

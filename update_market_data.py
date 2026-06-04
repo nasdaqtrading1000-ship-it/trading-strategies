@@ -19,6 +19,8 @@ def ensure_snapshot_table(connection):
                 market TEXT NOT NULL,
                 price FLOAT NOT NULL,
                 money_volume FLOAT NOT NULL,
+                day_money_volume FLOAT NOT NULL DEFAULT 0,
+                week_money_volume FLOAT NOT NULL DEFAULT 0,
                 day_volume_score FLOAT NOT NULL,
                 week_volume_score FLOAT NOT NULL,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -26,6 +28,37 @@ def ensure_snapshot_table(connection):
             """
         )
     )
+    add_column_if_missing(connection, "day_money_volume")
+    add_column_if_missing(connection, "week_money_volume")
+
+
+def add_column_if_missing(connection, column_name):
+    if snapshot_column_exists(connection, column_name):
+        return
+    connection.execute(
+        text(
+            f"ALTER TABLE asset_snapshots ADD COLUMN {column_name} FLOAT NOT NULL DEFAULT 0"
+        )
+    )
+
+
+def snapshot_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = 'asset_snapshots'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        )
+        return result.scalar_one() > 0
+
+    rows = connection.execute(text("PRAGMA table_info(asset_snapshots)")).fetchall()
+    return any(row[1] == column_name for row in rows)
 
 
 def update_market_data():
@@ -52,6 +85,8 @@ def update_market_data():
                 "market": asset["market"],
                 "price": metric["price"],
                 "money_volume": metric["money_volume"],
+                "day_money_volume": metric["day_money_volume"],
+                "week_money_volume": metric["week_money_volume"],
                 "day_volume_score": metric["day_volume_score"],
                 "week_volume_score": metric["week_volume_score"],
                 "updated_at": updated_at,
@@ -71,9 +106,11 @@ def update_market_data():
                         """
                         INSERT INTO asset_snapshots
                         (symbol, name, sector, market, price, money_volume,
+                         day_money_volume, week_money_volume,
                          day_volume_score, week_volume_score, updated_at)
                         VALUES
                         (:symbol, :name, :sector, :market, :price, :money_volume,
+                         :day_money_volume, :week_money_volume,
                          :day_volume_score, :week_volume_score, :updated_at)
                         ON CONFLICT (symbol) DO UPDATE SET
                           name = EXCLUDED.name,
@@ -81,6 +118,8 @@ def update_market_data():
                           market = EXCLUDED.market,
                           price = EXCLUDED.price,
                           money_volume = EXCLUDED.money_volume,
+                          day_money_volume = EXCLUDED.day_money_volume,
+                          week_money_volume = EXCLUDED.week_money_volume,
                           day_volume_score = EXCLUDED.day_volume_score,
                           week_volume_score = EXCLUDED.week_volume_score,
                           updated_at = EXCLUDED.updated_at
@@ -94,9 +133,11 @@ def update_market_data():
                         """
                         INSERT OR REPLACE INTO asset_snapshots
                         (symbol, name, sector, market, price, money_volume,
+                         day_money_volume, week_money_volume,
                          day_volume_score, week_volume_score, updated_at)
                         VALUES
                         (:symbol, :name, :sector, :market, :price, :money_volume,
+                         :day_money_volume, :week_money_volume,
                          :day_volume_score, :week_volume_score, :updated_at)
                         """
                     ),

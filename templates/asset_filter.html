@@ -155,8 +155,8 @@
                   <td>{{ asset.sector }}</td>
                   <td>{{ "%.2f"|format(asset.price) }} USD</td>
                   <td>{{ "%.1f"|format(asset.money_volume / 1000000000) }} B USD</td>
-                  <td>{{ asset.day_volume_score }}/5</td>
-                  <td>{{ asset.week_volume_score }}/5</td>
+                  <td>{{ "%.1f"|format(asset.day_money_volume / 1000000000) }} B USD</td>
+                  <td>{{ "%.1f"|format(asset.week_money_volume / 1000000000) }} B USD</td>
                 </tr>
               {% else %}
                 <tr>

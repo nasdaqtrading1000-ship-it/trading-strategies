@@ -420,6 +420,8 @@ def init_db():
                     market TEXT NOT NULL,
                     price FLOAT NOT NULL,
                     money_volume FLOAT NOT NULL,
+                    day_money_volume FLOAT NOT NULL DEFAULT 0,
+                    week_money_volume FLOAT NOT NULL DEFAULT 0,
                     day_volume_score FLOAT NOT NULL,
                     week_volume_score FLOAT NOT NULL,
                     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -427,6 +429,37 @@ def init_db():
                 """
             )
         )
+        add_asset_snapshot_column(connection, "day_money_volume")
+        add_asset_snapshot_column(connection, "week_money_volume")
+
+
+def add_asset_snapshot_column(connection, column_name):
+    if asset_snapshot_column_exists(connection, column_name):
+        return
+    connection.execute(
+        text(
+            f"ALTER TABLE asset_snapshots ADD COLUMN {column_name} FLOAT NOT NULL DEFAULT 0"
+        )
+    )
+
+
+def asset_snapshot_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = 'asset_snapshots'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        )
+        return result.scalar_one() > 0
+
+    rows = connection.execute(text("PRAGMA table_info(asset_snapshots)")).fetchall()
+    return any(row[1] == column_name for row in rows)
 
 
 init_db()

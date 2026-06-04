@@ -65,6 +65,8 @@ def _bars_to_metrics(symbol_bars):
     return {
         "price": float(latest.close),
         "money_volume": avg_money_volume,
+        "day_money_volume": sum(day_window) / len(day_window),
+        "week_money_volume": sum(week_window) / len(week_window),
         "day_volume_score": day_score,
         "week_volume_score": week_score,
     }

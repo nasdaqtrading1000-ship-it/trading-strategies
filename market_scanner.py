@@ -23,6 +23,12 @@ def load_assets(path=DATA_PATH):
                     "market": row["market"],
                     "price": float(row["price"]),
                     "money_volume": float(row["money_volume"]),
+                    "day_money_volume": float(
+                        row.get("day_money_volume") or row["money_volume"]
+                    ),
+                    "week_money_volume": float(
+                        row.get("week_money_volume") or row["money_volume"]
+                    ),
                     "day_volume_score": float(row["day_volume_score"]),
                     "week_volume_score": float(row["week_volume_score"]),
                 }
@@ -43,6 +49,7 @@ def load_snapshot_assets():
             text(
                 """
                 SELECT symbol, name, sector, market, price, money_volume,
+                       day_money_volume, week_money_volume,
                        day_volume_score, week_volume_score
                 FROM asset_snapshots
                 ORDER BY money_volume DESC

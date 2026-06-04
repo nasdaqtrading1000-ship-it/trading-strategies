@@ -200,8 +200,104 @@ html {
 }
 
 @media (max-width: 575.98px) {
+  body {
+    font-size: 0.92rem;
+  }
+
+  .container {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
+  .navbar-brand {
+    font-size: 1rem;
+  }
+
+  .app-navbar .btn {
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-padding-x: 0.5rem;
+    --bs-btn-font-size: 0.78rem;
+  }
+
+  .hero-section .container,
+  section.container {
+    padding-top: 1.6rem !important;
+    padding-bottom: 1.6rem !important;
+  }
+
   .display-5 {
-    font-size: 2.15rem;
+    font-size: 1.65rem;
+    line-height: 1.15;
+  }
+
+  .display-6 {
+    font-size: 1.35rem;
+  }
+
+  .lead {
+    font-size: 0.98rem;
+  }
+
+  .h1,
+  h1.h1 {
+    font-size: 1.45rem;
+  }
+
+  .h2,
+  h1.h2 {
+    font-size: 1.28rem;
+  }
+
+  .h3,
+  h2.h3 {
+    font-size: 1.15rem;
+  }
+
+  .h4,
+  h2.h4 {
+    font-size: 1.05rem;
+  }
+
+  .btn-lg {
+    --bs-btn-padding-y: 0.45rem;
+    --bs-btn-padding-x: 0.7rem;
+    --bs-btn-font-size: 0.92rem;
+  }
+
+  .btn {
+    white-space: normal;
+  }
+
+  .stats-panel,
+  .strategy-card,
+  .login-panel,
+  .form-panel,
+  .admin-table,
+  .empty-state,
+  .risk-notice,
+  .community-banner,
+  .filter-panel,
+  .scanner-summary,
+  .scanner-table {
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+  }
+
+  .stats-panel,
+  .strategy-card,
+  .community-banner,
+  .risk-notice,
+  .filter-panel,
+  .scanner-summary,
+  .form-panel {
+    padding: 1rem !important;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+  }
+
+  .hero-metrics strong {
+    font-size: 1.05rem;
   }
 
   .strategy-meta div {
@@ -211,6 +307,11 @@ html {
   .strategy-meta dd {
     text-align: left;
     margin-top: 0.2rem;
+  }
+
+  .strategy-meta {
+    gap: 0.55rem;
+    margin: 1rem 0;
   }
 
   .section-heading {
@@ -226,6 +327,25 @@ html {
   }
 
   .scanner-summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .scanner-summary strong {
+    font-size: 0.92rem;
+  }
+
+  .form-label,
+  .form-control,
+  .form-select {
+    font-size: 0.9rem;
+  }
+
+  .table {
+    font-size: 0.82rem;
+  }
+
+  .table > :not(caption) > * > * {
+    padding: 0.55rem 0.5rem;
   }
 }

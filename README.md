@@ -174,3 +174,21 @@ DATABASE_URL=url_interna_de_postgresql
 ```
 
 La variable `DATABASE_URL` debe venir de una base PostgreSQL creada en Render, Supabase, Neon o Railway.
+
+## Actualizar universo de activos
+
+El scanner usa `data/assets.csv` como universo inicial. Puedes regenerarlo con:
+
+```powershell
+python update_assets.py
+```
+
+Ejemplos:
+
+```powershell
+python update_assets.py --markets Nasdaq
+python update_assets.py --sectors Tecnologia,Salud
+python update_assets.py --min-money-volume 1000000000
+```
+
+Mas adelante este script se puede conectar a una API externa para descargar tickers, sectores y mercados automaticamente.

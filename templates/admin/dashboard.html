@@ -11,6 +11,9 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-light" href="{{ url_for('admin_system') }}">Sistema</a>
+      <form method="post" action="{{ url_for('admin_market_data_update') }}">
+        <button class="btn btn-outline-info" type="submit">Actualizar mercado</button>
+      </form>
       <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_new') }}">Crear estrategia</a>
     </div>
   </div>

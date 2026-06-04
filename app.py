@@ -23,6 +23,7 @@ from market_scanner import (
     load_assets,
     snapshot_count,
 )
+from update_market_data import update_market_data
 
 
 def database_status():
@@ -145,6 +146,19 @@ def create_app():
     @login_required
     def admin_system():
         return render_template("admin/system.html", database=database_status())
+
+    @app.route("/admin/market-data/update", methods=["POST"])
+    @login_required
+    def admin_market_data_update():
+        result = update_market_data()
+        if result == 0:
+            flash("Datos de mercado actualizados correctamente.", "success")
+        else:
+            flash(
+                "No se pudieron actualizar los datos. Revisa las claves de Alpaca y las variables del servicio.",
+                "danger",
+            )
+        return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])
     @login_required

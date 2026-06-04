@@ -54,13 +54,17 @@ def available_markets(assets):
 
 def filter_assets(filters, assets=None):
     source = "csv"
+    universe_total = len(assets) if assets else 0
     if filters.get("data_source") == "database":
         snapshot_assets = load_snapshot_assets()
         if snapshot_assets:
             assets = snapshot_assets
             source = "database"
+            universe_total = len(snapshot_assets)
 
     assets = assets or load_assets()
+    if not universe_total:
+        universe_total = len(assets)
     filtered = assets
 
     if filters["sector"] != "Todos":
@@ -90,4 +94,4 @@ def filter_assets(filters, assets=None):
         ),
         reverse=True,
     )
-    return filtered[: filters["limit"]], source
+    return filtered[: filters["limit"]], source, universe_total

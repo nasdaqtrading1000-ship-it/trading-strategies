@@ -91,7 +91,7 @@ def create_app():
         assets = load_assets()
         sectors = available_sectors(assets)
         markets = available_markets(assets)
-        results, data_source = filter_assets(filters, assets)
+        results, data_source, universe_total = filter_assets(filters, assets)
         return render_template(
             "asset_filter.html",
             filters=filters,
@@ -99,6 +99,7 @@ def create_app():
             sectors=sectors,
             markets=markets,
             data_source=data_source,
+            universe_total=universe_total,
         )
 
     @app.route("/admin/login", methods=["GET", "POST"])

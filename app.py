@@ -1,5 +1,7 @@
 import os
 from functools import wraps
+from uuid import uuid4
+from datetime import UTC, datetime, timedelta
 
 from flask import (
     abort,
@@ -48,6 +50,7 @@ def create_app():
     @app.before_request
     def before_request():
         g.db = engine.connect()
+        track_visitor()
 
     @app.teardown_request
     def teardown_request(_exception):
@@ -162,7 +165,11 @@ def create_app():
             """
             )
         ).mappings().fetchall()
-        return render_template("admin/dashboard.html", strategies=strategies)
+        return render_template(
+            "admin/dashboard.html",
+            strategies=strategies,
+            active_visitors=active_visitor_count(),
+        )
 
     @app.route("/admin/system")
     @login_required
@@ -343,6 +350,46 @@ def create_app():
         g.db.commit()
         return redirect(url_for("admin_dashboard"))
 
+    def track_visitor():
+        if request.endpoint == "static":
+            return
+        visitor_id = session.get("visitor_id")
+        if not visitor_id:
+            visitor_id = uuid4().hex
+            session["visitor_id"] = visitor_id
+
+        now = datetime.now(UTC)
+        if engine.dialect.name == "postgresql":
+            g.db.execute(
+                text(
+                    """
+                    INSERT INTO active_visitors (visitor_id, last_seen)
+                    VALUES (:visitor_id, :last_seen)
+                    ON CONFLICT (visitor_id) DO UPDATE SET
+                      last_seen = EXCLUDED.last_seen
+                    """
+                ),
+                {"visitor_id": visitor_id, "last_seen": now},
+            )
+        else:
+            g.db.execute(
+                text(
+                    """
+                    INSERT OR REPLACE INTO active_visitors (visitor_id, last_seen)
+                    VALUES (:visitor_id, :last_seen)
+                    """
+                ),
+                {"visitor_id": visitor_id, "last_seen": now},
+            )
+        g.db.commit()
+
+    def active_visitor_count(minutes=5):
+        cutoff = datetime.now(UTC) - timedelta(minutes=minutes)
+        return g.db.execute(
+            text("SELECT COUNT(*) FROM active_visitors WHERE last_seen >= :cutoff"),
+            {"cutoff": cutoff},
+        ).scalar_one()
+
     return app
 
 
@@ -435,6 +482,16 @@ def init_db():
         )
         add_asset_snapshot_column(connection, "day_money_volume")
         add_asset_snapshot_column(connection, "week_money_volume")
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS active_visitors (
+                    visitor_id TEXT PRIMARY KEY,
+                    last_seen TIMESTAMP NOT NULL
+                )
+                """
+            )
+        )
 
 
 def add_asset_snapshot_column(connection, column_name):

@@ -1,4 +1,5 @@
 import os
+from hmac import compare_digest
 from functools import wraps
 from uuid import uuid4
 from datetime import UTC, datetime, timedelta
@@ -54,6 +55,8 @@ def create_app():
     @app.before_request
     def before_request():
         g.db = engine.connect()
+        if public_site_locked():
+            return require_site_password()
         track_visitor()
 
     @app.teardown_request
@@ -71,6 +74,43 @@ def create_app():
             return view(*args, **kwargs)
 
         return wrapped_view
+
+    def public_site_locked():
+        site_password = os.environ.get("SITE_PASSWORD", "").strip()
+        if not site_password:
+            return False
+        if session.get("site_unlocked"):
+            return False
+        endpoint = request.endpoint or ""
+        path = request.path or ""
+        allowed_endpoints = {"static", "site_login", "login", "logout"}
+        if endpoint in allowed_endpoints:
+            return False
+        if path.startswith("/admin"):
+            return False
+        return True
+
+    def require_site_password():
+        if request.method == "GET":
+            session["site_next_url"] = request.full_path.rstrip("?") or url_for("index")
+        return redirect(url_for("site_login"))
+
+    @app.route("/acceso", methods=["GET", "POST"])
+    def site_login():
+        site_password = os.environ.get("SITE_PASSWORD", "").strip()
+        if not site_password:
+            return redirect(url_for("index"))
+
+        if request.method == "POST":
+            password = request.form.get("password", "")
+            if compare_digest(password, site_password):
+                session["site_unlocked"] = True
+                next_url = session.pop("site_next_url", url_for("index"))
+                flash("Acceso concedido.", "success")
+                return redirect(next_url)
+            flash("Contrasena incorrecta.", "danger")
+
+        return render_template("site_login.html")
 
     @app.route("/")
     def index():

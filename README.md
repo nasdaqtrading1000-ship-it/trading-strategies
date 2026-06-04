@@ -180,6 +180,14 @@ COMMUNITY_URL=enlace_a_tu_comunidad
 DONATION_URL=enlace_de_donacion
 ```
 
+Variable opcional para ocultar la web publica mientras trabajas:
+
+```text
+SITE_PASSWORD=contrasena_para_visitantes
+```
+
+Si `SITE_PASSWORD` existe, la portada y el filtrado quedan protegidos por contrasena. El panel `/admin` sigue usando su propia contrasena de administracion. Para volver a hacer publica la web, elimina `SITE_PASSWORD` de Render y despliega/reinicia el servicio.
+
 La variable `DATABASE_URL` debe venir de una base PostgreSQL creada en Render, Supabase, Neon o Railway.
 
 ## Datos de mercado Alpaca

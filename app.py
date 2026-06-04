@@ -19,11 +19,13 @@ from db import SQLITE_DATABASE, engine
 from market_scanner import (
     available_markets,
     available_sectors,
+    csv_updated_at,
     filter_assets,
     load_assets,
     snapshot_count,
 )
 from update_market_data import update_market_data
+from update_assets import build_assets, write_assets
 
 
 def database_status():
@@ -106,6 +108,7 @@ def create_app():
             universe_total=universe_total,
             csv_total=csv_total,
             snapshots_total=snapshots_total,
+            csv_updated_at=csv_updated_at(),
         )
 
     @app.route("/admin/login", methods=["GET", "POST"])
@@ -158,6 +161,14 @@ def create_app():
                 "No se pudieron actualizar los datos. Revisa las claves de Alpaca y las variables del servicio.",
                 "danger",
             )
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/assets/update-csv", methods=["POST"])
+    @login_required
+    def admin_assets_update_csv():
+        rows = build_assets()
+        write_assets(rows)
+        flash(f"CSV de activos actualizado correctamente: {len(rows)} activos.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])

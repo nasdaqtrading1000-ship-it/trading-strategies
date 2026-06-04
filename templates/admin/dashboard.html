@@ -14,6 +14,9 @@
       <form method="post" action="{{ url_for('admin_market_data_update') }}">
         <button class="btn btn-outline-info" type="submit">Actualizar mercado</button>
       </form>
+      <form method="post" action="{{ url_for('admin_assets_update_csv') }}">
+        <button class="btn btn-outline-info" type="submit">Actualizar CSV</button>
+      </form>
       <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_new') }}">Crear estrategia</a>
     </div>
   </div>

@@ -181,13 +181,13 @@ html {
 
 .scanner-summary {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: 1rem;
 }
 
 .scanner-summary strong {
   display: block;
-  font-size: 1.25rem;
+  font-size: 1.05rem;
 }
 
 .login-panel {

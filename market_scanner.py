@@ -1,4 +1,5 @@
 import csv
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import text
@@ -27,6 +28,13 @@ def load_assets(path=DATA_PATH):
                 }
             )
         return assets
+
+
+def csv_updated_at(path=DATA_PATH):
+    if not path.exists():
+        return "No disponible"
+    updated_at = datetime.fromtimestamp(path.stat().st_mtime)
+    return updated_at.strftime("%d/%m/%Y %H:%M")
 
 
 def load_snapshot_assets():

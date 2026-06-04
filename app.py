@@ -34,6 +34,16 @@ def database_url():
 engine = create_engine(database_url(), future=True)
 
 
+def database_status():
+    url = engine.url
+    return {
+        "dialect": engine.dialect.name,
+        "database": url.database or "",
+        "host": url.host or "local file",
+        "is_persistent": engine.dialect.name == "postgresql",
+    }
+
+
 def create_app():
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-this-secret-key")
@@ -109,6 +119,11 @@ def create_app():
             )
         ).mappings().fetchall()
         return render_template("admin/dashboard.html", strategies=strategies)
+
+    @app.route("/admin/system")
+    @login_required
+    def admin_system():
+        return render_template("admin/system.html", database=database_status())
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])
     @login_required

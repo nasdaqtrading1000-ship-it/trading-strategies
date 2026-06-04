@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Estado del sistema{% endblock %}
+
+{% block content %}
+<section class="container py-4 py-md-5">
+  <div class="form-panel mx-auto p-4 p-md-5">
+    <p class="text-info fw-semibold mb-1">Administracion</p>
+    <h1 class="h2 mb-4">Estado del sistema</h1>
+
+    <dl class="row mb-4">
+      <dt class="col-sm-4">Base de datos</dt>
+      <dd class="col-sm-8">{{ database.dialect }}</dd>
+
+      <dt class="col-sm-4">Host</dt>
+      <dd class="col-sm-8">{{ database.host }}</dd>
+
+      <dt class="col-sm-4">Nombre</dt>
+      <dd class="col-sm-8">{{ database.database }}</dd>
+
+      <dt class="col-sm-4">Persistente</dt>
+      <dd class="col-sm-8">
+        {% if database.is_persistent %}
+          <span class="badge text-bg-success">Si, PostgreSQL</span>
+        {% else %}
+          <span class="badge text-bg-danger">No, SQLite local</span>
+        {% endif %}
+      </dd>
+    </dl>
+
+    <a class="btn btn-outline-light" href="{{ url_for('admin_dashboard') }}">Volver</a>
+  </div>
+</section>
+{% endblock %}

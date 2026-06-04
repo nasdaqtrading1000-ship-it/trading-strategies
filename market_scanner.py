@@ -94,6 +94,8 @@ def filter_assets(filters, assets=None):
     if filters["market"] != "Todos":
         filtered = [asset for asset in filtered if asset["market"] == filters["market"]]
 
+    filtered = [add_volume_ratio(asset) for asset in filtered]
+
     min_volume = filters["min_money_volume"] * 1_000_000
     filtered = [asset for asset in filtered if asset["money_volume"] >= min_volume]
 
@@ -110,3 +112,10 @@ def filter_assets(filters, assets=None):
         reverse=True,
     )
     return filtered[: filters["limit"]], source, universe_total
+
+
+def add_volume_ratio(asset):
+    money_volume = asset.get("money_volume") or 0
+    day_money_volume = asset.get("day_money_volume") or money_volume
+    ratio = day_money_volume / money_volume if money_volume else 0
+    return {**asset, "day_to_month_volume_ratio": ratio}

@@ -141,6 +141,7 @@
                 <th>Precio</th>
                 <th>{{ filter_labels.money_volume }}</th>
                 <th>{{ filter_labels.day_volume }}</th>
+                <th>{{ filter_labels.ratio }}</th>
                 <th>{{ filter_labels.week_volume }}</th>
               </tr>
             </thead>
@@ -156,6 +157,7 @@
                   <td>{{ "%.2f"|format(asset.price) }} USD</td>
                   <td>{{ "%.1f"|format(asset.money_volume / 1000000000) }} B USD</td>
                   <td>{{ "%.1f"|format(asset.day_money_volume / 1000000000) }} B USD</td>
+                  <td>{{ "%.2f"|format(asset.day_to_month_volume_ratio) }}x</td>
                   <td>{{ "%.1f"|format(asset.week_money_volume / 1000000000) }} B USD</td>
                 </tr>
               {% else %}

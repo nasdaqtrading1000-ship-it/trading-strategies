@@ -111,6 +111,10 @@ def create_app():
                 f"Volumen ultimas {filters['week_volume_window']} "
                 f"semana{'s' if filters['week_volume_window'] > 1 else ''}"
             ),
+            "ratio": (
+                f"Ratio volumen {filters['day_volume_window']}d / "
+                f"media {filters['month_window']}m"
+            ),
         }
         return render_template(
             "asset_filter.html",

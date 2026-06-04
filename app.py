@@ -98,9 +98,24 @@ def create_app():
         sectors = available_sectors(assets)
         markets = available_markets(assets)
         results, data_source, universe_total = filter_assets(filters, assets)
+        filter_labels = {
+            "money_volume": (
+                f"Media volumen monetario {filters['month_window']} "
+                f"mes{'es' if filters['month_window'] > 1 else ''}"
+            ),
+            "day_volume": (
+                f"Volumen ultimos {filters['day_volume_window']} "
+                f"dia{'s' if filters['day_volume_window'] > 1 else ''}"
+            ),
+            "week_volume": (
+                f"Volumen ultimas {filters['week_volume_window']} "
+                f"semana{'s' if filters['week_volume_window'] > 1 else ''}"
+            ),
+        }
         return render_template(
             "asset_filter.html",
             filters=filters,
+            filter_labels=filter_labels,
             results=results,
             sectors=sectors,
             markets=markets,

@@ -13,7 +13,6 @@
       <div class="container">
         <a class="navbar-brand fw-semibold" href="{{ url_for('index') }}">Nasdaq Trading Hub</a>
         <div class="ms-auto d-flex align-items-center gap-2">
-          <a class="btn btn-outline-info btn-sm" href="{{ url_for('asset_filter') }}">Filtrado</a>
           {% if session.get("admin_logged_in") %}
             <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_dashboard') }}">Panel</a>
             <form method="post" action="{{ url_for('logout') }}">

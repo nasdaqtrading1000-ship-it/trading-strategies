@@ -184,7 +184,15 @@ ALPACA_API_KEY=tu_api_key
 ALPACA_SECRET_KEY=tu_secret_key
 ```
 
-Si esas variables no existen o la API falla, el scanner vuelve automaticamente a los datos de `data/assets.csv`.
+El job `update_market_data.py` usa esas variables para guardar snapshots en PostgreSQL. La web lee esos snapshots desde la opcion `Base actualizada`.
+
+En Render, el cron del `render.yaml` queda programado en UTC:
+
+```text
+0 13,15,17,19 * * *
+```
+
+Eso equivale a 15:00, 17:00, 19:00 y 21:00 en horario de verano de Madrid. En horario de invierno habra que ajustarlo a 14,16,18,20 UTC.
 
 ## Actualizar universo de activos
 

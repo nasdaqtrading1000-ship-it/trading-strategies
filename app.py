@@ -12,33 +12,16 @@ from flask import (
     session,
     url_for,
 )
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from db import SQLITE_DATABASE, engine
 from market_scanner import (
     available_markets,
     available_sectors,
     filter_assets,
     load_assets,
 )
-
-
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-SQLITE_DATABASE = os.path.join(BASE_DIR, "strategies.db")
-
-
-def database_url():
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        return f"sqlite:///{SQLITE_DATABASE}"
-    if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql+psycopg://", 1)
-    if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+psycopg://", 1)
-    return url
-
-
-engine = create_engine(database_url(), future=True)
 
 
 def database_status():
@@ -377,6 +360,24 @@ def init_db():
                     },
                 ],
             )
+
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS asset_snapshots (
+                    symbol TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    sector TEXT NOT NULL,
+                    market TEXT NOT NULL,
+                    price FLOAT NOT NULL,
+                    money_volume FLOAT NOT NULL,
+                    day_volume_score FLOAT NOT NULL,
+                    week_volume_score FLOAT NOT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
 
 
 init_db()

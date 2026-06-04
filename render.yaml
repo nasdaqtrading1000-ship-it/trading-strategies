@@ -11,3 +11,16 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+  - type: cron
+    name: trading-market-data-update
+    runtime: python
+    schedule: "0 13,15,17,19 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python update_market_data.py
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_SECRET_KEY
+        sync: false

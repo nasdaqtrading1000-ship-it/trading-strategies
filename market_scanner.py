@@ -1,7 +1,9 @@
 import csv
 from pathlib import Path
 
-from alpaca_data import get_daily_asset_metrics
+from sqlalchemy import text
+
+from db import engine
 
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "assets.csv"
@@ -27,6 +29,21 @@ def load_assets(path=DATA_PATH):
         return assets
 
 
+def load_snapshot_assets():
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                """
+                SELECT symbol, name, sector, market, price, money_volume,
+                       day_volume_score, week_volume_score
+                FROM asset_snapshots
+                ORDER BY money_volume DESC
+                """
+            )
+        ).mappings().fetchall()
+    return [dict(row) for row in rows]
+
+
 def available_sectors(assets):
     return ["Todos"] + sorted({asset["sector"] for asset in assets})
 
@@ -35,30 +52,15 @@ def available_markets(assets):
     return ["Todos"] + sorted({asset["market"] for asset in assets})
 
 
-def enrich_with_market_data(assets, use_live_data=True):
-    if not use_live_data:
-        return assets, "csv"
-
-    symbols = [asset["symbol"] for asset in assets]
-    metrics, source = get_daily_asset_metrics(symbols)
-    if not metrics:
-        return assets, "csv"
-
-    enriched = []
-    for asset in assets:
-        metric = metrics.get(asset["symbol"])
-        if metric:
-            asset = {**asset, **metric}
-        enriched.append(asset)
-    return enriched, source
-
-
 def filter_assets(filters, assets=None):
+    source = "csv"
+    if filters.get("data_source") == "database":
+        snapshot_assets = load_snapshot_assets()
+        if snapshot_assets:
+            assets = snapshot_assets
+            source = "database"
+
     assets = assets or load_assets()
-    assets, source = enrich_with_market_data(
-        assets,
-        use_live_data=filters.get("data_source") == "alpaca",
-    )
     filtered = assets
 
     if filters["sector"] != "Todos":

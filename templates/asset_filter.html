@@ -19,7 +19,7 @@
           <label class="form-label" for="data_source">Datos de mercado</label>
           <select class="form-select" id="data_source" name="data_source">
             <option value="csv" {% if filters.data_source == "csv" %}selected{% endif %}>CSV local</option>
-            <option value="alpaca" {% if filters.data_source == "alpaca" %}selected{% endif %}>Alpaca</option>
+            <option value="database" {% if filters.data_source == "database" %}selected{% endif %}>Base actualizada</option>
           </select>
         </div>
 
@@ -154,7 +154,7 @@
 
       <div class="risk-notice p-4 mt-4">
         <p class="eyebrow mb-2">Siguiente fase</p>
-        <p class="text-secondary mb-0">El CSV define el universo, sector y mercado. Si seleccionas Alpaca y hay claves configuradas, precio y volumen se calculan con barras diarias reales; si falla la API, la web vuelve automaticamente al CSV.</p>
+        <p class="text-secondary mb-0">La opcion Base actualizada lee datos guardados en PostgreSQL por el proceso automatico. Si aun no hay snapshots, la web vuelve al CSV.</p>
       </div>
     </div>
   </div>

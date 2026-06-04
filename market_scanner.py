@@ -90,21 +90,15 @@ def filter_assets(filters, assets=None):
     min_volume = filters["min_money_volume"] * 1_000_000
     filtered = [asset for asset in filtered if asset["money_volume"] >= min_volume]
 
-    min_day_score = min(5, max(1, filters["day_volume_window"]))
-    min_week_score = min(5, max(1, filters["week_volume_window"]))
-    filtered = [
-        asset
-        for asset in filtered
-        if asset["day_volume_score"] >= min_day_score
-        and asset["week_volume_score"] >= min_week_score
-    ]
+    day_weight = min(5, max(1, filters["day_volume_window"]))
+    week_weight = min(5, max(1, filters["week_volume_window"]))
 
     filtered = sorted(
         filtered,
         key=lambda asset: (
             asset["money_volume"],
-            asset["day_volume_score"],
-            asset["week_volume_score"],
+            asset["day_volume_score"] * day_weight,
+            asset["week_volume_score"] * week_weight,
         ),
         reverse=True,
     )

@@ -60,7 +60,7 @@
         </div>
 
         <div class="mb-3">
-          <label class="form-label" for="day_volume_window">Volumen ultimos dias</label>
+          <label class="form-label" for="day_volume_window">Peso volumen ultimos dias</label>
           <select class="form-select" id="day_volume_window" name="day_volume_window">
             {% for value in [1, 2, 3, 4, 5] %}
               <option value="{{ value }}" {% if filters.day_volume_window == value %}selected{% endif %}>{{ value }} dia{% if value > 1 %}s{% endif %}</option>
@@ -69,7 +69,7 @@
         </div>
 
         <div class="mb-3">
-          <label class="form-label" for="week_volume_window">Volumen ultimas semanas</label>
+          <label class="form-label" for="week_volume_window">Peso volumen ultimas semanas</label>
           <select class="form-select" id="week_volume_window" name="week_volume_window">
             {% for value in [1, 2, 3, 4, 5] %}
               <option value="{{ value }}" {% if filters.week_volume_window == value %}selected{% endif %}>{{ value }} semana{% if value > 1 %}s{% endif %}</option>

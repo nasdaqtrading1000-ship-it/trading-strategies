@@ -39,6 +39,30 @@
   </div>
 </section>
 
+<section class="container pt-5">
+  <div class="community-banner p-4 p-md-5">
+    <div class="row align-items-center gy-4">
+      <div class="col-lg-8">
+        <p class="eyebrow mb-2">Proyecto en construccion</p>
+        <h2 class="h3 fw-bold mb-3">Colabora y unete a la comunidad desde el inicio.</h2>
+        <p class="text-secondary mb-0">Estamos preparando nuevas herramientas, filtros de activos, automatizaciones y canales especializados. Los primeros miembros podran tener privilegios futuros dentro de la comunidad.</p>
+      </div>
+      <div class="col-lg-4">
+        <div class="d-grid gap-2">
+          {% if community_url %}
+            <a class="btn btn-info fw-semibold" href="{{ community_url }}" target="_blank" rel="noopener">Unirme a la comunidad</a>
+          {% endif %}
+          {% if donation_url %}
+            <a class="btn btn-outline-light" href="{{ donation_url }}" target="_blank" rel="noopener">Colaborar / donar</a>
+          {% else %}
+            <button class="btn btn-outline-light" type="button" disabled>Donaciones proximamente</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="estrategias" class="container py-5">
   <div class="section-heading mb-4">
     <div>

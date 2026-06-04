@@ -173,6 +173,13 @@ SECRET_KEY=una_clave_larga_y_aleatoria
 DATABASE_URL=url_interna_de_postgresql
 ```
 
+Variables opcionales para la portada:
+
+```text
+COMMUNITY_URL=enlace_a_tu_comunidad
+DONATION_URL=enlace_de_donacion
+```
+
 La variable `DATABASE_URL` debe venir de una base PostgreSQL creada en Render, Supabase, Neon o Railway.
 
 ## Datos de mercado Alpaca

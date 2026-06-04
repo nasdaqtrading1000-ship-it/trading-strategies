@@ -81,7 +81,16 @@ def create_app():
             """
             )
         ).mappings().fetchall()
-        return render_template("index.html", strategies=strategies)
+        community_url = os.environ.get("COMMUNITY_URL")
+        if not community_url and strategies:
+            community_url = strategies[0]["telegram_url"]
+        donation_url = os.environ.get("DONATION_URL", "").strip()
+        return render_template(
+            "index.html",
+            strategies=strategies,
+            community_url=community_url,
+            donation_url=donation_url,
+        )
 
     @app.route("/filtrado-activos")
     def asset_filter():

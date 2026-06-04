@@ -47,6 +47,7 @@ html {
 .admin-table,
 .empty-state,
 .risk-notice,
+.community-banner,
 .filter-panel,
 .scanner-summary,
 .scanner-table {
@@ -144,6 +145,13 @@ html {
 
 .risk-notice {
   border-color: rgba(255, 193, 7, 0.28);
+}
+
+.community-banner {
+  border-color: rgba(13, 202, 240, 0.3);
+  background:
+    linear-gradient(135deg, rgba(13, 202, 240, 0.12), rgba(16, 23, 34, 0.92)),
+    rgba(16, 23, 34, 0.9);
 }
 
 .filter-panel {

@@ -16,6 +16,15 @@
     <div class="col-lg-4">
       <form class="filter-panel p-4" method="get">
         <div class="mb-3">
+          <label class="form-label" for="market">Mercado</label>
+          <select class="form-select" id="market" name="market">
+            {% for market in markets %}
+              <option value="{{ market }}" {% if filters.market == market %}selected{% endif %}>{{ market }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
           <label class="form-label" for="sector">Sector</label>
           <select class="form-select" id="sector" name="sector">
             {% for sector in sectors %}
@@ -84,6 +93,10 @@
           <strong>{{ filters.sector }}</strong>
         </div>
         <div>
+          <span class="text-secondary small">Mercado</span>
+          <strong>{{ filters.market }}</strong>
+        </div>
+        <div>
           <span class="text-secondary small">Minimo</span>
           <strong>{{ filters.min_money_volume }} M USD</strong>
         </div>
@@ -95,6 +108,7 @@
             <thead>
               <tr>
                 <th>Activo</th>
+                <th>Mercado</th>
                 <th>Sector</th>
                 <th>Precio</th>
                 <th>Volumen monetario</th>
@@ -109,15 +123,16 @@
                     <strong>{{ asset.symbol }}</strong>
                     <span class="d-block text-secondary small">{{ asset.name }}</span>
                   </td>
+                  <td>{{ asset.market }}</td>
                   <td>{{ asset.sector }}</td>
                   <td>{{ "%.2f"|format(asset.price) }} USD</td>
                   <td>{{ "%.1f"|format(asset.money_volume / 1000000000) }} B USD</td>
-                  <td>{{ asset.day_volume }}/5</td>
-                  <td>{{ asset.week_volume }}/5</td>
+                  <td>{{ asset.day_volume_score }}/5</td>
+                  <td>{{ asset.week_volume_score }}/5</td>
                 </tr>
               {% else %}
                 <tr>
-                  <td colspan="6" class="text-center text-secondary py-5">No hay activos con esos filtros.</td>
+                  <td colspan="7" class="text-center text-secondary py-5">No hay activos con esos filtros.</td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -127,7 +142,7 @@
 
       <div class="risk-notice p-4 mt-4">
         <p class="eyebrow mb-2">Siguiente fase</p>
-        <p class="text-secondary mb-0">Estos resultados son demo. El formulario queda preparado para conectarlo despues a Alpaca, Polygon o una API de mercado y calcular el filtrado con datos reales.</p>
+        <p class="text-secondary mb-0">Estos resultados salen de `data/assets.csv`. La siguiente fase sera actualizar precios y volumen con Alpaca o Polygon y dejar el CSV solo como universo de activos y sectores.</p>
       </div>
     </div>
   </div>

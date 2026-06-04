@@ -15,6 +15,13 @@ from flask import (
 from sqlalchemy import create_engine, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from market_scanner import (
+    available_markets,
+    available_sectors,
+    filter_assets,
+    load_assets,
+)
+
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 SQLITE_DATABASE = os.path.join(BASE_DIR, "strategies.db")
@@ -42,34 +49,6 @@ def database_status():
         "host": url.host or "local file",
         "is_persistent": engine.dialect.name == "postgresql",
     }
-
-
-DEMO_ASSETS = [
-    {"symbol": "NVDA", "name": "NVIDIA Corp.", "sector": "Tecnologia", "money_volume": 8600000000, "day_volume": 4.9, "week_volume": 4.7, "price": 125.61},
-    {"symbol": "AAPL", "name": "Apple Inc.", "sector": "Tecnologia", "money_volume": 7200000000, "day_volume": 4.1, "week_volume": 4.3, "price": 196.45},
-    {"symbol": "MSFT", "name": "Microsoft Corp.", "sector": "Tecnologia", "money_volume": 6800000000, "day_volume": 3.8, "week_volume": 4.0, "price": 442.57},
-    {"symbol": "AMZN", "name": "Amazon.com Inc.", "sector": "Consumo", "money_volume": 5100000000, "day_volume": 3.5, "week_volume": 3.7, "price": 184.26},
-    {"symbol": "TSLA", "name": "Tesla Inc.", "sector": "Consumo", "money_volume": 4900000000, "day_volume": 5.0, "week_volume": 4.8, "price": 177.29},
-    {"symbol": "META", "name": "Meta Platforms", "sector": "Comunicacion", "money_volume": 4300000000, "day_volume": 3.1, "week_volume": 3.4, "price": 503.24},
-    {"symbol": "GOOGL", "name": "Alphabet Inc.", "sector": "Comunicacion", "money_volume": 3900000000, "day_volume": 2.9, "week_volume": 3.2, "price": 176.73},
-    {"symbol": "JPM", "name": "JPMorgan Chase", "sector": "Financiero", "money_volume": 2200000000, "day_volume": 2.2, "week_volume": 2.5, "price": 199.68},
-    {"symbol": "XOM", "name": "Exxon Mobil", "sector": "Energia", "money_volume": 1800000000, "day_volume": 1.9, "week_volume": 2.1, "price": 114.12},
-    {"symbol": "LLY", "name": "Eli Lilly", "sector": "Salud", "money_volume": 1700000000, "day_volume": 2.4, "week_volume": 2.2, "price": 807.43},
-    {"symbol": "AVGO", "name": "Broadcom Inc.", "sector": "Tecnologia", "money_volume": 3100000000, "day_volume": 3.3, "week_volume": 3.1, "price": 142.88},
-    {"symbol": "AMD", "name": "Advanced Micro Devices", "sector": "Tecnologia", "money_volume": 2900000000, "day_volume": 4.4, "week_volume": 4.0, "price": 158.32},
-]
-
-
-def filter_assets(filters):
-    assets = DEMO_ASSETS
-    sector = filters["sector"]
-    if sector != "Todos":
-        assets = [asset for asset in assets if asset["sector"] == sector]
-
-    min_volume = filters["min_money_volume"] * 1_000_000
-    assets = [asset for asset in assets if asset["money_volume"] >= min_volume]
-    assets = sorted(assets, key=lambda asset: asset["money_volume"], reverse=True)
-    return assets[: filters["limit"]]
 
 
 def create_app():
@@ -123,14 +102,18 @@ def create_app():
             "week_volume_window": int(request.args.get("week_volume_window", 1)),
             "limit": int(request.args.get("limit", 10)),
             "sector": request.args.get("sector", "Todos"),
+            "market": request.args.get("market", "Todos"),
         }
-        sectors = ["Todos"] + sorted({asset["sector"] for asset in DEMO_ASSETS})
-        results = filter_assets(filters)
+        assets = load_assets()
+        sectors = available_sectors(assets)
+        markets = available_markets(assets)
+        results = filter_assets(filters, assets)
         return render_template(
             "asset_filter.html",
             filters=filters,
             results=results,
             sectors=sectors,
+            markets=markets,
         )
 
     @app.route("/admin/login", methods=["GET", "POST"])

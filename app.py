@@ -103,6 +103,7 @@ def create_app():
             "sector": request.args.get("sector", "Todos"),
             "market": request.args.get("market", "Todos"),
             "data_source": request.args.get("data_source", "csv"),
+            "sort_by": request.args.get("sort_by", "money_volume_selected"),
         }
         assets = load_assets()
         csv_total = len(assets)
@@ -128,10 +129,18 @@ def create_app():
                 f"media {filters['month_window']}m"
             ),
         }
+        sort_options = [
+            ("money_volume_selected", filter_labels["money_volume"]),
+            ("day_money_volume_selected", filter_labels["day_volume"]),
+            ("week_money_volume_selected", filter_labels["week_volume"]),
+            ("day_to_month_volume_ratio", filter_labels["ratio"]),
+            ("price", "Precio"),
+        ]
         return render_template(
             "asset_filter.html",
             filters=filters,
             filter_labels=filter_labels,
+            sort_options=sort_options,
             results=results,
             sectors=sectors,
             markets=markets,
@@ -480,8 +489,19 @@ def init_db():
                     market TEXT NOT NULL,
                     price FLOAT NOT NULL,
                     money_volume FLOAT NOT NULL,
+                    money_volume_1m FLOAT NOT NULL DEFAULT 0,
+                    money_volume_2m FLOAT NOT NULL DEFAULT 0,
+                    money_volume_3m FLOAT NOT NULL DEFAULT 0,
                     day_money_volume FLOAT NOT NULL DEFAULT 0,
                     week_money_volume FLOAT NOT NULL DEFAULT 0,
+                    day_money_volume_1d FLOAT NOT NULL DEFAULT 0,
+                    day_money_volume_2d FLOAT NOT NULL DEFAULT 0,
+                    day_money_volume_3d FLOAT NOT NULL DEFAULT 0,
+                    day_money_volume_4d FLOAT NOT NULL DEFAULT 0,
+                    day_money_volume_5d FLOAT NOT NULL DEFAULT 0,
+                    week_money_volume_1w FLOAT NOT NULL DEFAULT 0,
+                    week_money_volume_2w FLOAT NOT NULL DEFAULT 0,
+                    week_money_volume_3w FLOAT NOT NULL DEFAULT 0,
                     day_volume_score FLOAT NOT NULL,
                     week_volume_score FLOAT NOT NULL,
                     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -489,8 +509,22 @@ def init_db():
                 """
             )
         )
-        add_asset_snapshot_column(connection, "day_money_volume")
-        add_asset_snapshot_column(connection, "week_money_volume")
+        for column_name in [
+            "money_volume_1m",
+            "money_volume_2m",
+            "money_volume_3m",
+            "day_money_volume",
+            "week_money_volume",
+            "day_money_volume_1d",
+            "day_money_volume_2d",
+            "day_money_volume_3d",
+            "day_money_volume_4d",
+            "day_money_volume_5d",
+            "week_money_volume_1w",
+            "week_money_volume_2w",
+            "week_money_volume_3w",
+        ]:
+            add_asset_snapshot_column(connection, column_name)
         connection.execute(
             text(
                 """

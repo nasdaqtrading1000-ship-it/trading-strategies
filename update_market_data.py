@@ -19,8 +19,19 @@ def ensure_snapshot_table(connection):
                 market TEXT NOT NULL,
                 price FLOAT NOT NULL,
                 money_volume FLOAT NOT NULL,
+                money_volume_1m FLOAT NOT NULL DEFAULT 0,
+                money_volume_2m FLOAT NOT NULL DEFAULT 0,
+                money_volume_3m FLOAT NOT NULL DEFAULT 0,
                 day_money_volume FLOAT NOT NULL DEFAULT 0,
                 week_money_volume FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_1d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_2d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_3d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_4d FLOAT NOT NULL DEFAULT 0,
+                day_money_volume_5d FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_1w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_2w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_3w FLOAT NOT NULL DEFAULT 0,
                 day_volume_score FLOAT NOT NULL,
                 week_volume_score FLOAT NOT NULL,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -28,8 +39,8 @@ def ensure_snapshot_table(connection):
             """
         )
     )
-    add_column_if_missing(connection, "day_money_volume")
-    add_column_if_missing(connection, "week_money_volume")
+    for column_name in SNAPSHOT_EXTRA_COLUMNS:
+        add_column_if_missing(connection, column_name)
 
 
 def add_column_if_missing(connection, column_name):
@@ -61,6 +72,27 @@ def snapshot_column_exists(connection, column_name):
     return any(row[1] == column_name for row in rows)
 
 
+SNAPSHOT_EXTRA_COLUMNS = [
+    "money_volume_1m",
+    "money_volume_2m",
+    "money_volume_3m",
+    "day_money_volume",
+    "week_money_volume",
+    "day_money_volume_1d",
+    "day_money_volume_2d",
+    "day_money_volume_3d",
+    "day_money_volume_4d",
+    "day_money_volume_5d",
+    "week_money_volume_1w",
+    "week_money_volume_2w",
+    "week_money_volume_3w",
+]
+
+
+def metric_value(metric, key, fallback=0):
+    return metric.get(key) or metric.get("money_volume") or fallback
+
+
 def update_market_data():
     assets = load_assets()
     max_symbols = int(os.environ.get("MARKET_DATA_MAX_SYMBOLS", "1000"))
@@ -85,8 +117,19 @@ def update_market_data():
                 "market": asset["market"],
                 "price": metric["price"],
                 "money_volume": metric["money_volume"],
-                "day_money_volume": metric["day_money_volume"],
-                "week_money_volume": metric["week_money_volume"],
+                "money_volume_1m": metric_value(metric, "money_volume_1m"),
+                "money_volume_2m": metric_value(metric, "money_volume_2m"),
+                "money_volume_3m": metric_value(metric, "money_volume_3m"),
+                "day_money_volume": metric_value(metric, "day_money_volume"),
+                "week_money_volume": metric_value(metric, "week_money_volume"),
+                "day_money_volume_1d": metric_value(metric, "day_money_volume_1d"),
+                "day_money_volume_2d": metric_value(metric, "day_money_volume_2d"),
+                "day_money_volume_3d": metric_value(metric, "day_money_volume_3d"),
+                "day_money_volume_4d": metric_value(metric, "day_money_volume_4d"),
+                "day_money_volume_5d": metric_value(metric, "day_money_volume_5d"),
+                "week_money_volume_1w": metric_value(metric, "week_money_volume_1w"),
+                "week_money_volume_2w": metric_value(metric, "week_money_volume_2w"),
+                "week_money_volume_3w": metric_value(metric, "week_money_volume_3w"),
                 "day_volume_score": metric["day_volume_score"],
                 "week_volume_score": metric["week_volume_score"],
                 "updated_at": updated_at,
@@ -106,11 +149,19 @@ def update_market_data():
                         """
                         INSERT INTO asset_snapshots
                         (symbol, name, sector, market, price, money_volume,
+                         money_volume_1m, money_volume_2m, money_volume_3m,
                          day_money_volume, week_money_volume,
+                         day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
+                         day_money_volume_4d, day_money_volume_5d,
+                         week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
                          day_volume_score, week_volume_score, updated_at)
                         VALUES
                         (:symbol, :name, :sector, :market, :price, :money_volume,
+                         :money_volume_1m, :money_volume_2m, :money_volume_3m,
                          :day_money_volume, :week_money_volume,
+                         :day_money_volume_1d, :day_money_volume_2d, :day_money_volume_3d,
+                         :day_money_volume_4d, :day_money_volume_5d,
+                         :week_money_volume_1w, :week_money_volume_2w, :week_money_volume_3w,
                          :day_volume_score, :week_volume_score, :updated_at)
                         ON CONFLICT (symbol) DO UPDATE SET
                           name = EXCLUDED.name,
@@ -118,8 +169,19 @@ def update_market_data():
                           market = EXCLUDED.market,
                           price = EXCLUDED.price,
                           money_volume = EXCLUDED.money_volume,
+                          money_volume_1m = EXCLUDED.money_volume_1m,
+                          money_volume_2m = EXCLUDED.money_volume_2m,
+                          money_volume_3m = EXCLUDED.money_volume_3m,
                           day_money_volume = EXCLUDED.day_money_volume,
                           week_money_volume = EXCLUDED.week_money_volume,
+                          day_money_volume_1d = EXCLUDED.day_money_volume_1d,
+                          day_money_volume_2d = EXCLUDED.day_money_volume_2d,
+                          day_money_volume_3d = EXCLUDED.day_money_volume_3d,
+                          day_money_volume_4d = EXCLUDED.day_money_volume_4d,
+                          day_money_volume_5d = EXCLUDED.day_money_volume_5d,
+                          week_money_volume_1w = EXCLUDED.week_money_volume_1w,
+                          week_money_volume_2w = EXCLUDED.week_money_volume_2w,
+                          week_money_volume_3w = EXCLUDED.week_money_volume_3w,
                           day_volume_score = EXCLUDED.day_volume_score,
                           week_volume_score = EXCLUDED.week_volume_score,
                           updated_at = EXCLUDED.updated_at
@@ -133,11 +195,19 @@ def update_market_data():
                         """
                         INSERT OR REPLACE INTO asset_snapshots
                         (symbol, name, sector, market, price, money_volume,
+                         money_volume_1m, money_volume_2m, money_volume_3m,
                          day_money_volume, week_money_volume,
+                         day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
+                         day_money_volume_4d, day_money_volume_5d,
+                         week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
                          day_volume_score, week_volume_score, updated_at)
                         VALUES
                         (:symbol, :name, :sector, :market, :price, :money_volume,
+                         :money_volume_1m, :money_volume_2m, :money_volume_3m,
                          :day_money_volume, :week_money_volume,
+                         :day_money_volume_1d, :day_money_volume_2d, :day_money_volume_3d,
+                         :day_money_volume_4d, :day_money_volume_5d,
+                         :week_money_volume_1w, :week_money_volume_2w, :week_money_volume_3w,
                          :day_volume_score, :week_volume_score, :updated_at)
                         """
                     ),

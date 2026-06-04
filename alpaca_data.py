@@ -54,22 +54,47 @@ def _bars_to_metrics(symbol_bars):
     sorted_bars = sorted(symbol_bars, key=lambda bar: bar.timestamp)
     latest = sorted_bars[-1]
     money_volumes = [float(bar.close) * float(bar.volume) for bar in sorted_bars]
-    day_window = money_volumes[-5:] or money_volumes
-    week_window = money_volumes[-25:] or money_volumes
+    day_1 = _window_average(money_volumes, 1)
+    day_2 = _window_average(money_volumes, 2)
+    day_3 = _window_average(money_volumes, 3)
+    day_4 = _window_average(money_volumes, 4)
+    day_5 = _window_average(money_volumes, 5)
+    week_1 = _window_average(money_volumes, 5)
+    week_2 = _window_average(money_volumes, 10)
+    week_3 = _window_average(money_volumes, 15)
+    month_1 = _window_average(money_volumes, 21)
+    month_2 = _window_average(money_volumes, 42)
+    month_3 = _window_average(money_volumes, 63)
 
     avg_money_volume = sum(money_volumes) / len(money_volumes)
     latest_money_volume = float(latest.close) * float(latest.volume)
-    day_score = _score(latest_money_volume, sum(day_window) / len(day_window))
-    week_score = _score(latest_money_volume, sum(week_window) / len(week_window))
+    day_score = _score(latest_money_volume, day_5)
+    week_score = _score(latest_money_volume, week_3)
 
     return {
         "price": float(latest.close),
         "money_volume": avg_money_volume,
-        "day_money_volume": sum(day_window) / len(day_window),
-        "week_money_volume": sum(week_window) / len(week_window),
+        "money_volume_1m": month_1,
+        "money_volume_2m": month_2,
+        "money_volume_3m": month_3,
+        "day_money_volume_1d": day_1,
+        "day_money_volume_2d": day_2,
+        "day_money_volume_3d": day_3,
+        "day_money_volume_4d": day_4,
+        "day_money_volume_5d": day_5,
+        "week_money_volume_1w": week_1,
+        "week_money_volume_2w": week_2,
+        "week_money_volume_3w": week_3,
+        "day_money_volume": day_5,
+        "week_money_volume": week_3,
         "day_volume_score": day_score,
         "week_volume_score": week_score,
     }
+
+
+def _window_average(values, size):
+    window = values[-size:] or values
+    return sum(window) / len(window)
 
 
 def _score(current, average):

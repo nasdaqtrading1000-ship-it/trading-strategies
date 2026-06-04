@@ -23,12 +23,23 @@ def load_assets(path=DATA_PATH):
                     "market": row["market"],
                     "price": float(row["price"]),
                     "money_volume": float(row["money_volume"]),
+                    "money_volume_1m": float(row.get("money_volume_1m") or row["money_volume"]),
+                    "money_volume_2m": float(row.get("money_volume_2m") or row["money_volume"]),
+                    "money_volume_3m": float(row.get("money_volume_3m") or row["money_volume"]),
                     "day_money_volume": float(
                         row.get("day_money_volume") or row["money_volume"]
                     ),
                     "week_money_volume": float(
                         row.get("week_money_volume") or row["money_volume"]
                     ),
+                    "day_money_volume_1d": float(row.get("day_money_volume_1d") or row["money_volume"]),
+                    "day_money_volume_2d": float(row.get("day_money_volume_2d") or row["money_volume"]),
+                    "day_money_volume_3d": float(row.get("day_money_volume_3d") or row["money_volume"]),
+                    "day_money_volume_4d": float(row.get("day_money_volume_4d") or row["money_volume"]),
+                    "day_money_volume_5d": float(row.get("day_money_volume_5d") or row["money_volume"]),
+                    "week_money_volume_1w": float(row.get("week_money_volume_1w") or row["money_volume"]),
+                    "week_money_volume_2w": float(row.get("week_money_volume_2w") or row["money_volume"]),
+                    "week_money_volume_3w": float(row.get("week_money_volume_3w") or row["money_volume"]),
                     "day_volume_score": float(row["day_volume_score"]),
                     "week_volume_score": float(row["week_volume_score"]),
                 }
@@ -49,7 +60,11 @@ def load_snapshot_assets():
             text(
                 """
                 SELECT symbol, name, sector, market, price, money_volume,
+                       money_volume_1m, money_volume_2m, money_volume_3m,
                        day_money_volume, week_money_volume,
+                       day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
+                       day_money_volume_4d, day_money_volume_5d,
+                       week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
                        day_volume_score, week_volume_score
                 FROM asset_snapshots
                 ORDER BY money_volume DESC
@@ -94,28 +109,33 @@ def filter_assets(filters, assets=None):
     if filters["market"] != "Todos":
         filtered = [asset for asset in filtered if asset["market"] == filters["market"]]
 
-    filtered = [add_volume_ratio(asset) for asset in filtered]
+    filtered = [add_selected_metrics(asset, filters) for asset in filtered]
 
     min_volume = filters["min_money_volume"] * 1_000_000
-    filtered = [asset for asset in filtered if asset["money_volume"] >= min_volume]
+    filtered = [asset for asset in filtered if asset["money_volume_selected"] >= min_volume]
 
-    day_weight = min(5, max(1, filters["day_volume_window"]))
-    week_weight = min(5, max(1, filters["week_volume_window"]))
+    sort_by = filters.get("sort_by", "money_volume_selected")
 
     filtered = sorted(
         filtered,
-        key=lambda asset: (
-            asset["money_volume"],
-            asset["day_volume_score"] * day_weight,
-            asset["week_volume_score"] * week_weight,
-        ),
+        key=lambda asset: asset.get(sort_by, 0),
         reverse=True,
     )
     return filtered[: filters["limit"]], source, universe_total
 
 
-def add_volume_ratio(asset):
-    money_volume = asset.get("money_volume") or 0
-    day_money_volume = asset.get("day_money_volume") or money_volume
+def add_selected_metrics(asset, filters):
+    month_key = f"money_volume_{filters['month_window']}m"
+    day_key = f"day_money_volume_{filters['day_volume_window']}d"
+    week_key = f"week_money_volume_{filters['week_volume_window']}w"
+    money_volume = asset.get(month_key) or asset.get("money_volume") or 0
+    day_money_volume = asset.get(day_key) or asset.get("day_money_volume") or money_volume
+    week_money_volume = asset.get(week_key) or asset.get("week_money_volume") or money_volume
     ratio = day_money_volume / money_volume if money_volume else 0
-    return {**asset, "day_to_month_volume_ratio": ratio}
+    return {
+        **asset,
+        "money_volume_selected": money_volume,
+        "day_money_volume_selected": day_money_volume,
+        "week_money_volume_selected": week_money_volume,
+        "day_to_month_volume_ratio": ratio,
+    }

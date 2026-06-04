@@ -75,6 +75,8 @@ def _bars_to_metrics(symbol_bars):
     week_1 = _window_average(money_volumes, 5)
     week_2 = _window_average(money_volumes, 10)
     week_3 = _window_average(money_volumes, 15)
+    week_4 = _window_average(money_volumes, 20)
+    week_5 = _window_average(money_volumes, 25)
     month_1 = _window_average(money_volumes, 21)
     month_2 = _window_average(money_volumes, 42)
     month_3 = _window_average(money_volumes, 63)
@@ -98,8 +100,10 @@ def _bars_to_metrics(symbol_bars):
         "week_money_volume_1w": week_1,
         "week_money_volume_2w": week_2,
         "week_money_volume_3w": week_3,
+        "week_money_volume_4w": week_4,
+        "week_money_volume_5w": week_5,
         "day_money_volume": day_5,
-        "week_money_volume": week_3,
+        "week_money_volume": week_5,
         "day_volume_score": day_score,
         "week_volume_score": week_score,
     }

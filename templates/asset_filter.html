@@ -18,8 +18,8 @@
         <div class="mb-3">
           <label class="form-label" for="data_source">Datos de mercado</label>
           <select class="form-select" id="data_source" name="data_source">
-            <option value="csv" {% if filters.data_source == "csv" %}selected{% endif %}>CSV local</option>
             <option value="database" {% if filters.data_source == "database" %}selected{% endif %}>Base actualizada</option>
+            <option value="csv" {% if filters.data_source == "csv" %}selected{% endif %}>CSV local</option>
           </select>
         </div>
 
@@ -53,8 +53,10 @@
         <div class="mb-3">
           <label class="form-label" for="min_money_volume">Minimo volumen monetario diario</label>
           <select class="form-select" id="min_money_volume" name="min_money_volume">
-            {% for value in [100, 250, 500, 1000, 2500, 5000] %}
-              <option value="{{ value }}" {% if filters.min_money_volume == value %}selected{% endif %}>{{ value }} M USD</option>
+            {% for value in [0, 100, 250, 500, 1000, 2500, 5000] %}
+              <option value="{{ value }}" {% if filters.min_money_volume == value %}selected{% endif %}>
+                {% if value == 0 %}Sin minimo{% else %}{{ value }} M USD{% endif %}
+              </option>
             {% endfor %}
           </select>
         </div>
@@ -144,6 +146,15 @@
       </div>
 
       <div class="scanner-table">
+        {% if data_source == "database_empty" %}
+          <div class="alert alert-warning border-0 mb-3">
+            Aun no hay datos de mercado valorados. Entra en admin y pulsa Actualizar mercado; despues vuelve a aplicar el filtro.
+          </div>
+        {% elif data_source == "csv" %}
+          <div class="alert alert-info border-0 mb-3">
+            Estas viendo el CSV local. Para medias reales por dias, semanas y meses usa Base actualizada.
+          </div>
+        {% endif %}
         <div class="table-responsive">
           <table class="table table-dark table-hover align-middle mb-0">
             <thead>
@@ -175,7 +186,7 @@
                 </tr>
               {% else %}
                 <tr>
-                  <td colspan="7" class="text-center text-secondary py-5">No hay activos con esos filtros.</td>
+                  <td colspan="8" class="text-center text-secondary py-5">No hay activos con esos filtros.</td>
                 </tr>
               {% endfor %}
             </tbody>

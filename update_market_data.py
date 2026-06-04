@@ -32,6 +32,8 @@ def ensure_snapshot_table(connection):
                 week_money_volume_1w FLOAT NOT NULL DEFAULT 0,
                 week_money_volume_2w FLOAT NOT NULL DEFAULT 0,
                 week_money_volume_3w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_4w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_5w FLOAT NOT NULL DEFAULT 0,
                 day_volume_score FLOAT NOT NULL,
                 week_volume_score FLOAT NOT NULL,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -86,6 +88,8 @@ SNAPSHOT_EXTRA_COLUMNS = [
     "week_money_volume_1w",
     "week_money_volume_2w",
     "week_money_volume_3w",
+    "week_money_volume_4w",
+    "week_money_volume_5w",
 ]
 
 
@@ -155,6 +159,8 @@ def update_market_data():
                 "week_money_volume_1w": metric_value(metric, "week_money_volume_1w"),
                 "week_money_volume_2w": metric_value(metric, "week_money_volume_2w"),
                 "week_money_volume_3w": metric_value(metric, "week_money_volume_3w"),
+                "week_money_volume_4w": metric_value(metric, "week_money_volume_4w"),
+                "week_money_volume_5w": metric_value(metric, "week_money_volume_5w"),
                 "day_volume_score": metric["day_volume_score"],
                 "week_volume_score": metric["week_volume_score"],
                 "updated_at": updated_at,
@@ -183,6 +189,7 @@ def update_market_data():
                          day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
                          day_money_volume_4d, day_money_volume_5d,
                          week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                         week_money_volume_4w, week_money_volume_5w,
                          day_volume_score, week_volume_score, updated_at)
                         VALUES
                         (:symbol, :name, :sector, :market, :price, :money_volume,
@@ -191,6 +198,7 @@ def update_market_data():
                          :day_money_volume_1d, :day_money_volume_2d, :day_money_volume_3d,
                          :day_money_volume_4d, :day_money_volume_5d,
                          :week_money_volume_1w, :week_money_volume_2w, :week_money_volume_3w,
+                         :week_money_volume_4w, :week_money_volume_5w,
                          :day_volume_score, :week_volume_score, :updated_at)
                         ON CONFLICT (symbol) DO UPDATE SET
                           name = EXCLUDED.name,
@@ -211,6 +219,8 @@ def update_market_data():
                           week_money_volume_1w = EXCLUDED.week_money_volume_1w,
                           week_money_volume_2w = EXCLUDED.week_money_volume_2w,
                           week_money_volume_3w = EXCLUDED.week_money_volume_3w,
+                          week_money_volume_4w = EXCLUDED.week_money_volume_4w,
+                          week_money_volume_5w = EXCLUDED.week_money_volume_5w,
                           day_volume_score = EXCLUDED.day_volume_score,
                           week_volume_score = EXCLUDED.week_volume_score,
                           updated_at = EXCLUDED.updated_at
@@ -229,6 +239,7 @@ def update_market_data():
                          day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
                          day_money_volume_4d, day_money_volume_5d,
                          week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                         week_money_volume_4w, week_money_volume_5w,
                          day_volume_score, week_volume_score, updated_at)
                         VALUES
                         (:symbol, :name, :sector, :market, :price, :money_volume,
@@ -237,6 +248,7 @@ def update_market_data():
                          :day_money_volume_1d, :day_money_volume_2d, :day_money_volume_3d,
                          :day_money_volume_4d, :day_money_volume_5d,
                          :week_money_volume_1w, :week_money_volume_2w, :week_money_volume_3w,
+                         :week_money_volume_4w, :week_money_volume_5w,
                          :day_volume_score, :week_volume_score, :updated_at)
                         """
                     ),

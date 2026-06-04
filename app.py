@@ -100,13 +100,13 @@ def create_app():
     def asset_filter():
         filters = {
             "month_window": int(request.args.get("month_window", 1)),
-            "min_money_volume": int(request.args.get("min_money_volume", 500)),
+            "min_money_volume": int(request.args.get("min_money_volume", 0)),
             "day_volume_window": int(request.args.get("day_volume_window", 1)),
             "week_volume_window": int(request.args.get("week_volume_window", 1)),
             "limit": int(request.args.get("limit", 10)),
             "sector": request.args.get("sector", "Todos"),
             "market": request.args.get("market", "Todos"),
-            "data_source": request.args.get("data_source", "csv"),
+            "data_source": request.args.get("data_source", "database"),
             "sort_by": request.args.get("sort_by", "money_volume_selected"),
         }
         assets = load_universe_assets()
@@ -514,6 +514,8 @@ def init_db():
                     week_money_volume_1w FLOAT NOT NULL DEFAULT 0,
                     week_money_volume_2w FLOAT NOT NULL DEFAULT 0,
                     week_money_volume_3w FLOAT NOT NULL DEFAULT 0,
+                    week_money_volume_4w FLOAT NOT NULL DEFAULT 0,
+                    week_money_volume_5w FLOAT NOT NULL DEFAULT 0,
                     day_volume_score FLOAT NOT NULL,
                     week_volume_score FLOAT NOT NULL,
                     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -535,6 +537,8 @@ def init_db():
             "week_money_volume_1w",
             "week_money_volume_2w",
             "week_money_volume_3w",
+            "week_money_volume_4w",
+            "week_money_volume_5w",
         ]:
             add_asset_snapshot_column(connection, column_name)
         connection.execute(

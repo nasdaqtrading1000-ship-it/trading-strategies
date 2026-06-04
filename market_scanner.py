@@ -10,6 +10,13 @@ from db import engine
 DATA_PATH = Path(__file__).resolve().parent / "data" / "assets.csv"
 
 
+def _float_or_zero(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def load_assets(path=DATA_PATH):
     with path.open(newline="", encoding="utf-8") as file:
         reader = csv.DictReader(file)
@@ -23,23 +30,21 @@ def load_assets(path=DATA_PATH):
                     "market": row["market"],
                     "price": float(row["price"]),
                     "money_volume": float(row["money_volume"]),
-                    "money_volume_1m": float(row.get("money_volume_1m") or row["money_volume"]),
-                    "money_volume_2m": float(row.get("money_volume_2m") or row["money_volume"]),
-                    "money_volume_3m": float(row.get("money_volume_3m") or row["money_volume"]),
-                    "day_money_volume": float(
-                        row.get("day_money_volume") or row["money_volume"]
-                    ),
-                    "week_money_volume": float(
-                        row.get("week_money_volume") or row["money_volume"]
-                    ),
-                    "day_money_volume_1d": float(row.get("day_money_volume_1d") or row["money_volume"]),
-                    "day_money_volume_2d": float(row.get("day_money_volume_2d") or row["money_volume"]),
-                    "day_money_volume_3d": float(row.get("day_money_volume_3d") or row["money_volume"]),
-                    "day_money_volume_4d": float(row.get("day_money_volume_4d") or row["money_volume"]),
-                    "day_money_volume_5d": float(row.get("day_money_volume_5d") or row["money_volume"]),
-                    "week_money_volume_1w": float(row.get("week_money_volume_1w") or row["money_volume"]),
-                    "week_money_volume_2w": float(row.get("week_money_volume_2w") or row["money_volume"]),
-                    "week_money_volume_3w": float(row.get("week_money_volume_3w") or row["money_volume"]),
+                    "money_volume_1m": _float_or_zero(row.get("money_volume_1m")),
+                    "money_volume_2m": _float_or_zero(row.get("money_volume_2m")),
+                    "money_volume_3m": _float_or_zero(row.get("money_volume_3m")),
+                    "day_money_volume": _float_or_zero(row.get("day_money_volume")),
+                    "week_money_volume": _float_or_zero(row.get("week_money_volume")),
+                    "day_money_volume_1d": _float_or_zero(row.get("day_money_volume_1d")),
+                    "day_money_volume_2d": _float_or_zero(row.get("day_money_volume_2d")),
+                    "day_money_volume_3d": _float_or_zero(row.get("day_money_volume_3d")),
+                    "day_money_volume_4d": _float_or_zero(row.get("day_money_volume_4d")),
+                    "day_money_volume_5d": _float_or_zero(row.get("day_money_volume_5d")),
+                    "week_money_volume_1w": _float_or_zero(row.get("week_money_volume_1w")),
+                    "week_money_volume_2w": _float_or_zero(row.get("week_money_volume_2w")),
+                    "week_money_volume_3w": _float_or_zero(row.get("week_money_volume_3w")),
+                    "week_money_volume_4w": _float_or_zero(row.get("week_money_volume_4w")),
+                    "week_money_volume_5w": _float_or_zero(row.get("week_money_volume_5w")),
                     "day_volume_score": float(row["day_volume_score"]),
                     "week_volume_score": float(row["week_volume_score"]),
                 }
@@ -64,6 +69,7 @@ def load_database_universe_assets():
                            day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
                            day_money_volume_4d, day_money_volume_5d,
                            week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                           week_money_volume_4w, week_money_volume_5w,
                            day_volume_score, week_volume_score
                     FROM asset_universe
                     ORDER BY symbol
@@ -99,6 +105,7 @@ def save_universe_assets(rows):
                      day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
                      day_money_volume_4d, day_money_volume_5d,
                      week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                     week_money_volume_4w, week_money_volume_5w,
                      day_volume_score, week_volume_score)
                     VALUES
                     (:symbol, :name, :sector, :market, :price, :money_volume,
@@ -107,6 +114,7 @@ def save_universe_assets(rows):
                      :day_money_volume_1d, :day_money_volume_2d, :day_money_volume_3d,
                      :day_money_volume_4d, :day_money_volume_5d,
                      :week_money_volume_1w, :week_money_volume_2w, :week_money_volume_3w,
+                     :week_money_volume_4w, :week_money_volume_5w,
                      :day_volume_score, :week_volume_score)
                     """
                 ),
@@ -123,19 +131,21 @@ def normalize_asset_row(row):
         "market": row.get("market") or "Otro",
         "price": float(row.get("price") or 0),
         "money_volume": money_volume,
-        "money_volume_1m": float(row.get("money_volume_1m") or money_volume),
-        "money_volume_2m": float(row.get("money_volume_2m") or money_volume),
-        "money_volume_3m": float(row.get("money_volume_3m") or money_volume),
-        "day_money_volume": float(row.get("day_money_volume") or money_volume),
-        "week_money_volume": float(row.get("week_money_volume") or money_volume),
-        "day_money_volume_1d": float(row.get("day_money_volume_1d") or money_volume),
-        "day_money_volume_2d": float(row.get("day_money_volume_2d") or money_volume),
-        "day_money_volume_3d": float(row.get("day_money_volume_3d") or money_volume),
-        "day_money_volume_4d": float(row.get("day_money_volume_4d") or money_volume),
-        "day_money_volume_5d": float(row.get("day_money_volume_5d") or money_volume),
-        "week_money_volume_1w": float(row.get("week_money_volume_1w") or money_volume),
-        "week_money_volume_2w": float(row.get("week_money_volume_2w") or money_volume),
-        "week_money_volume_3w": float(row.get("week_money_volume_3w") or money_volume),
+        "money_volume_1m": _float_or_zero(row.get("money_volume_1m")),
+        "money_volume_2m": _float_or_zero(row.get("money_volume_2m")),
+        "money_volume_3m": _float_or_zero(row.get("money_volume_3m")),
+        "day_money_volume": _float_or_zero(row.get("day_money_volume")),
+        "week_money_volume": _float_or_zero(row.get("week_money_volume")),
+        "day_money_volume_1d": _float_or_zero(row.get("day_money_volume_1d")),
+        "day_money_volume_2d": _float_or_zero(row.get("day_money_volume_2d")),
+        "day_money_volume_3d": _float_or_zero(row.get("day_money_volume_3d")),
+        "day_money_volume_4d": _float_or_zero(row.get("day_money_volume_4d")),
+        "day_money_volume_5d": _float_or_zero(row.get("day_money_volume_5d")),
+        "week_money_volume_1w": _float_or_zero(row.get("week_money_volume_1w")),
+        "week_money_volume_2w": _float_or_zero(row.get("week_money_volume_2w")),
+        "week_money_volume_3w": _float_or_zero(row.get("week_money_volume_3w")),
+        "week_money_volume_4w": _float_or_zero(row.get("week_money_volume_4w")),
+        "week_money_volume_5w": _float_or_zero(row.get("week_money_volume_5w")),
         "day_volume_score": float(row.get("day_volume_score") or 1),
         "week_volume_score": float(row.get("week_volume_score") or 1),
     }
@@ -165,12 +175,61 @@ def ensure_universe_table(connection):
                 week_money_volume_1w FLOAT NOT NULL DEFAULT 0,
                 week_money_volume_2w FLOAT NOT NULL DEFAULT 0,
                 week_money_volume_3w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_4w FLOAT NOT NULL DEFAULT 0,
+                week_money_volume_5w FLOAT NOT NULL DEFAULT 0,
                 day_volume_score FLOAT NOT NULL DEFAULT 1,
                 week_volume_score FLOAT NOT NULL DEFAULT 1
             )
             """
         )
     )
+    for column_name in [
+        "money_volume_1m",
+        "money_volume_2m",
+        "money_volume_3m",
+        "day_money_volume",
+        "week_money_volume",
+        "day_money_volume_1d",
+        "day_money_volume_2d",
+        "day_money_volume_3d",
+        "day_money_volume_4d",
+        "day_money_volume_5d",
+        "week_money_volume_1w",
+        "week_money_volume_2w",
+        "week_money_volume_3w",
+        "week_money_volume_4w",
+        "week_money_volume_5w",
+    ]:
+        add_float_column_if_missing(connection, "asset_universe", column_name)
+
+
+def add_float_column_if_missing(connection, table_name, column_name):
+    if column_exists(connection, table_name, column_name):
+        return
+    connection.execute(
+        text(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} FLOAT NOT NULL DEFAULT 0"
+        )
+    )
+
+
+def column_exists(connection, table_name, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = :table_name
+                  AND column_name = :column_name
+                """
+            ),
+            {"table_name": table_name, "column_name": column_name},
+        )
+        return result.scalar_one() > 0
+
+    rows = connection.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+    return any(row[1] == column_name for row in rows)
 
 
 def csv_updated_at(path=DATA_PATH):
@@ -191,6 +250,7 @@ def load_snapshot_assets():
                        day_money_volume_1d, day_money_volume_2d, day_money_volume_3d,
                        day_money_volume_4d, day_money_volume_5d,
                        week_money_volume_1w, week_money_volume_2w, week_money_volume_3w,
+                       week_money_volume_4w, week_money_volume_5w,
                        day_volume_score, week_volume_score
                 FROM asset_snapshots
                 ORDER BY money_volume DESC
@@ -223,8 +283,12 @@ def filter_assets(filters, assets=None):
             assets = snapshot_assets
             source = "database"
             universe_total = len(snapshot_assets)
+        else:
+            assets = []
+            source = "database_empty"
+            universe_total = 0
 
-    assets = assets or load_assets()
+    assets = assets if assets is not None else load_assets()
     if not universe_total:
         universe_total = len(assets)
     filtered = assets
@@ -254,9 +318,9 @@ def add_selected_metrics(asset, filters):
     month_key = f"money_volume_{filters['month_window']}m"
     day_key = f"day_money_volume_{filters['day_volume_window']}d"
     week_key = f"week_money_volume_{filters['week_volume_window']}w"
-    money_volume = asset.get(month_key) or asset.get("money_volume") or 0
-    day_money_volume = asset.get(day_key) or asset.get("day_money_volume") or money_volume
-    week_money_volume = asset.get(week_key) or asset.get("week_money_volume") or money_volume
+    money_volume = asset.get(month_key) or 0
+    day_money_volume = asset.get(day_key) or 0
+    week_money_volume = asset.get(week_key) or 0
     ratio = day_money_volume / money_volume if money_volume else 0
     return {
         **asset,

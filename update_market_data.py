@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, datetime
 
 from sqlalchemy import text
@@ -29,6 +30,8 @@ def ensure_snapshot_table(connection):
 
 def update_market_data():
     assets = load_assets()
+    max_symbols = int(os.environ.get("MARKET_DATA_MAX_SYMBOLS", "1000"))
+    assets = assets[:max_symbols]
     symbols = [asset["symbol"] for asset in assets]
     metrics, source = get_daily_asset_metrics(symbols)
     if source != "alpaca" or not metrics:

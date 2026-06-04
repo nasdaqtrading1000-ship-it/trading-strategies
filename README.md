@@ -186,6 +186,12 @@ ALPACA_SECRET_KEY=tu_secret_key
 
 El job `update_market_data.py` usa esas variables para guardar snapshots en PostgreSQL. La web lee esos snapshots desde la opcion `Base actualizada`.
 
+Por defecto se valoran hasta 1000 simbolos por ejecucion para evitar limites de API y tiempos largos en Render. Puedes cambiarlo con:
+
+```text
+MARKET_DATA_MAX_SYMBOLS=1000
+```
+
 En Render, el cron del `render.yaml` queda programado en UTC:
 
 ```text

@@ -96,10 +96,29 @@ def metric_value(metric, key, fallback=0):
 def update_market_data():
     assets = load_universe_assets()
     max_symbols = int(os.environ.get("MARKET_DATA_MAX_SYMBOLS", "1000"))
-    assets = assets[:max_symbols]
+    total_universe = len(assets)
+    if not assets:
+        return {
+            "ok": False,
+            "message": "No hay universo de activos cargado.",
+            "loaded_assets": 0,
+            "source": "database",
+            "last_error": "Pulsa primero Actualizar CSV.",
+        }
+
+    with engine.begin() as connection:
+        ensure_update_state_table(connection)
+        batch_offset = get_batch_offset(connection, total_universe)
+
+    assets = select_asset_batch(assets, batch_offset, max_symbols)
     symbols = [asset["symbol"] for asset in assets]
     metrics, source, diagnostics = get_daily_asset_metrics(symbols)
     diagnostics["loaded_assets"] = len(assets)
+    diagnostics["total_universe"] = total_universe
+    diagnostics["batch_offset"] = batch_offset
+    diagnostics["next_batch_offset"] = next_batch_offset(
+        batch_offset, max_symbols, total_universe
+    )
     diagnostics["source"] = source
     if source != "alpaca" or not metrics:
         print("No se pudo actualizar desde Alpaca. Revisa claves o plan de datos.")
@@ -223,6 +242,7 @@ def update_market_data():
                     ),
                     row,
                 )
+        set_batch_offset(connection, diagnostics["next_batch_offset"])
 
     print(f"Snapshots actualizados: {len(rows)}")
     return {
@@ -231,6 +251,67 @@ def update_market_data():
         "saved_rows": len(rows),
         **diagnostics,
     }
+
+
+def ensure_update_state_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS market_update_state (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
+            )
+            """
+        )
+    )
+
+
+def get_batch_offset(connection, total_universe):
+    row = connection.execute(
+        text("SELECT value FROM market_update_state WHERE key = 'batch_offset'")
+    ).fetchone()
+    if not row or total_universe <= 0:
+        return 0
+    return int(row[0]) % total_universe
+
+
+def set_batch_offset(connection, offset):
+    if engine.dialect.name == "postgresql":
+        connection.execute(
+            text(
+                """
+                INSERT INTO market_update_state (key, value)
+                VALUES ('batch_offset', :offset)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                """
+            ),
+            {"offset": offset},
+        )
+    else:
+        connection.execute(
+            text(
+                """
+                INSERT OR REPLACE INTO market_update_state (key, value)
+                VALUES ('batch_offset', :offset)
+                """
+            ),
+            {"offset": offset},
+        )
+
+
+def select_asset_batch(assets, offset, limit):
+    if limit >= len(assets):
+        return assets
+    end = offset + limit
+    if end <= len(assets):
+        return assets[offset:end]
+    return assets[offset:] + assets[: end - len(assets)]
+
+
+def next_batch_offset(offset, limit, total):
+    if total <= 0:
+        return 0
+    return (offset + limit) % total
 
 
 if __name__ == "__main__":

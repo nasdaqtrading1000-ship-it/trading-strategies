@@ -199,6 +199,17 @@ Por defecto se valoran hasta 1000 simbolos por ejecucion para evitar limites de 
 MARKET_DATA_MAX_SYMBOLS=1000
 ```
 
+La actualizacion de mercado va por tandas rotatorias. Si el universo tiene 8666 activos y `MARKET_DATA_MAX_SYMBOLS=1000`, cada ejecucion valora una tanda distinta:
+
+```text
+0-999
+1000-1999
+2000-2999
+...
+```
+
+El panel admin muestra `Inicio tanda` y `Siguiente tanda`.
+
 En Render, el cron del `render.yaml` queda programado en UTC:
 
 ```text

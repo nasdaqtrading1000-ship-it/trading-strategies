@@ -47,7 +47,6 @@ html {
 .admin-table,
 .empty-state,
 .risk-notice,
-.process-item,
 .filter-panel,
 .scanner-summary,
 .scanner-table {
@@ -76,33 +75,6 @@ html {
 
 .hero-metrics strong {
   font-size: 1.4rem;
-}
-
-.process-band {
-  border-bottom: 1px solid var(--panel-border);
-}
-
-.process-item {
-  height: 100%;
-  padding: 1.15rem;
-}
-
-.process-item span {
-  color: var(--cyan);
-  display: block;
-  font-weight: 800;
-  margin-bottom: 0.55rem;
-}
-
-.process-item strong {
-  display: block;
-  font-size: 1.05rem;
-  margin-bottom: 0.3rem;
-}
-
-.process-item p {
-  color: var(--muted);
-  margin: 0;
 }
 
 .section-heading {

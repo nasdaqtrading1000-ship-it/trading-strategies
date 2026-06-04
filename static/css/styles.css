@@ -3,6 +3,8 @@
   --panel-bg: #101722;
   --panel-border: rgba(255, 255, 255, 0.1);
   --muted: #9aa7b7;
+  --cyan: #0dcaf0;
+  --green: #7ddf96;
 }
 
 body {
@@ -11,6 +13,10 @@ body {
     radial-gradient(circle at top left, rgba(13, 202, 240, 0.14), transparent 32rem),
     linear-gradient(180deg, #090d12 0%, #0c1118 48%, #090d12 100%);
   color: #f5f7fb;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 .app-navbar {
@@ -22,21 +28,96 @@ body {
   border-bottom: 1px solid var(--panel-border);
 }
 
+.hero-section .display-5 {
+  max-width: 820px;
+}
+
+.eyebrow {
+  color: var(--cyan);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .stats-panel,
 .strategy-card,
 .login-panel,
 .form-panel,
 .admin-table,
-.empty-state {
+.empty-state,
+.risk-notice,
+.process-item {
   background: rgba(16, 23, 34, 0.9);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
 }
 
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.hero-metrics div {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.75rem;
+}
+
+.hero-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.hero-metrics strong {
+  font-size: 1.4rem;
+}
+
+.process-band {
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.process-item {
+  height: 100%;
+  padding: 1.15rem;
+}
+
+.process-item span {
+  color: var(--cyan);
+  display: block;
+  font-weight: 800;
+  margin-bottom: 0.55rem;
+}
+
+.process-item strong {
+  display: block;
+  font-size: 1.05rem;
+  margin-bottom: 0.3rem;
+}
+
+.process-item p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+}
+
 .strategy-card {
   display: flex;
   flex-direction: column;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.strategy-card:hover {
+  border-color: rgba(13, 202, 240, 0.4);
+  transform: translateY(-3px);
 }
 
 .strategy-card .btn {
@@ -86,6 +167,10 @@ body {
   border: 1px solid rgba(220, 53, 69, 0.45);
 }
 
+.risk-notice {
+  border-color: rgba(255, 193, 7, 0.28);
+}
+
 .login-panel {
   max-width: 480px;
 }
@@ -110,6 +195,11 @@ body {
   --bs-table-bg: transparent;
 }
 
+.site-footer {
+  border-top: 1px solid var(--panel-border);
+  background: rgba(9, 13, 18, 0.9);
+}
+
 @media (max-width: 575.98px) {
   .display-5 {
     font-size: 2.15rem;
@@ -122,5 +212,13 @@ body {
   .strategy-meta dd {
     text-align: left;
     margin-top: 0.2rem;
+  }
+
+  .section-heading {
+    display: block;
+  }
+
+  .hero-metrics {
+    grid-template-columns: 1fr;
   }
 }

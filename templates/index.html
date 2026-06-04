@@ -5,23 +5,77 @@
 {% block content %}
 <section class="hero-section">
   <div class="container py-5">
-    <div class="row align-items-end gy-4">
+    <div class="row align-items-center gy-4">
       <div class="col-lg-8">
-        <p class="text-info fw-semibold mb-2">Estrategias activas</p>
-        <h1 class="display-5 fw-bold mb-3">Canales de trading con enfoque, riesgo y seguimiento claros.</h1>
-        <p class="lead text-secondary mb-0">Explora estrategias, compara su perfil y unete al canal que mejor encaje con tu operativa.</p>
+        <p class="eyebrow mb-3">Estrategias activas para Telegram</p>
+        <h1 class="display-5 fw-bold mb-3">Senales organizadas por riesgo, frecuencia y estilo operativo.</h1>
+        <p class="lead text-secondary mb-4">Compara cada estrategia, revisa su enfoque y accede al canal correspondiente desde un unico panel profesional.</p>
+        <div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-info btn-lg fw-semibold" href="#estrategias">Ver estrategias</a>
+          <a class="btn btn-outline-light btn-lg" href="#riesgo">Aviso de riesgo</a>
+        </div>
       </div>
       <div class="col-lg-4">
         <div class="stats-panel p-4">
-          <span class="d-block text-secondary small">Estrategias disponibles</span>
+          <span class="d-block text-secondary small">Canales disponibles</span>
           <strong class="display-6">{{ strategies|length }}</strong>
+          <div class="hero-metrics mt-4">
+            <div>
+              <span>Bajo</span>
+              <strong>{{ strategies|selectattr("risk_level", "equalto", "Bajo")|list|length }}</strong>
+            </div>
+            <div>
+              <span>Medio</span>
+              <strong>{{ strategies|selectattr("risk_level", "equalto", "Medio")|list|length }}</strong>
+            </div>
+            <div>
+              <span>Alto</span>
+              <strong>{{ strategies|selectattr("risk_level", "equalto", "Alto")|list|length }}</strong>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="container py-5">
+<section class="process-band py-4">
+  <div class="container">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="process-item">
+          <span>01</span>
+          <strong>Elige perfil</strong>
+          <p>Selecciona una estrategia acorde a tu tolerancia al riesgo.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="process-item">
+          <span>02</span>
+          <strong>Entra al canal</strong>
+          <p>Accede al Telegram asignado a esa operativa concreta.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="process-item">
+          <span>03</span>
+          <strong>Gestiona riesgo</strong>
+          <p>Usa siempre tamano de posicion, stop y criterio propio.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="estrategias" class="container py-5">
+  <div class="section-heading mb-4">
+    <div>
+      <p class="eyebrow mb-2">Listado</p>
+      <h2 class="h1 fw-bold mb-0">Estrategias disponibles</h2>
+    </div>
+    <p class="text-secondary mb-0">Los datos historicos son editables desde el panel admin.</p>
+  </div>
+
   {% if strategies %}
     <div class="row g-4">
       {% for strategy in strategies %}
@@ -43,7 +97,7 @@
               </div>
             </dl>
             <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
-              Unirme al Telegram
+              Acceder al canal
             </a>
           </article>
         </div>
@@ -55,5 +109,15 @@
       <p class="text-secondary mb-0">Vuelve pronto o activa alguna estrategia desde el panel de administracion.</p>
     </div>
   {% endif %}
+</section>
+
+<section id="riesgo" class="container pb-5">
+  <div class="risk-notice p-4">
+    <div>
+      <p class="eyebrow mb-2">Aviso importante</p>
+      <h2 class="h4 mb-2">La informacion no es asesoramiento financiero.</h2>
+      <p class="text-secondary mb-0">Toda operativa de trading puede implicar perdidas. Revisa cada senal, adapta el riesgo a tu capital y no operes dinero que no puedas permitirte perder.</p>
+    </div>
+  </div>
 </section>
 {% endblock %}

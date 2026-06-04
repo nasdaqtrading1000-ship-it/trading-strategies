@@ -13,7 +13,7 @@
       <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_dashboard') }}">Volver</a>
     </div>
 
-    <form method="post" class="row g-3">
+    <form method="post" class="row g-3 guarded-form">
       <div class="col-md-8">
         <label class="form-label" for="name">Nombre</label>
         <input class="form-control" id="name" name="name" value="{{ strategy.name if strategy else '' }}" required>
@@ -55,4 +55,27 @@
     </form>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const guardedForm = document.querySelector(".guarded-form");
+  if (guardedForm) {
+    let changed = false;
+    guardedForm.addEventListener("input", () => {
+      changed = true;
+    });
+    guardedForm.addEventListener("change", () => {
+      changed = true;
+    });
+    guardedForm.addEventListener("submit", () => {
+      changed = false;
+    });
+    window.addEventListener("beforeunload", (event) => {
+      if (!changed) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+  }
+</script>
 {% endblock %}

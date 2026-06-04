@@ -44,6 +44,34 @@ def database_status():
     }
 
 
+DEMO_ASSETS = [
+    {"symbol": "NVDA", "name": "NVIDIA Corp.", "sector": "Tecnologia", "money_volume": 8600000000, "day_volume": 4.9, "week_volume": 4.7, "price": 125.61},
+    {"symbol": "AAPL", "name": "Apple Inc.", "sector": "Tecnologia", "money_volume": 7200000000, "day_volume": 4.1, "week_volume": 4.3, "price": 196.45},
+    {"symbol": "MSFT", "name": "Microsoft Corp.", "sector": "Tecnologia", "money_volume": 6800000000, "day_volume": 3.8, "week_volume": 4.0, "price": 442.57},
+    {"symbol": "AMZN", "name": "Amazon.com Inc.", "sector": "Consumo", "money_volume": 5100000000, "day_volume": 3.5, "week_volume": 3.7, "price": 184.26},
+    {"symbol": "TSLA", "name": "Tesla Inc.", "sector": "Consumo", "money_volume": 4900000000, "day_volume": 5.0, "week_volume": 4.8, "price": 177.29},
+    {"symbol": "META", "name": "Meta Platforms", "sector": "Comunicacion", "money_volume": 4300000000, "day_volume": 3.1, "week_volume": 3.4, "price": 503.24},
+    {"symbol": "GOOGL", "name": "Alphabet Inc.", "sector": "Comunicacion", "money_volume": 3900000000, "day_volume": 2.9, "week_volume": 3.2, "price": 176.73},
+    {"symbol": "JPM", "name": "JPMorgan Chase", "sector": "Financiero", "money_volume": 2200000000, "day_volume": 2.2, "week_volume": 2.5, "price": 199.68},
+    {"symbol": "XOM", "name": "Exxon Mobil", "sector": "Energia", "money_volume": 1800000000, "day_volume": 1.9, "week_volume": 2.1, "price": 114.12},
+    {"symbol": "LLY", "name": "Eli Lilly", "sector": "Salud", "money_volume": 1700000000, "day_volume": 2.4, "week_volume": 2.2, "price": 807.43},
+    {"symbol": "AVGO", "name": "Broadcom Inc.", "sector": "Tecnologia", "money_volume": 3100000000, "day_volume": 3.3, "week_volume": 3.1, "price": 142.88},
+    {"symbol": "AMD", "name": "Advanced Micro Devices", "sector": "Tecnologia", "money_volume": 2900000000, "day_volume": 4.4, "week_volume": 4.0, "price": 158.32},
+]
+
+
+def filter_assets(filters):
+    assets = DEMO_ASSETS
+    sector = filters["sector"]
+    if sector != "Todos":
+        assets = [asset for asset in assets if asset["sector"] == sector]
+
+    min_volume = filters["min_money_volume"] * 1_000_000
+    assets = [asset for asset in assets if asset["money_volume"] >= min_volume]
+    assets = sorted(assets, key=lambda asset: asset["money_volume"], reverse=True)
+    return assets[: filters["limit"]]
+
+
 def create_app():
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-this-secret-key")
@@ -85,6 +113,25 @@ def create_app():
             )
         ).mappings().fetchall()
         return render_template("index.html", strategies=strategies)
+
+    @app.route("/filtrado-activos")
+    def asset_filter():
+        filters = {
+            "month_window": int(request.args.get("month_window", 1)),
+            "min_money_volume": int(request.args.get("min_money_volume", 500)),
+            "day_volume_window": int(request.args.get("day_volume_window", 1)),
+            "week_volume_window": int(request.args.get("week_volume_window", 1)),
+            "limit": int(request.args.get("limit", 10)),
+            "sector": request.args.get("sector", "Todos"),
+        }
+        sectors = ["Todos"] + sorted({asset["sector"] for asset in DEMO_ASSETS})
+        results = filter_assets(filters)
+        return render_template(
+            "asset_filter.html",
+            filters=filters,
+            results=results,
+            sectors=sectors,
+        )
 
     @app.route("/admin/login", methods=["GET", "POST"])
     def login():

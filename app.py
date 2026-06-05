@@ -3,6 +3,7 @@ from hmac import compare_digest
 from functools import wraps
 from uuid import uuid4
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from flask import (
     abort,
@@ -33,6 +34,10 @@ from market_scanner import (
 )
 from update_market_data import update_market_data
 from update_assets import build_assets_from_alpaca, write_assets
+
+
+BASE_DIR = Path(__file__).resolve().parent
+DEFAULT_SIGNALS_DIR = (BASE_DIR / "Estrategias" / "salidas_txt").resolve()
 
 
 def database_status():
@@ -114,17 +119,21 @@ def create_app():
 
     @app.route("/")
     def index():
-        strategies = g.db.execute(
+        rows = g.db.execute(
             text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, is_active
+                   historical_return, telegram_url, signals_txt_name, is_active
             FROM strategies
             WHERE is_active = 1
             ORDER BY created_at DESC
             """
             )
         ).mappings().fetchall()
+        strategies = [
+            strategy_with_signals(row)
+            for row in rows
+        ]
         community_url = os.environ.get("COMMUNITY_URL")
         if not community_url and strategies:
             community_url = strategies[0]["telegram_url"]
@@ -223,7 +232,7 @@ def create_app():
             text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, is_active, created_at
+                   historical_return, telegram_url, signals_txt_name, is_active, created_at
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
@@ -333,6 +342,7 @@ def create_app():
         signal_frequency = request.form.get("signal_frequency", "").strip()
         historical_return = request.form.get("historical_return", "").strip()
         telegram_url = request.form.get("telegram_url", "").strip()
+        signals_txt_name = request.form.get("signals_txt_name", "").strip()
         is_active = 1 if request.form.get("is_active") == "on" else 0
 
         errors = []
@@ -344,6 +354,8 @@ def create_app():
             ("https://t.me/", "http://t.me/", "https://telegram.me/")
         ):
             errors.append("Usa un enlace valido de Telegram.")
+        if signals_txt_name and not valid_txt_name(signals_txt_name):
+            errors.append("El nombre del TXT debe ser un archivo .txt sin carpetas.")
 
         form_strategy = {
             "id": strategy_id,
@@ -353,6 +365,7 @@ def create_app():
             "signal_frequency": signal_frequency,
             "historical_return": historical_return,
             "telegram_url": telegram_url,
+            "signals_txt_name": signals_txt_name,
             "is_active": is_active,
         }
 
@@ -378,7 +391,9 @@ def create_app():
                 SET name = :name, description = :description, risk_level = :risk_level,
                     signal_frequency = :signal_frequency,
                     historical_return = :historical_return,
-                    telegram_url = :telegram_url, is_active = :is_active
+                    telegram_url = :telegram_url,
+                    signals_txt_name = :signals_txt_name,
+                    is_active = :is_active
                 WHERE id = :id
                 """,
                 ),
@@ -389,6 +404,7 @@ def create_app():
                     "signal_frequency": signal_frequency,
                     "historical_return": historical_return,
                     "telegram_url": telegram_url,
+                    "signals_txt_name": signals_txt_name,
                     "is_active": is_active,
                     "id": strategy_id,
                 },
@@ -400,9 +416,9 @@ def create_app():
                 """
                 INSERT INTO strategies
                 (name, description, risk_level, signal_frequency,
-                 historical_return, telegram_url, is_active)
+                 historical_return, telegram_url, signals_txt_name, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
-                        :historical_return, :telegram_url, :is_active)
+                        :historical_return, :telegram_url, :signals_txt_name, :is_active)
                 """,
                 ),
                 {
@@ -412,6 +428,7 @@ def create_app():
                     "signal_frequency": signal_frequency,
                     "historical_return": historical_return,
                     "telegram_url": telegram_url,
+                    "signals_txt_name": signals_txt_name,
                     "is_active": is_active,
                 },
             )
@@ -460,6 +477,42 @@ def create_app():
             {"cutoff": cutoff},
         ).scalar_one()
 
+    def strategy_with_signals(row):
+        strategy = dict(row)
+        signals = read_strategy_signals(strategy.get("signals_txt_name", ""))
+        strategy["signals"] = signals
+        strategy["signals_count"] = len(signals)
+        return strategy
+
+    def read_strategy_signals(txt_name):
+        if not txt_name or not valid_txt_name(txt_name):
+            return []
+
+        signals_dir = Path(os.environ.get("STRATEGY_SIGNALS_DIR", DEFAULT_SIGNALS_DIR))
+        path = (signals_dir / txt_name).resolve()
+
+        try:
+            if signals_dir.resolve() not in path.parents and path != signals_dir.resolve():
+                return []
+            if not path.exists() or not path.is_file():
+                return []
+            return [
+                line.strip()
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ][:50]
+        except OSError:
+            return []
+
+    def valid_txt_name(txt_name):
+        path = Path(txt_name)
+        return (
+            path.name == txt_name
+            and txt_name.lower().endswith(".txt")
+            and "/" not in txt_name
+            and "\\" not in txt_name
+        )
+
     return app
 
 
@@ -481,6 +534,7 @@ def init_db():
                     signal_frequency TEXT NOT NULL DEFAULT '',
                     historical_return TEXT NOT NULL DEFAULT '',
                     telegram_url TEXT NOT NULL DEFAULT '',
+                    signals_txt_name TEXT NOT NULL DEFAULT '',
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -488,6 +542,7 @@ def init_db():
             )
         )
         ensure_universe_table(connection)
+        add_strategy_column(connection, "signals_txt_name")
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
         if count == 0:
@@ -602,6 +657,35 @@ def add_asset_snapshot_column(connection, column_name):
             f"ALTER TABLE asset_snapshots ADD COLUMN {column_name} FLOAT NOT NULL DEFAULT 0"
         )
     )
+
+
+def add_strategy_column(connection, column_name):
+    if strategy_column_exists(connection, column_name):
+        return
+    connection.execute(
+        text(
+            f"ALTER TABLE strategies ADD COLUMN {column_name} TEXT NOT NULL DEFAULT ''"
+        )
+    )
+
+
+def strategy_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = 'strategies'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        )
+        return result.scalar_one() > 0
+
+    rows = connection.execute(text("PRAGMA table_info(strategies)")).fetchall()
+    return any(row[1] == column_name for row in rows)
 
 
 def asset_snapshot_column_exists(connection, column_name):

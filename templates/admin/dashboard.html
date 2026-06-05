@@ -45,6 +45,9 @@
               <td>
                 <strong>{{ strategy.name }}</strong>
                 <span class="d-block text-secondary small">{{ strategy.telegram_url }}</span>
+                {% if strategy.signals_txt_name %}
+                  <span class="d-block text-info small">TXT: {{ strategy.signals_txt_name }}</span>
+                {% endif %}
               </td>
               <td><span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span></td>
               <td>{{ strategy.signal_frequency }}</td>

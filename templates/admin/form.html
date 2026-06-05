@@ -43,6 +43,11 @@
         <input class="form-control" id="telegram_url" name="telegram_url" value="{{ strategy.telegram_url if strategy else '' }}" placeholder="https://t.me/tu_canal" required>
       </div>
       <div class="col-12">
+        <label class="form-label" for="signals_txt_name">Nombre del TXT de avisos</label>
+        <input class="form-control" id="signals_txt_name" name="signals_txt_name" value="{{ strategy.signals_txt_name if strategy else '' }}" placeholder="Momentum.txt">
+        <div class="form-text">Solo el nombre del archivo, por ejemplo Momentum.txt o Gap_and_Go.txt.</div>
+      </div>
+      <div class="col-12">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" {% if not strategy or strategy.is_active %}checked{% endif %}>
           <label class="form-check-label" for="is_active">Estrategia activa</label>

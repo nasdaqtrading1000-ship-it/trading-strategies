@@ -1,0 +1,3 @@
+SHORT | FIX | Precio: 1872.70 | Momentum 15m: -1.05% | VWAP: 1894.32 | Vol xMedia: 4.33 | Stop: 1894.32 | TP1: 1840.28 | TP2: 1818.66 | Score: 2.21
+SHORT | NBIS | Precio: 224.40 | Momentum 15m: -1.15% | VWAP: 234.84 | Vol xMedia: 2.17 | Stop: 229.19 | TP1: 217.22 | TP2: 212.43 | Score: 2.00
+SHORT | P | Precio: 73.56 | Momentum 15m: -1.30% | VWAP: 75.13 | Vol xMedia: 2.73 | Stop: 74.72 | TP1: 71.82 | TP2: 70.66 | Score: 1.92

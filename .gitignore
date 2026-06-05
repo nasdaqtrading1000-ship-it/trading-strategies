@@ -5,6 +5,8 @@ __pycache__/
 *.pyd
 .Python
 .env
+Estrategias/.env
+Estrategias/sent_signals.json
 strategies.db
 instance/
 .pytest_cache/

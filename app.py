@@ -988,22 +988,37 @@ def create_app():
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
         strategy["signals_updated_at"] = strategy_signals_updated_at(txt_name)
-        strategy["run_status"] = strategy_run_status(strategy.get("name", ""))
+        strategy["run_status"] = strategy_run_status(strategy.get("name", ""), txt_name)
         return strategy
 
-    def strategy_run_status(strategy_name):
+    def strategy_run_status(strategy_name, txt_name):
         data = load_strategy_status_data()
         item = data.get("strategies", {}).get(strategy_name)
+        txt_updated_at = strategy_signals_updated_at_datetime(txt_name)
+        txt_status = status_from_txt_update(txt_updated_at)
         if not item:
-            return {
+            return txt_status or {
                 "ok": False,
+                "running": False,
                 "label": "No ejecutado",
                 "ran_at": "",
-                "error": "Todavia no hay registro de ejecucion para esta estrategia.",
+                "error": "Todavia no hay registro de ejecucion ni TXT actualizado para esta estrategia.",
             }
 
         ran_at = format_status_datetime(item.get("ran_at", ""))
+        ran_at_datetime = parse_status_datetime(item.get("ran_at", ""))
+        if txt_updated_after_status(txt_updated_at, ran_at_datetime):
+            return txt_status
+
         if item.get("running"):
+            if running_status_is_stale(ran_at_datetime):
+                return txt_status or {
+                    "ok": False,
+                    "running": False,
+                    "label": "Fallo",
+                    "ran_at": ran_at,
+                    "error": "La ejecucion quedo marcada como RUNNING y supero el tiempo maximo sin cerrar correctamente.",
+                }
             return {
                 "ok": False,
                 "running": True,
@@ -1026,6 +1041,28 @@ def create_app():
             "ran_at": ran_at,
             "error": item.get("error", "") or "La estrategia termino con error.",
         }
+
+    def status_from_txt_update(updated_at):
+        if updated_at is None:
+            return None
+        return {
+            "ok": True,
+            "running": False,
+            "label": "Correcto",
+            "ran_at": updated_at.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M"),
+            "error": "",
+        }
+
+    def txt_updated_after_status(txt_updated_at, status_at):
+        if txt_updated_at is None or status_at is None:
+            return False
+        return txt_updated_at > status_at
+
+    def running_status_is_stale(started_at):
+        if started_at is None:
+            return True
+        timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
+        return datetime.now(UTC) - started_at.astimezone(UTC) > timedelta(seconds=timeout_seconds)
 
     def load_strategy_status_data():
         status_path = Path(
@@ -1062,22 +1099,50 @@ def create_app():
     def format_status_datetime(value):
         if not value:
             return ""
+        parsed = parse_status_datetime(value)
+        if parsed is None:
+            return value
+        return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
+
+    def parse_status_datetime(value):
         try:
             parsed = datetime.fromisoformat(str(value))
-        except ValueError:
-            return value
+        except (TypeError, ValueError):
+            return None
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=UTC)
-        return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
+        return parsed
 
     def mark_strategies_as_running():
         mark_strategies_as_running_file()
 
     def load_automation_schedules():
+        expire_stale_running_schedules()
         rows = g.db.execute(
             text("SELECT * FROM automation_schedules ORDER BY task_name")
         ).mappings().fetchall()
         return {row["task_name"]: row for row in rows}
+
+    def expire_stale_running_schedules():
+        timeout_minutes = int(os.environ.get("AUTOMATION_RUNNING_TIMEOUT_MINUTES", "120"))
+        cutoff = datetime.now(MADRID_TZ).replace(tzinfo=None) - timedelta(minutes=timeout_minutes)
+        g.db.execute(
+            text(
+                """
+                UPDATE automation_schedules
+                SET last_status = 'ERROR',
+                    last_message = :message
+                WHERE last_status = 'RUNNING'
+                  AND last_run_at IS NOT NULL
+                  AND last_run_at < :cutoff
+                """
+            ),
+            {
+                "message": "La tarea quedo en RUNNING y supero el tiempo maximo sin cerrar correctamente.",
+                "cutoff": cutoff,
+            },
+        )
+        g.db.commit()
 
     def parse_schedule_int(value, default, minimum, maximum):
         try:
@@ -1274,15 +1339,20 @@ Devuelve 4 bloques cortos:
 """.strip()
 
     def strategy_signals_updated_at(txt_name):
-        path = strategy_signals_path(txt_name)
-        if path is None:
-            return ""
-
-        try:
-            updated_at = datetime.fromtimestamp(path.stat().st_mtime, UTC)
-        except OSError:
+        updated_at = strategy_signals_updated_at_datetime(txt_name)
+        if updated_at is None:
             return ""
         return updated_at.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
+
+    def strategy_signals_updated_at_datetime(txt_name):
+        path = strategy_signals_path(txt_name)
+        if path is None:
+            return None
+
+        try:
+            return datetime.fromtimestamp(path.stat().st_mtime, UTC)
+        except OSError:
+            return None
 
     def strategy_signals_path(txt_name):
         if not txt_name or not valid_txt_name(txt_name):

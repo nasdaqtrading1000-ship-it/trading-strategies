@@ -247,13 +247,34 @@ def run_scheduler_task(task_name):
         if not STRATEGIES_RUNNER.exists():
             return {"ok": False, "message": "No se encontro run_all_strategies.py."}
         mark_strategies_as_running_file()
-        subprocess.Popen(
-            [sys.executable, str(STRATEGIES_RUNNER)],
-            cwd=str(STRATEGIES_RUNNER.parent),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(STRATEGIES_RUNNER)],
+                cwd=str(STRATEGIES_RUNNER.parent),
+                text=True,
+                capture_output=True,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                "ok": False,
+                "message": f"Estrategias canceladas por superar {timeout_seconds} segundos.",
+            }
+        output = "\n".join(
+            part.strip()
+            for part in [completed.stdout, completed.stderr]
+            if part and part.strip()
         )
-        return {"ok": True, "message": "Estrategias lanzadas en segundo plano."}
+        if completed.returncode == 0:
+            return {
+                "ok": True,
+                "message": "Estrategias finalizadas correctamente.",
+            }
+        return {
+            "ok": False,
+            "message": f"Estrategias con error. Codigo {completed.returncode}. {output[-700:]}",
+        }
 
     return {"ok": False, "message": "Tarea no reconocida."}
 
@@ -329,6 +350,7 @@ def process_due_schedules():
         due_key = due_schedule_key(schedule, now)
         if not due_key or due_key == schedule["last_run_key"]:
             continue
+        record_schedule_running(schedule["task_name"], due_key, now)
         result = run_scheduler_task(schedule["task_name"])
         record_schedule_result(schedule["task_name"], due_key, result, now)
 
@@ -355,6 +377,40 @@ def record_schedule_result(task_name, run_key, result, now=None):
                 "task_name": task_name,
             },
         )
+
+
+def record_schedule_running(task_name, run_key, now=None):
+    now = now or datetime.now(MADRID_TZ)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE automation_schedules
+                SET last_run_key = :last_run_key,
+                    last_run_at = :last_run_at,
+                    last_status = 'RUNNING',
+                    last_message = 'En ejecucion'
+                WHERE task_name = :task_name
+                """
+            ),
+            {
+                "last_run_key": run_key,
+                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "task_name": task_name,
+            },
+        )
+
+
+def launch_scheduler_task_in_background(task_name, run_key):
+    def worker():
+        try:
+            result = run_scheduler_task(task_name)
+        except Exception as error:
+            result = {"ok": False, "message": f"Error ejecutando tarea: {error}"}
+        record_schedule_result(task_name, run_key, result)
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
 
 
 def due_schedule_key(schedule, now):
@@ -653,19 +709,10 @@ def create_app():
             flash("No se encontro Estrategias/run_all_strategies.py.", "danger")
             return redirect(url_for("admin_dashboard"))
 
-        mark_strategies_as_running()
-        try:
-            subprocess.Popen(
-                [sys.executable, str(STRATEGIES_RUNNER)],
-                cwd=str(STRATEGIES_RUNNER.parent),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except OSError as error:
-            flash(f"No se pudo lanzar el ejecutor de estrategias: {error}", "danger")
-            return redirect(url_for("admin_dashboard"))
-
-        flash("Ejecucion de estrategias lanzada. La web ira actualizando el estado cuando termine.", "info")
+        run_key = f"manual|strategies|{datetime.now(MADRID_TZ).isoformat()}"
+        record_schedule_running("strategies", run_key)
+        launch_scheduler_task_in_background("strategies", run_key)
+        flash("Ejecucion de estrategias lanzada. El estado cambiara a OK o ERROR cuando termine.", "info")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/schedules/update", methods=["POST"])
@@ -724,13 +771,10 @@ def create_app():
     def admin_schedule_run_now(task_name):
         if task_name not in SCHEDULER_TASKS:
             abort(404)
-        result = run_scheduler_task(task_name)
         run_key = f"manual|{task_name}|{datetime.now(MADRID_TZ).isoformat()}"
-        record_schedule_result(task_name, run_key, result)
-        if result["ok"]:
-            flash(f"{SCHEDULER_TASKS[task_name]} lanzado correctamente. {result['message']}", "success")
-        else:
-            flash(f"{SCHEDULER_TASKS[task_name]} fallo. {result['message']}", "danger")
+        record_schedule_running(task_name, run_key)
+        launch_scheduler_task_in_background(task_name, run_key)
+        flash(f"{SCHEDULER_TASKS[task_name]} lanzado. El panel cambiara a OK o ERROR cuando termine.", "info")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])

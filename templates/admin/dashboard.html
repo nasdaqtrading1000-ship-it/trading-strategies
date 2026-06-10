@@ -75,7 +75,7 @@
                 </td>
                 <td>
                   {% if schedule and schedule.last_run_at %}
-                    <span class="badge {% if schedule.last_status == 'OK' %}text-bg-success{% else %}text-bg-danger{% endif %}">{{ schedule.last_status }}</span>
+                    <span class="badge {% if schedule.last_status == 'OK' %}text-bg-success{% elif schedule.last_status == 'RUNNING' %}text-bg-warning{% else %}text-bg-danger{% endif %}">{{ schedule.last_status }}</span>
                     <span class="d-block text-secondary small">{{ schedule.last_run_at }}</span>
                   {% else %}
                     <span class="text-secondary small">Sin ejecuciones</span>

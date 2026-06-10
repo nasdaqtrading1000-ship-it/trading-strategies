@@ -103,6 +103,43 @@
     </form>
   </div>
 
+  <div class="form-panel p-4 mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+      <div>
+        <h2 class="h5 mb-1">Fallos de estrategias</h2>
+        <p class="text-secondary small mb-0">Ultimos fallos detectados por el ejecutor. Puedes copiarlos y pegarlos aqui.</p>
+      </div>
+      <span class="badge {% if strategy_failures %}text-bg-danger{% else %}text-bg-success{% endif %} align-self-start">
+        {{ strategy_failures|length }} fallos
+      </span>
+    </div>
+    {% if strategy_failures %}
+      <div class="row g-3">
+        {% for failure in strategy_failures %}
+          <div class="col-lg-6">
+            <div class="failure-box">
+              <div class="d-flex justify-content-between gap-2 mb-2">
+                <strong>{{ failure.name }}</strong>
+                <span class="badge text-bg-danger">Fallo</span>
+              </div>
+              <p class="text-secondary small mb-2">
+                PY: {{ failure.file or "No indicado" }} · TXT: {{ failure.txt or "No indicado" }} · Hora: {{ failure.ran_at or "Sin hora" }}
+              </p>
+              <pre class="failure-pre mb-0">{{ failure.error }}</pre>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <label class="form-label mt-3">Bloque para copiar</label>
+      <textarea class="form-control failure-copy" rows="8" readonly>{% for failure in strategy_failures %}{{ failure.name }} | {{ failure.file }} | {{ failure.txt }} | {{ failure.ran_at }}
+{{ failure.error }}
+
+{% endfor %}</textarea>
+    {% else %}
+      <div class="alert alert-success mb-0">No hay fallos registrados en la ultima ejecucion.</div>
+    {% endif %}
+  </div>
+
   <div class="admin-table">
     <div class="table-responsive">
       <table class="table table-dark table-hover align-middle mb-0">

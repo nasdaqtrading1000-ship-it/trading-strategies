@@ -665,6 +665,7 @@ def create_app():
             schedules=load_automation_schedules(),
             scheduler_tasks=SCHEDULER_TASKS,
             weekdays=WEEKDAYS,
+            strategy_failures=load_strategy_failures(),
         )
 
     @app.route("/admin/system")
@@ -1033,6 +1034,25 @@ def create_app():
             return json.loads(status_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return {}
+
+    def load_strategy_failures():
+        data = load_strategy_status_data()
+        failures = []
+        for name, item in data.get("strategies", {}).items():
+            if item.get("running") or item.get("ok"):
+                continue
+            failures.append(
+                {
+                    "name": name,
+                    "file": item.get("file", ""),
+                    "txt": item.get("txt", ""),
+                    "ran_at": format_status_datetime(item.get("ran_at", "")),
+                    "returncode": item.get("returncode"),
+                    "error": item.get("error", "") or "Sin detalle de error.",
+                }
+            )
+        failures.sort(key=lambda item: item["name"])
+        return failures
 
     def format_status_datetime(value):
         if not value:

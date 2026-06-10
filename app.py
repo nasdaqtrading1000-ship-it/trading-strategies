@@ -1009,7 +1009,7 @@ def create_app():
             return {
                 "ok": True,
                 "running": False,
-                "label": "OK",
+                "label": "Correcto",
                 "ran_at": ran_at,
                 "error": "",
             }

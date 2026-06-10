@@ -15,7 +15,7 @@ from app import init_db, process_due_schedules  # noqa: E402
 
 def main():
     init_db()
-    process_due_schedules()
+    process_due_schedules(background=False)
     print("Revision de tareas programadas completada.")
 
 

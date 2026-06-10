@@ -332,7 +332,7 @@ def scheduler_loop():
         time.sleep(60)
 
 
-def process_due_schedules():
+def process_due_schedules(background=True):
     now = datetime.now(MADRID_TZ)
     with engine.begin() as connection:
         schedules = connection.execute(
@@ -351,7 +351,14 @@ def process_due_schedules():
         if not due_key or due_key == schedule["last_run_key"]:
             continue
         record_schedule_running(schedule["task_name"], due_key, now)
-        launch_scheduler_task_in_background(schedule["task_name"], due_key)
+        if background:
+            launch_scheduler_task_in_background(schedule["task_name"], due_key)
+        else:
+            try:
+                result = run_scheduler_task(schedule["task_name"])
+            except Exception as error:
+                result = {"ok": False, "message": f"Error ejecutando tarea: {error}"}
+            record_schedule_result(schedule["task_name"], due_key, result, now)
 
 
 def record_schedule_result(task_name, run_key, result, now=None):
@@ -707,19 +714,6 @@ def create_app():
         )
         return redirect(url_for("admin_dashboard"))
 
-    @app.route("/admin/strategies/run-all", methods=["POST"])
-    @login_required
-    def admin_run_all_strategies():
-        if not STRATEGIES_RUNNER.exists():
-            flash("No se encontro Estrategias/run_all_strategies.py.", "danger")
-            return redirect(url_for("admin_dashboard"))
-
-        run_key = f"manual|strategies|{datetime.now(MADRID_TZ).isoformat()}"
-        record_schedule_running("strategies", run_key)
-        launch_scheduler_task_in_background("strategies", run_key)
-        flash("Ejecucion de estrategias lanzada. El estado cambiara a OK o ERROR cuando termine.", "info")
-        return redirect(url_for("admin_dashboard"))
-
     @app.route("/admin/schedules/update", methods=["POST"])
     @login_required
     def admin_schedules_update():
@@ -778,8 +772,15 @@ def create_app():
             abort(404)
         run_key = f"manual|{task_name}|{datetime.now(MADRID_TZ).isoformat()}"
         record_schedule_running(task_name, run_key)
-        launch_scheduler_task_in_background(task_name, run_key)
-        flash(f"{SCHEDULER_TASKS[task_name]} lanzado. El panel cambiara a OK o ERROR cuando termine.", "info")
+        try:
+            result = run_scheduler_task(task_name)
+        except Exception as error:
+            result = {"ok": False, "message": f"Error ejecutando tarea: {error}"}
+        record_schedule_result(task_name, run_key, result)
+        if result["ok"]:
+            flash(f"{SCHEDULER_TASKS[task_name]} finalizado correctamente. {result['message']}", "success")
+        else:
+            flash(f"{SCHEDULER_TASKS[task_name]} fallo. {result['message']}", "danger")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])

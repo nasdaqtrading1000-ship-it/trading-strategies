@@ -351,8 +351,7 @@ def process_due_schedules():
         if not due_key or due_key == schedule["last_run_key"]:
             continue
         record_schedule_running(schedule["task_name"], due_key, now)
-        result = run_scheduler_task(schedule["task_name"])
-        record_schedule_result(schedule["task_name"], due_key, result, now)
+        launch_scheduler_task_in_background(schedule["task_name"], due_key)
 
 
 def record_schedule_result(task_name, run_key, result, now=None):
@@ -427,10 +426,15 @@ def due_schedule_key(schedule, now):
 
     start = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     grace_minutes = max(5, min(interval_minutes, 60))
+    latest_due_key = ""
     for index in range(runs_per_day):
         planned = start + timedelta(minutes=interval_minutes * index)
         if planned.date() == now.date() and planned <= now < planned + timedelta(minutes=grace_minutes):
             return f"{now.date().isoformat()}|{schedule['task_name']}|{index}"
+        if planned.date() == now.date() and planned <= now:
+            latest_due_key = f"{now.date().isoformat()}|{schedule['task_name']}|{index}"
+    if latest_due_key and schedule["last_run_key"] != latest_due_key:
+        return latest_due_key
     return ""
 
 

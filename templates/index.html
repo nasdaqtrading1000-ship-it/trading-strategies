@@ -92,6 +92,22 @@
                 <dt>Rentabilidad historica</dt>
                 <dd>{{ strategy.historical_return }}</dd>
               </div>
+              <div>
+                <dt>Ultima actualizacion</dt>
+                <dd>{{ strategy.signals_updated_at or "Sin actualizar" }}</dd>
+              </div>
+              <div>
+                <dt>Estado</dt>
+                <dd>
+                  <span class="status-pill {% if strategy.run_status.ok %}status-ok{% else %}status-error{% endif %}" {% if strategy.run_status.error %}title="{{ strategy.run_status.error }}"{% endif %}>
+                    <span class="status-dot"></span>
+                    {{ strategy.run_status.label }}
+                  </span>
+                  {% if strategy.run_status.ran_at %}
+                    <span class="status-time">{{ strategy.run_status.ran_at }}</span>
+                  {% endif %}
+                </dd>
+              </div>
             </dl>
             {% if strategy.signals_txt_name %}
               <button class="btn btn-outline-info w-100 fw-semibold mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#signals-{{ strategy.id }}" aria-expanded="false" aria-controls="signals-{{ strategy.id }}">

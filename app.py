@@ -1,3 +1,4 @@
+import json
 import os
 from hmac import compare_digest
 from functools import wraps
@@ -38,6 +39,7 @@ from update_assets import build_assets_from_alpaca, write_assets
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_SIGNALS_DIR = (BASE_DIR / "Estrategias" / "salidas_txt").resolve()
+DEFAULT_STRATEGY_STATUS_FILE = (BASE_DIR / "Estrategias" / "strategy_run_status.json").resolve()
 
 
 def database_status():
@@ -479,23 +481,67 @@ def create_app():
 
     def strategy_with_signals(row):
         strategy = dict(row)
-        signals = read_strategy_signals(strategy.get("signals_txt_name", ""))
+        txt_name = strategy.get("signals_txt_name", "")
+        signals = read_strategy_signals(txt_name)
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
+        strategy["signals_updated_at"] = strategy_signals_updated_at(txt_name)
+        strategy["run_status"] = strategy_run_status(strategy.get("name", ""))
         return strategy
 
+    def strategy_run_status(strategy_name):
+        data = load_strategy_status_data()
+        item = data.get("strategies", {}).get(strategy_name)
+        if not item:
+            return {
+                "ok": False,
+                "label": "No ejecutado",
+                "ran_at": "",
+                "error": "Todavia no hay registro de ejecucion para esta estrategia.",
+            }
+
+        ran_at = format_status_datetime(item.get("ran_at", ""))
+        if item.get("ok"):
+            return {
+                "ok": True,
+                "label": "OK",
+                "ran_at": ran_at,
+                "error": "",
+            }
+        return {
+            "ok": False,
+            "label": "Fallo",
+            "ran_at": ran_at,
+            "error": item.get("error", "") or "La estrategia termino con error.",
+        }
+
+    def load_strategy_status_data():
+        status_path = Path(
+            os.environ.get("STRATEGY_STATUS_FILE", DEFAULT_STRATEGY_STATUS_FILE)
+        ).resolve()
+        try:
+            if status_path != DEFAULT_STRATEGY_STATUS_FILE and BASE_DIR not in status_path.parents:
+                return {}
+            if not status_path.exists() or not status_path.is_file():
+                return {}
+            return json.loads(status_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def format_status_datetime(value):
+        if not value:
+            return ""
+        try:
+            return datetime.fromisoformat(value).strftime("%d/%m/%Y %H:%M")
+        except ValueError:
+            return value
+
     def read_strategy_signals(txt_name):
-        if not txt_name or not valid_txt_name(txt_name):
+        path = strategy_signals_path(txt_name)
+        if path is None:
             return []
 
-        signals_dir = Path(os.environ.get("STRATEGY_SIGNALS_DIR", DEFAULT_SIGNALS_DIR))
-        path = (signals_dir / txt_name).resolve()
-
         try:
-            if signals_dir.resolve() not in path.parents and path != signals_dir.resolve():
-                return []
-            if not path.exists() or not path.is_file():
-                return []
             return [
                 line.strip()
                 for line in path.read_text(encoding="utf-8").splitlines()
@@ -503,6 +549,33 @@ def create_app():
             ][:50]
         except OSError:
             return []
+
+    def strategy_signals_updated_at(txt_name):
+        path = strategy_signals_path(txt_name)
+        if path is None:
+            return ""
+
+        try:
+            updated_at = datetime.fromtimestamp(path.stat().st_mtime)
+        except OSError:
+            return ""
+        return updated_at.strftime("%d/%m/%Y %H:%M")
+
+    def strategy_signals_path(txt_name):
+        if not txt_name or not valid_txt_name(txt_name):
+            return None
+
+        signals_dir = Path(os.environ.get("STRATEGY_SIGNALS_DIR", DEFAULT_SIGNALS_DIR)).resolve()
+        path = (signals_dir / txt_name).resolve()
+
+        try:
+            if signals_dir not in path.parents and path != signals_dir:
+                return None
+            if not path.exists() or not path.is_file():
+                return None
+        except OSError:
+            return None
+        return path
 
     def valid_txt_name(txt_name):
         path = Path(txt_name)

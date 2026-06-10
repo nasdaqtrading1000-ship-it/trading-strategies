@@ -239,6 +239,36 @@ El resultado se guarda en PostgreSQL, que es lo que usa la pantalla `Filtrado de
 
 En Render, el cron del `render.yaml` queda programado en UTC:
 
+## Programacion automatica desde admin
+
+El panel admin incluye una seccion llamada `Programacion automatica`.
+
+Cada tarea permite configurar:
+
+- `Activa`: si debe ejecutarse automaticamente.
+- `Hora inicial`: hora espanola de la primera ejecucion del dia.
+- `Veces al dia`: numero total de lanzamientos diarios.
+- `Cada cuantos minutos`: separacion entre lanzamientos.
+
+Ejemplo:
+
+```text
+Hora inicial: 15:30
+Veces al dia: 5
+Cada cuantos minutos: 60
+```
+
+Esto lanza la tarea a las 15:30, 16:30, 17:30, 18:30 y 19:30.
+
+Tareas disponibles:
+
+- Actualizar CSV de activos.
+- Actualizar mercado por tanda.
+- Actualizar mercado completo.
+- Ejecutar estrategias.
+
+Nota: esta programacion interna funciona mientras el servicio web de Render esta activo. Para ejecuciones criticas al 100%, conviene usar Cron Jobs de Render.
+
 ```text
 30 20 * * 1-5
 ```

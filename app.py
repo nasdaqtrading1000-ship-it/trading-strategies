@@ -1,10 +1,15 @@
 import json
 import os
+import subprocess
+import sys
+import threading
+import time
 from hmac import compare_digest
 from functools import wraps
 from uuid import uuid4
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from flask import (
     abort,
@@ -40,6 +45,153 @@ from update_assets import build_assets_from_alpaca, write_assets
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_SIGNALS_DIR = (BASE_DIR / "Estrategias" / "salidas_txt").resolve()
 DEFAULT_STRATEGY_STATUS_FILE = (BASE_DIR / "Estrategias" / "strategy_run_status.json").resolve()
+STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
+MADRID_TZ = ZoneInfo("Europe/Madrid")
+SCHEDULER_THREAD_STARTED = False
+SCHEDULER_LOCK = threading.Lock()
+SCHEDULER_TASKS = {
+    "assets_csv": "Actualizar CSV de activos",
+    "market_batch": "Actualizar mercado por tanda",
+    "market_full": "Actualizar mercado completo",
+    "strategies": "Ejecutar estrategias",
+}
+DEFAULT_REAL_STRATEGIES = [
+    {
+        "name": "Momentum",
+        "description": "Compra activos con fuerza relativa alta, tendencia alcista y buen comportamiento frente al mercado.",
+        "risk_level": "Medio",
+        "signal_frequency": "Diaria / swing",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_momentum",
+        "signals_txt_name": "Momentum.txt",
+    },
+    {
+        "name": "Swing Trading",
+        "description": "Busca entradas de varios dias en activos con tendencia sana, retrocesos controlados y confirmacion tecnica.",
+        "risk_level": "Medio",
+        "signal_frequency": "Varias senales por semana",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_swing_trading",
+        "signals_txt_name": "SwingTrading.txt",
+    },
+    {
+        "name": "BreaKout",
+        "description": "Detecta rupturas de resistencia con aumento de volumen, expansion de rango y precio cerca de maximos relevantes.",
+        "risk_level": "Alto",
+        "signal_frequency": "Segun rupturas de mercado",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_breakout",
+        "signals_txt_name": "BreaKout.txt",
+    },
+    {
+        "name": "Mean Reversion",
+        "description": "Busca activos sobrevendidos o alejados de su media que puedan volver a niveles normales.",
+        "risk_level": "Medio",
+        "signal_frequency": "Variable",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_mean_reversion",
+        "signals_txt_name": "Mean_Reversion.txt",
+    },
+    {
+        "name": "Value Trading",
+        "description": "Filtra companias con valoracion atractiva, fundamentales razonables y descuento relativo.",
+        "risk_level": "Bajo",
+        "signal_frequency": "Baja / semanal",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_value_trading",
+        "signals_txt_name": "ValueTrading.txt",
+    },
+    {
+        "name": "Dividend Growth",
+        "description": "Selecciona companias con crecimiento de dividendos, estabilidad financiera y perfil defensivo.",
+        "risk_level": "Bajo",
+        "signal_frequency": "Baja / semanal",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_dividend_growth",
+        "signals_txt_name": "DividenGrowth.txt",
+    },
+    {
+        "name": "Trend Following",
+        "description": "Sigue tendencias establecidas mediante medias, momentum y confirmacion de precio.",
+        "risk_level": "Medio",
+        "signal_frequency": "Diaria / semanal",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_trend_following",
+        "signals_txt_name": "TrendFollowing.txt",
+    },
+    {
+        "name": "Pairs Trading",
+        "description": "Analiza pares correlacionados y busca desviaciones estadisticas para operar convergencia.",
+        "risk_level": "Medio",
+        "signal_frequency": "Variable",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_pairs_trading",
+        "signals_txt_name": "PairsTrading.txt",
+    },
+    {
+        "name": "Sector Rotation",
+        "description": "Compara fuerza relativa por sectores y propone activos lideres dentro de los sectores fuertes.",
+        "risk_level": "Medio",
+        "signal_frequency": "Semanal",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_sector_rotation",
+        "signals_txt_name": "SectorRotation.txt",
+    },
+    {
+        "name": "Quality Investing",
+        "description": "Busca empresas de calidad con buenos margenes, crecimiento y estabilidad financiera.",
+        "risk_level": "Bajo",
+        "signal_frequency": "Baja / semanal",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_quality_investing",
+        "signals_txt_name": "QualityInvesting.txt",
+    },
+    {
+        "name": "Opening Range BreaKout",
+        "description": "Estrategia intradia que espera la ruptura del rango inicial de la sesion con volumen.",
+        "risk_level": "Alto",
+        "signal_frequency": "Intradia",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_opening_range_breakout",
+        "signals_txt_name": "OpeningRangeBreaKout.txt",
+    },
+    {
+        "name": "VWAP Reversion",
+        "description": "Busca reversiones intradia hacia VWAP cuando el precio se aleja demasiado.",
+        "risk_level": "Alto",
+        "signal_frequency": "Intradia",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_vwap_reversion",
+        "signals_txt_name": "VWAP_Reversion.txt",
+    },
+    {
+        "name": "Momentum Intradia",
+        "description": "Detecta movimientos fuertes dentro de la sesion usando momentum reciente, VWAP y volumen relativo.",
+        "risk_level": "Alto",
+        "signal_frequency": "Intradia",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_momentum_intradia",
+        "signals_txt_name": "MomentumIntradia.txt",
+    },
+    {
+        "name": "Scalping The PullBacks",
+        "description": "Busca pequenos retrocesos dentro de una tendencia intradia para entrar a favor del movimiento principal.",
+        "risk_level": "Alto",
+        "signal_frequency": "Intradia / frecuente",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_scalping_pullbacks",
+        "signals_txt_name": "ScalpingThePullBacKs.txt",
+    },
+    {
+        "name": "Gap and Go",
+        "description": "Detecta activos que abren con gap relevante y continuan en la direccion del impulso.",
+        "risk_level": "Alto",
+        "signal_frequency": "Intradia / apertura",
+        "historical_return": "Pendiente de backtest",
+        "telegram_url": "https://t.me/tu_canal_gap_and_go",
+        "signals_txt_name": "Gap_and_Go.txt",
+    },
+]
 
 
 def database_status():
@@ -50,6 +202,156 @@ def database_status():
         "host": url.host or "local file",
         "is_persistent": engine.dialect.name == "postgresql",
     }
+
+
+def run_scheduler_task(task_name):
+    if task_name == "assets_csv":
+        rows, source = build_assets_from_alpaca()
+        write_assets(rows)
+        save_universe_assets(rows)
+        return {
+            "ok": True,
+            "message": f"CSV actualizado: {len(rows)} activos. Fuente: {source}.",
+        }
+
+    if task_name == "market_batch":
+        result = update_market_data(full=False)
+        return {
+            "ok": bool(result.get("ok")),
+            "message": f"Tanda mercado. Guardados: {result.get('saved_rows', 0)}. Error: {result.get('last_error', '') or 'Sin error'}.",
+        }
+
+    if task_name == "market_full":
+        result = update_market_data(full=True)
+        return {
+            "ok": bool(result.get("ok")),
+            "message": f"Mercado completo. Guardados: {result.get('saved_rows', 0)}. Error: {result.get('last_error', '') or 'Sin error'}.",
+        }
+
+    if task_name == "strategies":
+        if not STRATEGIES_RUNNER.exists():
+            return {"ok": False, "message": "No se encontro run_all_strategies.py."}
+        mark_strategies_as_running_file()
+        subprocess.Popen(
+            [sys.executable, str(STRATEGIES_RUNNER)],
+            cwd=str(STRATEGIES_RUNNER.parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return {"ok": True, "message": "Estrategias lanzadas en segundo plano."}
+
+    return {"ok": False, "message": "Tarea no reconocida."}
+
+
+def mark_strategies_as_running_file():
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    names = []
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
+        ).mappings().fetchall()
+        names = [row["name"] for row in rows]
+
+    payload = {
+        "started_at": now,
+        "finished_at": "",
+        "running": True,
+        "strategies": {
+            name: {
+                "file": "",
+                "ok": False,
+                "running": True,
+                "returncode": None,
+                "error": "",
+                "ran_at": now,
+            }
+            for name in names
+        },
+    }
+    DEFAULT_STRATEGY_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    DEFAULT_STRATEGY_STATUS_FILE.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def start_scheduler_thread():
+    global SCHEDULER_THREAD_STARTED
+    if os.environ.get("DISABLE_INTERNAL_SCHEDULER") == "1":
+        return
+    with SCHEDULER_LOCK:
+        if SCHEDULER_THREAD_STARTED:
+            return
+        thread = threading.Thread(target=scheduler_loop, daemon=True)
+        thread.start()
+        SCHEDULER_THREAD_STARTED = True
+
+
+def scheduler_loop():
+    while True:
+        try:
+            process_due_schedules()
+        except Exception as error:
+            print(f"[scheduler] Error: {error}", flush=True)
+        time.sleep(60)
+
+
+def process_due_schedules():
+    now = datetime.now(MADRID_TZ)
+    with engine.begin() as connection:
+        schedules = connection.execute(
+            text(
+                """
+                SELECT *
+                FROM automation_schedules
+                WHERE is_enabled = 1
+                ORDER BY task_name
+                """
+            )
+        ).mappings().fetchall()
+
+    for schedule in schedules:
+        due_key = due_schedule_key(schedule, now)
+        if not due_key or due_key == schedule["last_run_key"]:
+            continue
+        result = run_scheduler_task(schedule["task_name"])
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE automation_schedules
+                    SET last_run_key = :last_run_key,
+                        last_run_at = :last_run_at,
+                        last_status = :last_status,
+                        last_message = :last_message
+                    WHERE task_name = :task_name
+                    """
+                ),
+                {
+                    "last_run_key": due_key,
+                    "last_run_at": now.replace(tzinfo=None),
+                    "last_status": "OK" if result["ok"] else "ERROR",
+                    "last_message": result["message"][:1000],
+                    "task_name": schedule["task_name"],
+                },
+            )
+
+
+def due_schedule_key(schedule, now):
+    try:
+        hour, minute = [int(part) for part in str(schedule["start_time"]).split(":", 1)]
+        runs_per_day = max(1, int(schedule["runs_per_day"]))
+        interval_minutes = max(1, int(schedule["interval_minutes"]))
+    except (TypeError, ValueError):
+        return ""
+
+    start = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    grace_minutes = max(5, min(interval_minutes, 60))
+    for index in range(runs_per_day):
+        planned = start + timedelta(minutes=interval_minutes * index)
+        if planned.date() == now.date() and planned <= now < planned + timedelta(minutes=grace_minutes):
+            return f"{now.date().isoformat()}|{schedule['task_name']}|{index}"
+    return ""
 
 
 def create_app():
@@ -244,6 +546,8 @@ def create_app():
             "admin/dashboard.html",
             strategies=strategies,
             active_visitors=active_visitor_count(),
+            schedules=load_automation_schedules(),
+            scheduler_tasks=SCHEDULER_TASKS,
         )
 
     @app.route("/admin/system")
@@ -279,6 +583,74 @@ def create_app():
             f"CSV y universo de activos actualizados correctamente: {len(rows)} activos. Fuente: {source}.",
             "success",
         )
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/strategies/run-all", methods=["POST"])
+    @login_required
+    def admin_run_all_strategies():
+        if not STRATEGIES_RUNNER.exists():
+            flash("No se encontro Estrategias/run_all_strategies.py.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        mark_strategies_as_running()
+        try:
+            subprocess.Popen(
+                [sys.executable, str(STRATEGIES_RUNNER)],
+                cwd=str(STRATEGIES_RUNNER.parent),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as error:
+            flash(f"No se pudo lanzar el ejecutor de estrategias: {error}", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        flash("Ejecucion de estrategias lanzada. La web ira actualizando el estado cuando termine.", "info")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/schedules/update", methods=["POST"])
+    @login_required
+    def admin_schedules_update():
+        for task_name in SCHEDULER_TASKS:
+            enabled = 1 if request.form.get(f"{task_name}_enabled") == "1" else 0
+            start_time = request.form.get(f"{task_name}_start_time", "15:30").strip()
+            runs_per_day = parse_schedule_int(
+                request.form.get(f"{task_name}_runs_per_day"),
+                default=1,
+                minimum=1,
+                maximum=24,
+            )
+            interval_minutes = parse_schedule_int(
+                request.form.get(f"{task_name}_interval_minutes"),
+                default=60,
+                minimum=1,
+                maximum=1440,
+            )
+            if not valid_schedule_time(start_time):
+                flash(f"Hora no valida para {SCHEDULER_TASKS[task_name]}. Usa formato HH:MM.", "danger")
+                return redirect(url_for("admin_dashboard"))
+
+            g.db.execute(
+                text(
+                    """
+                    UPDATE automation_schedules
+                    SET is_enabled = :is_enabled,
+                        start_time = :start_time,
+                        runs_per_day = :runs_per_day,
+                        interval_minutes = :interval_minutes,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE task_name = :task_name
+                    """
+                ),
+                {
+                    "task_name": task_name,
+                    "is_enabled": enabled,
+                    "start_time": start_time,
+                    "runs_per_day": runs_per_day,
+                    "interval_minutes": interval_minutes,
+                },
+            )
+        g.db.commit()
+        flash("Programacion automatica guardada.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])
@@ -501,15 +873,25 @@ def create_app():
             }
 
         ran_at = format_status_datetime(item.get("ran_at", ""))
+        if item.get("running"):
+            return {
+                "ok": False,
+                "running": True,
+                "label": "En ejecucion",
+                "ran_at": ran_at,
+                "error": "",
+            }
         if item.get("ok"):
             return {
                 "ok": True,
+                "running": False,
                 "label": "OK",
                 "ran_at": ran_at,
                 "error": "",
             }
         return {
             "ok": False,
+            "running": False,
             "label": "Fallo",
             "ran_at": ran_at,
             "error": item.get("error", "") or "La estrategia termino con error.",
@@ -535,6 +917,29 @@ def create_app():
             return datetime.fromisoformat(value).strftime("%d/%m/%Y %H:%M")
         except ValueError:
             return value
+
+    def mark_strategies_as_running():
+        mark_strategies_as_running_file()
+
+    def load_automation_schedules():
+        rows = g.db.execute(
+            text("SELECT * FROM automation_schedules ORDER BY task_name")
+        ).mappings().fetchall()
+        return {row["task_name"]: row for row in rows}
+
+    def parse_schedule_int(value, default, minimum, maximum):
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
+
+    def valid_schedule_time(value):
+        try:
+            hour, minute = [int(part) for part in value.split(":", 1)]
+        except (AttributeError, ValueError):
+            return False
+        return 0 <= hour <= 23 and 0 <= minute <= 59
 
     def read_strategy_signals(txt_name):
         path = strategy_signals_path(txt_name)
@@ -616,6 +1021,7 @@ def init_db():
         )
         ensure_universe_table(connection)
         add_strategy_column(connection, "signals_txt_name")
+        ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
         if count == 0:
@@ -720,6 +1126,87 @@ def init_db():
                 """
             )
         )
+        connection.execute(
+            text(
+                f"""
+                CREATE TABLE IF NOT EXISTS automation_schedules (
+                    id {id_column},
+                    task_name TEXT NOT NULL UNIQUE,
+                    is_enabled INTEGER NOT NULL DEFAULT 0,
+                    start_time TEXT NOT NULL DEFAULT '15:30',
+                    runs_per_day INTEGER NOT NULL DEFAULT 1,
+                    interval_minutes INTEGER NOT NULL DEFAULT 60,
+                    last_run_key TEXT NOT NULL DEFAULT '',
+                    last_run_at TIMESTAMP,
+                    last_status TEXT NOT NULL DEFAULT '',
+                    last_message TEXT NOT NULL DEFAULT '',
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+        existing_schedules = {
+            row[0]
+            for row in connection.execute(
+                text("SELECT task_name FROM automation_schedules")
+            ).fetchall()
+        }
+        for task_name in SCHEDULER_TASKS:
+            if task_name in existing_schedules:
+                continue
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO automation_schedules
+                    (task_name, is_enabled, start_time, runs_per_day, interval_minutes)
+                    VALUES (:task_name, 0, '15:30', 1, 60)
+                    """
+                ),
+                {"task_name": task_name},
+            )
+
+
+def ensure_default_real_strategies(connection):
+    existing = {
+        row["name"]: row
+        for row in connection.execute(
+            text("SELECT name, telegram_url FROM strategies")
+        ).mappings().fetchall()
+    }
+    for strategy in DEFAULT_REAL_STRATEGIES:
+        if strategy["name"] not in existing:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO strategies
+                    (name, description, risk_level, signal_frequency,
+                     historical_return, telegram_url, signals_txt_name, is_active)
+                    VALUES (:name, :description, :risk_level, :signal_frequency,
+                            :historical_return, :telegram_url, :signals_txt_name, 1)
+                    """
+                ),
+                strategy,
+            )
+            continue
+
+        connection.execute(
+            text(
+                """
+                UPDATE strategies
+                SET description = :description,
+                    risk_level = :risk_level,
+                    signal_frequency = :signal_frequency,
+                    historical_return = CASE
+                        WHEN historical_return = '' THEN :historical_return
+                        ELSE historical_return
+                    END,
+                    signals_txt_name = :signals_txt_name,
+                    is_active = 1
+                WHERE name = :name
+                """
+            ),
+            strategy,
+        )
 
 
 def add_asset_snapshot_column(connection, column_name):
@@ -782,6 +1269,7 @@ def asset_snapshot_column_exists(connection, column_name):
 
 init_db()
 app = create_app()
+start_scheduler_thread()
 
 
 if __name__ == "__main__":

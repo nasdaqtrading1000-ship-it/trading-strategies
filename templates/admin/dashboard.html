@@ -22,8 +22,74 @@
       <form method="post" action="{{ url_for('admin_assets_update_csv') }}">
         <button class="btn btn-outline-info" type="submit">Actualizar CSV</button>
       </form>
+      <form method="post" action="{{ url_for('admin_run_all_strategies') }}" onsubmit="return confirm('Lanzar todas las estrategias ahora? Puede tardar y consumir llamadas de API.');">
+        <button class="btn btn-warning fw-semibold" type="submit">Ejecutar estrategias</button>
+      </form>
       <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_new') }}">Crear estrategia</a>
     </div>
+  </div>
+
+  <div class="form-panel p-4 mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+      <div>
+        <h2 class="h5 mb-1">Programacion automatica</h2>
+        <p class="text-secondary small mb-0">Hora en Espana. Ejemplo: 15:30, 5 veces al dia, cada 60 minutos.</p>
+      </div>
+    </div>
+    <form method="post" action="{{ url_for('admin_schedules_update') }}">
+      <div class="table-responsive">
+        <table class="table table-dark align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Tarea</th>
+              <th>Activa</th>
+              <th>Hora inicial</th>
+              <th>Veces al dia</th>
+              <th>Cada cuantos minutos</th>
+              <th>Ultima ejecucion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task_name, task_label in scheduler_tasks.items() %}
+              {% set schedule = schedules.get(task_name) %}
+              <tr>
+                <td>
+                  <strong>{{ task_label }}</strong>
+                  {% if schedule and schedule.last_message %}
+                    <span class="d-block text-secondary small">{{ schedule.last_message }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="{{ task_name }}_enabled" value="1" {% if schedule and schedule.is_enabled %}checked{% endif %}>
+                  </div>
+                </td>
+                <td>
+                  <input class="form-control form-control-sm" type="time" name="{{ task_name }}_start_time" value="{{ schedule.start_time if schedule else '15:30' }}">
+                </td>
+                <td>
+                  <input class="form-control form-control-sm" type="number" min="1" max="24" name="{{ task_name }}_runs_per_day" value="{{ schedule.runs_per_day if schedule else 1 }}">
+                </td>
+                <td>
+                  <input class="form-control form-control-sm" type="number" min="1" max="1440" name="{{ task_name }}_interval_minutes" value="{{ schedule.interval_minutes if schedule else 60 }}">
+                </td>
+                <td>
+                  {% if schedule and schedule.last_run_at %}
+                    <span class="badge {% if schedule.last_status == 'OK' %}text-bg-success{% else %}text-bg-danger{% endif %}">{{ schedule.last_status }}</span>
+                    <span class="d-block text-secondary small">{{ schedule.last_run_at }}</span>
+                  {% else %}
+                    <span class="text-secondary small">Sin ejecuciones</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="d-flex justify-content-end mt-3">
+        <button class="btn btn-info fw-semibold" type="submit">Guardar programacion</button>
+      </div>
+    </form>
   </div>
 
   <div class="admin-table">

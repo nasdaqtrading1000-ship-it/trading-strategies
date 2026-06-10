@@ -783,6 +783,30 @@ def create_app():
             flash(f"{SCHEDULER_TASKS[task_name]} fallo. {result['message']}", "danger")
         return redirect(url_for("admin_dashboard"))
 
+    @app.route("/admin/schedules/<task_name>/clear-running", methods=["POST"])
+    @login_required
+    def admin_schedule_clear_running(task_name):
+        if task_name not in SCHEDULER_TASKS:
+            abort(404)
+        g.db.execute(
+            text(
+                """
+                UPDATE automation_schedules
+                SET last_status = 'ERROR',
+                    last_message = :message
+                WHERE task_name = :task_name
+                  AND last_status = 'RUNNING'
+                """
+            ),
+            {
+                "task_name": task_name,
+                "message": "Ejecucion marcada como bloqueada y limpiada manualmente desde admin.",
+            },
+        )
+        g.db.commit()
+        flash(f"Estado RUNNING limpiado para {SCHEDULER_TASKS[task_name]}.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
     @app.route("/admin/strategies/new", methods=["GET", "POST"])
     @login_required
     def strategy_new():
@@ -1011,14 +1035,6 @@ def create_app():
             return txt_status
 
         if item.get("running"):
-            if running_status_is_stale(ran_at_datetime):
-                return txt_status or {
-                    "ok": False,
-                    "running": False,
-                    "label": "Fallo",
-                    "ran_at": ran_at,
-                    "error": "La ejecucion quedo marcada como RUNNING y supero el tiempo maximo sin cerrar correctamente.",
-                }
             return {
                 "ok": False,
                 "running": True,
@@ -1057,12 +1073,6 @@ def create_app():
         if txt_updated_at is None or status_at is None:
             return False
         return txt_updated_at > status_at
-
-    def running_status_is_stale(started_at):
-        if started_at is None:
-            return True
-        timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
-        return datetime.now(UTC) - started_at.astimezone(UTC) > timedelta(seconds=timeout_seconds)
 
     def load_strategy_status_data():
         status_path = Path(
@@ -1124,25 +1134,84 @@ def create_app():
         return {row["task_name"]: row for row in rows}
 
     def expire_stale_running_schedules():
-        timeout_minutes = int(os.environ.get("AUTOMATION_RUNNING_TIMEOUT_MINUTES", "120"))
-        cutoff = datetime.now(MADRID_TZ).replace(tzinfo=None) - timedelta(minutes=timeout_minutes)
-        g.db.execute(
+        rows = g.db.execute(
             text(
                 """
-                UPDATE automation_schedules
-                SET last_status = 'ERROR',
-                    last_message = :message
+                SELECT task_name, last_run_at
+                FROM automation_schedules
                 WHERE last_status = 'RUNNING'
-                  AND last_run_at IS NOT NULL
-                  AND last_run_at < :cutoff
                 """
-            ),
-            {
-                "message": "La tarea quedo en RUNNING y supero el tiempo maximo sin cerrar correctamente.",
-                "cutoff": cutoff,
-            },
-        )
+            )
+        ).mappings().fetchall()
+
+        for row in rows:
+            if row["task_name"] != "strategies":
+                continue
+            result = completed_strategy_runner_result(row["last_run_at"])
+            if not result:
+                continue
+            g.db.execute(
+                text(
+                    """
+                    UPDATE automation_schedules
+                    SET last_status = :last_status,
+                        last_message = :last_message
+                    WHERE task_name = 'strategies'
+                      AND last_status = 'RUNNING'
+                    """
+                ),
+                {
+                    "last_status": "OK" if result["ok"] else "ERROR",
+                    "last_message": result["message"],
+                },
+            )
         g.db.commit()
+
+    def completed_strategy_runner_result(last_run_at):
+        data = load_strategy_status_data()
+        finished_at = parse_status_datetime(data.get("finished_at", ""))
+        if finished_at is None:
+            return None
+
+        started_at = parse_status_datetime(data.get("started_at", ""))
+        schedule_started_at = parse_database_datetime(last_run_at)
+        if schedule_started_at and started_at and started_at < schedule_started_at:
+            return None
+
+        results = data.get("strategies", {})
+        if not results:
+            return {
+                "ok": False,
+                "message": "Estrategias finalizadas sin resultados guardados.",
+            }
+
+        failures = [
+            name
+            for name, item in results.items()
+            if not item.get("ok")
+        ]
+        if failures:
+            return {
+                "ok": False,
+                "message": f"Estrategias finalizadas con {len(failures)} fallos: {', '.join(failures[:6])}.",
+            }
+        return {
+            "ok": True,
+            "message": "Estrategias finalizadas correctamente.",
+        }
+
+    def parse_database_datetime(value):
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            parsed = value
+        else:
+            parsed = parse_status_datetime(value)
+            if parsed is None:
+                return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=MADRID_TZ)
+        return parsed.astimezone(UTC)
 
     def parse_schedule_int(value, default, minimum, maximum):
         try:

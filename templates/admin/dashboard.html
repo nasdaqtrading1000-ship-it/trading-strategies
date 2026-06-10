@@ -91,6 +91,17 @@
                   >
                     Ejecutar ahora
                   </button>
+                  {% if schedule and schedule.last_status == 'RUNNING' %}
+                    <button
+                      class="btn btn-outline-danger btn-sm mt-2"
+                      type="submit"
+                      formmethod="post"
+                      formaction="{{ url_for('admin_schedule_clear_running', task_name=task_name) }}"
+                      onclick="return confirm('Limpiar RUNNING de {{ task_label }}? Usalo solo si sabes que ya no esta ejecutando.');"
+                    >
+                      Limpiar RUNNING
+                    </button>
+                  {% endif %}
                 </td>
               </tr>
             {% endfor %}

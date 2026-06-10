@@ -118,31 +118,31 @@
               <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
                 Acceder al canal
               </a>
-            </div>
-            {% if strategy.signals_txt_name %}
-              <div class="collapse" id="signals-{{ strategy.id }}">
-                <div class="signals-panel mt-3">
-                  {% if strategy.signals %}
-                    <ul class="signals-list">
-                      {% for signal in strategy.signals %}
-                        <li>
-                          {% if signal.symbol %}
-                            <a class="signal-link" href="{{ url_for('strategy_diagnostic', strategy_id=strategy.id, symbol=signal.symbol) }}" target="_blank" rel="noopener">
-                              <span class="signal-symbol">{{ signal.symbol }}</span>
-                              <span>{{ signal.line }}</span>
-                            </a>
-                          {% else %}
-                            {{ signal.line }}
-                          {% endif %}
-                        </li>
-                      {% endfor %}
-                    </ul>
-                  {% else %}
-                    <p class="text-secondary small mb-0">No hay avisos activos ahora mismo.</p>
-                  {% endif %}
+              {% if strategy.signals_txt_name %}
+                <div class="collapse signals-collapse" id="signals-{{ strategy.id }}">
+                  <div class="signals-panel">
+                    {% if strategy.signals %}
+                      <ul class="signals-list">
+                        {% for signal in strategy.signals %}
+                          <li>
+                            {% if signal.symbol %}
+                              <a class="signal-link" href="{{ url_for('strategy_diagnostic', strategy_id=strategy.id, symbol=signal.symbol) }}" target="_blank" rel="noopener">
+                                <span class="signal-symbol">{{ signal.symbol }}</span>
+                                <span>{{ signal.line }}</span>
+                              </a>
+                            {% else %}
+                              {{ signal.line }}
+                            {% endif %}
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      <p class="text-secondary small mb-0">No hay avisos activos ahora mismo.</p>
+                    {% endif %}
+                  </div>
                 </div>
-              </div>
-            {% endif %}
+              {% endif %}
+            </div>
           </article>
         </div>
       {% endfor %}

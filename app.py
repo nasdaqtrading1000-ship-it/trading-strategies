@@ -1091,7 +1091,12 @@ def create_app():
         data = load_strategy_status_data()
         failures = []
         for name, item in data.get("strategies", {}).items():
-            if item.get("running") or item.get("ok"):
+            is_failure = (
+                not item.get("ok")
+                or item.get("txt_updated") is False
+                or item.get("returncode") not in (None, 0)
+            )
+            if item.get("running") or not is_failure:
                 continue
             failures.append(
                 {
@@ -1100,10 +1105,53 @@ def create_app():
                     "txt": item.get("txt", ""),
                     "ran_at": format_status_datetime(item.get("ran_at", "")),
                     "returncode": item.get("returncode"),
-                    "error": item.get("error", "") or "Sin detalle de error.",
+                    "error": build_strategy_failure_error(item),
                 }
             )
+        if not failures:
+            failures = load_strategy_failures_from_schedule_message()
         failures.sort(key=lambda item: item["name"])
+        return failures
+
+    def build_strategy_failure_error(item):
+        details = []
+        if item.get("returncode") not in (None, 0):
+            details.append(f"Codigo de salida: {item.get('returncode')}.")
+        if item.get("txt_updated") is False:
+            details.append(f"TXT NO ACTUALIZADO: {item.get('txt', 'archivo no indicado')}.")
+        if item.get("error"):
+            details.append(str(item.get("error")))
+        if not details:
+            details.append("La estrategia termino marcada como ERROR, pero no devolvio detalle adicional.")
+        return "\n".join(details)
+
+    def load_strategy_failures_from_schedule_message():
+        row = g.db.execute(
+            text(
+                """
+                SELECT last_run_at, last_message
+                FROM automation_schedules
+                WHERE task_name = 'strategies'
+                  AND last_status = 'ERROR'
+                """
+            )
+        ).mappings().fetchone()
+        if not row or not row["last_message"]:
+            return []
+
+        failures = []
+        pattern = re.compile(r"ERROR - (?P<name>.+?) \((?P<file>.+?)\) \| (?P<txt_status>TXT [^|]+)")
+        for match in pattern.finditer(row["last_message"]):
+            failures.append(
+                {
+                    "name": match.group("name").strip(),
+                    "file": match.group("file").strip(),
+                    "txt": "",
+                    "ran_at": format_status_datetime(row["last_run_at"]),
+                    "returncode": 1,
+                    "error": match.group("txt_status").strip(),
+                }
+            )
         return failures
 
     def format_status_datetime(value):

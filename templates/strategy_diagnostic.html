@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Diagnostico {{ signal.symbol }} - {{ strategy.name }}{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="diagnostic-panel p-4 p-md-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+      <div>
+        <p class="eyebrow mb-2">Diagnostico de activo</p>
+        <h1 class="h2 mb-2">{{ signal.symbol }}</h1>
+        <p class="text-secondary mb-0">{{ strategy.name }} · Riesgo {{ strategy.risk_level }}</p>
+      </div>
+      {% if signal.side %}
+        <div class="diagnostic-side">{{ signal.side }}</div>
+      {% endif %}
+    </div>
+
+    <div class="diagnostic-original mb-4">
+      <span class="text-secondary small d-block mb-2">Aviso original</span>
+      <p class="mb-0">{{ signal.line }}</p>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="diagnostic-box h-100">
+          <h2 class="h5 mb-3">Datos del aviso</h2>
+          {% if signal.fields %}
+            <dl class="diagnostic-fields">
+              {% for key, value in signal.fields.items() %}
+                <div>
+                  <dt>{{ key }}</dt>
+                  <dd>{{ value }}</dd>
+                </div>
+              {% endfor %}
+            </dl>
+          {% else %}
+            <p class="text-secondary mb-0">No hay campos estructurados para este aviso.</p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="diagnostic-box h-100">
+          <h2 class="h5 mb-3">Lectura automatica</h2>
+          <p class="text-secondary">{{ diagnostic.focus }}</p>
+          <ul class="diagnostic-points">
+            {% for point in diagnostic.points %}
+              <li>{{ point }}</li>
+            {% endfor %}
+          </ul>
+          <div class="alert alert-warning mb-0">{{ diagnostic.warning }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagnostic-box mt-4">
+      <h2 class="h5 mb-3">Resumen de datos devueltos</h2>
+      <div class="diagnostic-summary-grid">
+        <div>
+          <span>Ticker</span>
+          <strong>{{ signal.symbol }}</strong>
+        </div>
+        <div>
+          <span>Direccion</span>
+          <strong>{{ signal.side or "No indicada" }}</strong>
+        </div>
+        <div>
+          <span>Estrategia</span>
+          <strong>{{ strategy.name }}</strong>
+        </div>
+        <div>
+          <span>Campos devueltos</span>
+          <strong>{{ signal.fields|length }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap mt-4">
+      <a class="btn btn-outline-info" href="https://finance.yahoo.com/quote/{{ signal.symbol }}" target="_blank" rel="noopener">Ver en Yahoo Finance</a>
+      <a class="btn btn-outline-light" href="https://www.tradingview.com/symbols/{{ signal.symbol }}/" target="_blank" rel="noopener">Ver en TradingView</a>
+      <button class="btn btn-info" type="button" onclick="window.close()">Cerrar ventana</button>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -12,19 +12,6 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-light" href="{{ url_for('admin_system') }}">Sistema</a>
-      <form method="post" action="{{ url_for('admin_market_data_update') }}">
-        <button class="btn btn-outline-info" type="submit">Actualizar tanda</button>
-      </form>
-      <form method="post" action="{{ url_for('admin_market_data_update') }}">
-        <input type="hidden" name="full_update" value="1">
-        <button class="btn btn-info" type="submit">Actualizar mercado completo</button>
-      </form>
-      <form method="post" action="{{ url_for('admin_assets_update_csv') }}">
-        <button class="btn btn-outline-info" type="submit">Actualizar CSV</button>
-      </form>
-      <form method="post" action="{{ url_for('admin_run_all_strategies') }}" onsubmit="return confirm('Lanzar todas las estrategias ahora? Puede tardar y consumir llamadas de API.');">
-        <button class="btn btn-warning fw-semibold" type="submit">Ejecutar estrategias</button>
-      </form>
       <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_new') }}">Crear estrategia</a>
     </div>
   </div>
@@ -44,9 +31,11 @@
               <th>Tarea</th>
               <th>Activa</th>
               <th>Hora inicial</th>
+              <th>Dias</th>
               <th>Veces al dia</th>
               <th>Cada cuantos minutos</th>
               <th>Ultima ejecucion</th>
+              <th>Manual</th>
             </tr>
           </thead>
           <tbody>
@@ -68,6 +57,17 @@
                   <input class="form-control form-control-sm" type="time" name="{{ task_name }}_start_time" value="{{ schedule.start_time if schedule else '15:30' }}">
                 </td>
                 <td>
+                  <div class="weekday-picker">
+                    {% set selected_weekdays = (schedule.weekdays if schedule else '1,2,3,4,5').split(',') %}
+                    {% for day_value, day_label in weekdays %}
+                      <label class="weekday-option">
+                        <input type="checkbox" name="{{ task_name }}_weekdays" value="{{ day_value }}" {% if day_value|string in selected_weekdays %}checked{% endif %}>
+                        <span>{{ day_label }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                </td>
+                <td>
                   <input class="form-control form-control-sm" type="number" min="1" max="24" name="{{ task_name }}_runs_per_day" value="{{ schedule.runs_per_day if schedule else 1 }}">
                 </td>
                 <td>
@@ -80,6 +80,17 @@
                   {% else %}
                     <span class="text-secondary small">Sin ejecuciones</span>
                   {% endif %}
+                </td>
+                <td>
+                  <button
+                    class="btn btn-outline-warning btn-sm"
+                    type="submit"
+                    formmethod="post"
+                    formaction="{{ url_for('admin_schedule_run_now', task_name=task_name) }}"
+                    onclick="return confirm('Ejecutar ahora {{ task_label }}? Puede tardar y consumir llamadas de API.');"
+                  >
+                    Ejecutar ahora
+                  </button>
                 </td>
               </tr>
             {% endfor %}

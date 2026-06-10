@@ -1,9 +1,12 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from hmac import compare_digest
 from functools import wraps
 from uuid import uuid4
@@ -55,6 +58,18 @@ SCHEDULER_TASKS = {
     "market_full": "Actualizar mercado completo",
     "strategies": "Ejecutar estrategias",
 }
+WEEKDAYS = [
+    (1, "Lun"),
+    (2, "Mar"),
+    (3, "Mie"),
+    (4, "Jue"),
+    (5, "Vie"),
+    (6, "Sab"),
+    (7, "Dom"),
+]
+DEFAULT_WEEKDAYS = "1,2,3,4,5"
+SIGNAL_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9./-]{0,14}$")
+SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
 DEFAULT_REAL_STRATEGIES = [
     {
         "name": "Momentum",
@@ -244,7 +259,7 @@ def run_scheduler_task(task_name):
 
 
 def mark_strategies_as_running_file():
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
     names = []
     with engine.connect() as connection:
         rows = connection.execute(
@@ -315,26 +330,31 @@ def process_due_schedules():
         if not due_key or due_key == schedule["last_run_key"]:
             continue
         result = run_scheduler_task(schedule["task_name"])
-        with engine.begin() as connection:
-            connection.execute(
-                text(
-                    """
-                    UPDATE automation_schedules
-                    SET last_run_key = :last_run_key,
-                        last_run_at = :last_run_at,
-                        last_status = :last_status,
-                        last_message = :last_message
-                    WHERE task_name = :task_name
-                    """
-                ),
-                {
-                    "last_run_key": due_key,
-                    "last_run_at": now.replace(tzinfo=None),
-                    "last_status": "OK" if result["ok"] else "ERROR",
-                    "last_message": result["message"][:1000],
-                    "task_name": schedule["task_name"],
-                },
-            )
+        record_schedule_result(schedule["task_name"], due_key, result, now)
+
+
+def record_schedule_result(task_name, run_key, result, now=None):
+    now = now or datetime.now(MADRID_TZ)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE automation_schedules
+                SET last_run_key = :last_run_key,
+                    last_run_at = :last_run_at,
+                    last_status = :last_status,
+                    last_message = :last_message
+                WHERE task_name = :task_name
+                """
+            ),
+            {
+                "last_run_key": run_key,
+                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "last_status": "OK" if result["ok"] else "ERROR",
+                "last_message": result["message"][:1000],
+                "task_name": task_name,
+            },
+        )
 
 
 def due_schedule_key(schedule, now):
@@ -345,6 +365,10 @@ def due_schedule_key(schedule, now):
     except (TypeError, ValueError):
         return ""
 
+    allowed_days = parse_weekdays(schedule.get("weekdays", DEFAULT_WEEKDAYS))
+    if now.isoweekday() not in allowed_days:
+        return ""
+
     start = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     grace_minutes = max(5, min(interval_minutes, 60))
     for index in range(runs_per_day):
@@ -352,6 +376,18 @@ def due_schedule_key(schedule, now):
         if planned.date() == now.date() and planned <= now < planned + timedelta(minutes=grace_minutes):
             return f"{now.date().isoformat()}|{schedule['task_name']}|{index}"
     return ""
+
+
+def parse_weekdays(value):
+    days = set()
+    for part in str(value or "").split(","):
+        try:
+            day = int(part)
+        except ValueError:
+            continue
+        if 1 <= day <= 7:
+            days.add(day)
+    return days or {1, 2, 3, 4, 5}
 
 
 def create_app():
@@ -447,6 +483,30 @@ def create_app():
             strategies=strategies,
             community_url=community_url,
             donation_url=donation_url,
+        )
+
+    @app.route("/estrategia/<int:strategy_id>/diagnostico/<path:symbol>")
+    def strategy_diagnostic(strategy_id, symbol):
+        strategy = get_strategy_or_404(strategy_id)
+        signals = read_strategy_signals(strategy["signals_txt_name"])
+        normalized_symbol = normalize_signal_symbol(symbol)
+        signal = next(
+            (
+                item
+                for item in signals
+                if normalize_signal_symbol(item.get("symbol", "")) == normalized_symbol
+            ),
+            None,
+        )
+        if signal is None:
+            abort(404)
+
+        diagnostic = build_signal_diagnostic(strategy, signal)
+        return render_template(
+            "strategy_diagnostic.html",
+            strategy=strategy,
+            signal=signal,
+            diagnostic=diagnostic,
         )
 
     @app.route("/filtrado-activos")
@@ -548,6 +608,7 @@ def create_app():
             active_visitors=active_visitor_count(),
             schedules=load_automation_schedules(),
             scheduler_tasks=SCHEDULER_TASKS,
+            weekdays=WEEKDAYS,
         )
 
     @app.route("/admin/system")
@@ -625,6 +686,9 @@ def create_app():
                 minimum=1,
                 maximum=1440,
             )
+            weekdays = normalize_weekdays(
+                request.form.getlist(f"{task_name}_weekdays")
+            )
             if not valid_schedule_time(start_time):
                 flash(f"Hora no valida para {SCHEDULER_TASKS[task_name]}. Usa formato HH:MM.", "danger")
                 return redirect(url_for("admin_dashboard"))
@@ -637,6 +701,7 @@ def create_app():
                         start_time = :start_time,
                         runs_per_day = :runs_per_day,
                         interval_minutes = :interval_minutes,
+                        weekdays = :weekdays,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE task_name = :task_name
                     """
@@ -647,10 +712,25 @@ def create_app():
                     "start_time": start_time,
                     "runs_per_day": runs_per_day,
                     "interval_minutes": interval_minutes,
+                    "weekdays": weekdays,
                 },
             )
         g.db.commit()
         flash("Programacion automatica guardada.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/schedules/<task_name>/run-now", methods=["POST"])
+    @login_required
+    def admin_schedule_run_now(task_name):
+        if task_name not in SCHEDULER_TASKS:
+            abort(404)
+        result = run_scheduler_task(task_name)
+        run_key = f"manual|{task_name}|{datetime.now(MADRID_TZ).isoformat()}"
+        record_schedule_result(task_name, run_key, result)
+        if result["ok"]:
+            flash(f"{SCHEDULER_TASKS[task_name]} lanzado correctamente. {result['message']}", "success")
+        else:
+            flash(f"{SCHEDULER_TASKS[task_name]} fallo. {result['message']}", "danger")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/new", methods=["GET", "POST"])
@@ -914,9 +994,12 @@ def create_app():
         if not value:
             return ""
         try:
-            return datetime.fromisoformat(value).strftime("%d/%m/%Y %H:%M")
+            parsed = datetime.fromisoformat(str(value))
         except ValueError:
             return value
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
 
     def mark_strategies_as_running():
         mark_strategies_as_running_file()
@@ -941,6 +1024,19 @@ def create_app():
             return False
         return 0 <= hour <= 23 and 0 <= minute <= 59
 
+    def normalize_weekdays(values):
+        days = []
+        for value in values:
+            try:
+                day = int(value)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= day <= 7 and day not in days:
+                days.append(day)
+        if not days:
+            days = [1, 2, 3, 4, 5]
+        return ",".join(str(day) for day in sorted(days))
+
     def read_strategy_signals(txt_name):
         path = strategy_signals_path(txt_name)
         if path is None:
@@ -948,12 +1044,165 @@ def create_app():
 
         try:
             return [
-                line.strip()
+                parse_signal_line(line.strip())
                 for line in path.read_text(encoding="utf-8").splitlines()
                 if line.strip()
             ][:50]
         except OSError:
             return []
+
+    def parse_signal_line(line):
+        parts = [part.strip() for part in line.split("|") if part.strip()]
+        side = ""
+        symbol = ""
+        field_parts = parts
+
+        if parts:
+            first = parts[0].upper()
+            if first in SIGNAL_SIDE_WORDS and len(parts) > 1:
+                side = parts[0]
+                symbol = parts[1]
+                field_parts = parts[2:]
+            elif SIGNAL_SYMBOL_RE.match(parts[0]):
+                symbol = parts[0]
+                field_parts = parts[1:]
+
+        fields = {}
+        for part in field_parts:
+            if ":" not in part:
+                continue
+            key, value = part.split(":", 1)
+            fields[key.strip()] = value.strip()
+
+        return {
+            "line": line,
+            "symbol": symbol,
+            "side": side,
+            "fields": fields,
+        }
+
+    def normalize_signal_symbol(symbol):
+        return str(symbol).strip().upper().replace(" ", "")
+
+    def build_signal_diagnostic(strategy, signal):
+        fields = signal.get("fields", {})
+        strategy_name = strategy["name"].lower()
+        points = []
+
+        if signal.get("side"):
+            points.append(f"Direccion detectada: {signal['side']}.")
+        if "Precio" in fields:
+            points.append(f"Precio de referencia del aviso: {fields['Precio']}.")
+        if "Score" in fields:
+            points.append(f"Score de la estrategia: {fields['Score']}. Cuanto mayor sea, mas arriba quedo en el ranking interno.")
+        if "Vol$" in fields:
+            points.append(f"Volumen monetario observado: {fields['Vol$']}.")
+        if "Vol xMedia" in fields:
+            points.append(f"Volumen relativo frente a la media: {fields['Vol xMedia']}x.")
+        if "Stop" in fields:
+            points.append(f"Nivel tecnico de stop sugerido por el modelo: {fields['Stop']}.")
+        if "TP1" in fields:
+            points.append(f"Primer objetivo tecnico: {fields['TP1']}.")
+        if "TP2" in fields:
+            points.append(f"Segundo objetivo tecnico: {fields['TP2']}.")
+        if "TP1 VWAP" in fields:
+            points.append(f"Primer objetivo hacia VWAP: {fields['TP1 VWAP']}.")
+
+        if "momentum" in strategy_name:
+            focus = "El diagnostico se centra en fuerza relativa, impulso del precio y volumen."
+        elif "breakout" in strategy_name or "gap" in strategy_name:
+            focus = "El diagnostico se centra en ruptura, rango inicial, gap y continuidad del movimiento."
+        elif "reversion" in strategy_name:
+            focus = "El diagnostico se centra en sobreextension, vuelta a medias/VWAP y agotamiento."
+        elif "value" in strategy_name or "quality" in strategy_name or "dividend" in strategy_name:
+            focus = "El diagnostico se centra en filtros de calidad/fundamentales y confirmacion tecnica."
+        elif "pairs" in strategy_name:
+            focus = "El diagnostico se centra en relacion estadistica entre activos, z-score y convergencia."
+        elif "sector" in strategy_name:
+            focus = "El diagnostico se centra en fuerza relativa sectorial y liderazgo dentro del sector."
+        else:
+            focus = "El diagnostico resume los datos clave generados por la estrategia."
+
+        if not points:
+            points.append("El aviso no trae campos estructurados suficientes; se muestra la linea original para revision manual.")
+
+        return {
+            "focus": focus,
+            "points": points,
+            "warning": "Lectura automatica informativa. No es asesoramiento financiero ni recomendacion de compra o venta.",
+        }
+
+    def generate_ai_signal_analysis(strategy, signal, diagnostic):
+        api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not api_key:
+            return ""
+
+        model = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini").strip()
+        prompt = build_ai_analysis_prompt(strategy, signal, diagnostic)
+        payload = {
+            "model": model,
+            "input": prompt,
+            "max_output_tokens": 260,
+        }
+        request_data = json.dumps(payload).encode("utf-8")
+        request_obj = urllib.request.Request(
+            "https://api.openai.com/v1/responses",
+            data=request_data,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request_obj, timeout=25) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError) as error:
+            return f"No se pudo generar analisis IA ahora mismo: {error}"
+
+        text_output = data.get("output_text", "").strip()
+        if text_output:
+            return text_output
+
+        chunks = []
+        for item in data.get("output", []):
+            for content in item.get("content", []):
+                if content.get("type") in {"output_text", "text"} and content.get("text"):
+                    chunks.append(content["text"])
+        return "\n".join(chunks).strip()
+
+    def build_ai_analysis_prompt(strategy, signal, diagnostic):
+        fields = "\n".join(
+            f"- {key}: {value}"
+            for key, value in signal.get("fields", {}).items()
+        ) or "- Sin campos estructurados."
+        points = "\n".join(f"- {point}" for point in diagnostic["points"])
+        return f"""
+Eres un analista tecnico prudente. Redacta un analisis breve en espanol para una web de senales de trading.
+
+No des asesoramiento financiero. No digas que hay que comprar o vender. No prometas resultados.
+Usa solo los datos recibidos. Si falta informacion, dilo.
+
+Estrategia: {strategy['name']}
+Descripcion estrategia: {strategy['description']}
+Riesgo estrategia: {strategy['risk_level']}
+Ticker: {signal['symbol']}
+Direccion detectada: {signal.get('side') or 'No indicada'}
+Aviso original: {signal['line']}
+
+Campos:
+{fields}
+
+Diagnostico automatico:
+{points}
+
+Devuelve 4 bloques cortos:
+1. Lectura rapida
+2. Puntos a favor
+3. Riesgos o dudas
+4. Niveles/datos a vigilar
+""".strip()
 
     def strategy_signals_updated_at(txt_name):
         path = strategy_signals_path(txt_name)
@@ -961,10 +1210,10 @@ def create_app():
             return ""
 
         try:
-            updated_at = datetime.fromtimestamp(path.stat().st_mtime)
+            updated_at = datetime.fromtimestamp(path.stat().st_mtime, UTC)
         except OSError:
             return ""
-        return updated_at.strftime("%d/%m/%Y %H:%M")
+        return updated_at.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
 
     def strategy_signals_path(txt_name):
         if not txt_name or not valid_txt_name(txt_name):
@@ -1136,6 +1385,7 @@ def init_db():
                     start_time TEXT NOT NULL DEFAULT '15:30',
                     runs_per_day INTEGER NOT NULL DEFAULT 1,
                     interval_minutes INTEGER NOT NULL DEFAULT 60,
+                    weekdays TEXT NOT NULL DEFAULT '1,2,3,4,5',
                     last_run_key TEXT NOT NULL DEFAULT '',
                     last_run_at TIMESTAMP,
                     last_status TEXT NOT NULL DEFAULT '',
@@ -1145,6 +1395,7 @@ def init_db():
                 """
             )
         )
+        add_automation_schedule_column(connection, "weekdays", f"TEXT NOT NULL DEFAULT '{DEFAULT_WEEKDAYS}'")
         existing_schedules = {
             row[0]
             for row in connection.execute(
@@ -1158,11 +1409,11 @@ def init_db():
                 text(
                     """
                     INSERT INTO automation_schedules
-                    (task_name, is_enabled, start_time, runs_per_day, interval_minutes)
-                    VALUES (:task_name, 0, '15:30', 1, 60)
+                    (task_name, is_enabled, start_time, runs_per_day, interval_minutes, weekdays)
+                    VALUES (:task_name, 0, '15:30', 1, 60, :weekdays)
                     """
                 ),
-                {"task_name": task_name},
+                {"task_name": task_name, "weekdays": DEFAULT_WEEKDAYS},
             )
 
 
@@ -1217,6 +1468,35 @@ def add_asset_snapshot_column(connection, column_name):
             f"ALTER TABLE asset_snapshots ADD COLUMN {column_name} FLOAT NOT NULL DEFAULT 0"
         )
     )
+
+
+def add_automation_schedule_column(connection, column_name, definition):
+    if automation_schedule_column_exists(connection, column_name):
+        return
+    connection.execute(
+        text(
+            f"ALTER TABLE automation_schedules ADD COLUMN {column_name} {definition}"
+        )
+    )
+
+
+def automation_schedule_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = 'automation_schedules'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        )
+        return result.scalar_one() > 0
+
+    rows = connection.execute(text("PRAGMA table_info(automation_schedules)")).fetchall()
+    return any(row[1] == column_name for row in rows)
 
 
 def add_strategy_column(connection, column_name):

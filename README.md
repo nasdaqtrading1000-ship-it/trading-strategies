@@ -247,6 +247,7 @@ Cada tarea permite configurar:
 
 - `Activa`: si debe ejecutarse automaticamente.
 - `Hora inicial`: hora espanola de la primera ejecucion del dia.
+- `Dias`: dias de la semana en los que se permite ejecutar.
 - `Veces al dia`: numero total de lanzamientos diarios.
 - `Cada cuantos minutos`: separacion entre lanzamientos.
 
@@ -260,6 +261,8 @@ Cada cuantos minutos: 60
 
 Esto lanza la tarea a las 15:30, 16:30, 17:30, 18:30 y 19:30.
 
+Por defecto quedan marcados lunes a viernes. Si sabado y domingo no estan marcados, no se ejecuta nada esos dias.
+
 Tareas disponibles:
 
 - Actualizar CSV de activos.
@@ -268,6 +271,16 @@ Tareas disponibles:
 - Ejecutar estrategias.
 
 Nota: esta programacion interna funciona mientras el servicio web de Render esta activo. Para ejecuciones criticas al 100%, conviene usar Cron Jobs de Render.
+
+## Diagnosticos de avisos
+
+Cada aviso generado por una estrategia se puede abrir desde la portada. La pagina de diagnostico muestra:
+
+- Aviso original.
+- Campos devueltos por la estrategia.
+- Lectura automatica basada en esos campos.
+- Resumen de ticker, direccion, estrategia y numero de campos.
+- Enlaces externos a Yahoo Finance y TradingView.
 
 ```text
 30 20 * * 1-5

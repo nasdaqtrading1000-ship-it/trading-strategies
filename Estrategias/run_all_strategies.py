@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 import subprocess
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -49,7 +49,7 @@ def run_strategy(strategy):
             "ok": False,
             "returncode": None,
             "error": "Archivo no encontrado",
-            "ran_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "ran_at": datetime.now(UTC).isoformat(),
         }
 
     print(f"\n=== Ejecutando {filename} ===")
@@ -73,14 +73,14 @@ def run_strategy(strategy):
         "ok": completed.returncode == 0,
         "returncode": completed.returncode,
         "error": completed.stderr.strip(),
-        "ran_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "ran_at": datetime.now(UTC).isoformat(),
     }
 
 
 def write_status_file(results, started_at, finished_at):
     status = {
-        "started_at": started_at.strftime("%Y-%m-%d %H:%M:%S"),
-        "finished_at": finished_at.strftime("%Y-%m-%d %H:%M:%S"),
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
         "strategies": {
             result["name"]: {
                 "file": result["file"],
@@ -96,14 +96,14 @@ def write_status_file(results, started_at, finished_at):
 
 
 def main():
-    started_at = datetime.now()
-    print(f"Inicio ejecucion: {started_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    started_at = datetime.now(UTC)
+    print(f"Inicio ejecucion: {started_at.isoformat()}")
 
     results = [
         run_strategy(strategy)
         for strategy in STRATEGIES
     ]
-    finished_at = datetime.now()
+    finished_at = datetime.now(UTC)
     write_status_file(results, started_at, finished_at)
 
     ok_count = sum(1 for result in results if result["ok"])

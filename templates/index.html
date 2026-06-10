@@ -118,7 +118,16 @@
                   {% if strategy.signals %}
                     <ul class="signals-list">
                       {% for signal in strategy.signals %}
-                        <li>{{ signal }}</li>
+                        <li>
+                          {% if signal.symbol %}
+                            <a class="signal-link" href="{{ url_for('strategy_diagnostic', strategy_id=strategy.id, symbol=signal.symbol) }}" target="_blank" rel="noopener">
+                              <span class="signal-symbol">{{ signal.symbol }}</span>
+                              <span>{{ signal.line }}</span>
+                            </a>
+                          {% else %}
+                            {{ signal.line }}
+                          {% endif %}
+                        </li>
                       {% endfor %}
                     </ul>
                   {% else %}

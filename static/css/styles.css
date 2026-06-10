@@ -90,11 +90,21 @@ html {
   flex-direction: column;
   position: relative;
   transition: transform 0.18s ease, border-color 0.18s ease;
+  z-index: 1;
 }
 
 .strategy-card:hover {
   border-color: rgba(13, 202, 240, 0.4);
   transform: translateY(-3px);
+  z-index: 60;
+}
+
+.strategy-card:has(.signals-collapse.show) {
+  z-index: 80;
+}
+
+.strategy-card.signals-open {
+  z-index: 100;
 }
 
 .strategy-actions {
@@ -109,7 +119,7 @@ html {
   position: absolute;
   right: 0;
   top: calc(100% + 0.65rem);
-  z-index: 40;
+  z-index: 90;
 }
 
 .signals-collapse.collapsing {

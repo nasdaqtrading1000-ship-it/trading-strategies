@@ -270,7 +270,9 @@ Tareas disponibles:
 - Actualizar mercado completo.
 - Ejecutar estrategias.
 
-Nota: esta programacion interna funciona mientras el servicio web de Render esta activo. Para ejecuciones criticas al 100%, conviene usar Cron Jobs de Render.
+Nota: ademas del programador interno, el `render.yaml` incluye un Cron Job real llamado `trading-scheduled-tasks`. Ese cron se despierta de lunes a viernes cada 10 minutos y ejecuta `run_scheduled_tasks.py`, que revisa la configuracion guardada en el panel admin y lanza solo las tareas pendientes.
+
+Render usa horarios UTC en las expresiones cron. La logica interna de la app convierte y compara las horas con `Europe/Madrid`, asi que en el panel admin debes seguir escribiendo la hora espanola.
 
 ## Diagnosticos de avisos
 

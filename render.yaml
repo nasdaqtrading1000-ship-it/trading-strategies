@@ -12,15 +12,17 @@ services:
       - key: DATABASE_URL
         sync: false
   - type: cron
-    name: trading-market-data-update
+    name: trading-scheduled-tasks
     runtime: python
-    schedule: "30 20 * * 1-5"
+    schedule: "*/10 * * * MON-FRI"
     buildCommand: pip install -r requirements.txt
-    startCommand: python update_market_data.py --full
+    startCommand: python run_scheduled_tasks.py
     envVars:
       - key: DATABASE_URL
         sync: false
       - key: ALPACA_API_KEY
         sync: false
       - key: ALPACA_SECRET_KEY
+        sync: false
+      - key: FMP_API_KEY
         sync: false

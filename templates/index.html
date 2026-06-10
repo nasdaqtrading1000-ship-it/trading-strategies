@@ -109,12 +109,19 @@
                 </dd>
               </div>
             </dl>
+            <div class="strategy-actions">
+              {% if strategy.signals_txt_name %}
+                <button class="btn btn-outline-info w-100 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#signals-{{ strategy.id }}" aria-expanded="false" aria-controls="signals-{{ strategy.id }}">
+                  Ver avisos actuales{% if strategy.signals_count %} ({{ strategy.signals_count }}){% endif %}
+                </button>
+              {% endif %}
+              <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
+                Acceder al canal
+              </a>
+            </div>
             {% if strategy.signals_txt_name %}
-              <button class="btn btn-outline-info w-100 fw-semibold mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#signals-{{ strategy.id }}" aria-expanded="false" aria-controls="signals-{{ strategy.id }}">
-                Ver avisos actuales{% if strategy.signals_count %} ({{ strategy.signals_count }}){% endif %}
-              </button>
               <div class="collapse" id="signals-{{ strategy.id }}">
-                <div class="signals-panel mb-3">
+                <div class="signals-panel mt-3">
                   {% if strategy.signals %}
                     <ul class="signals-list">
                       {% for signal in strategy.signals %}
@@ -136,9 +143,6 @@
                 </div>
               </div>
             {% endif %}
-            <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
-              Acceder al canal
-            </a>
           </article>
         </div>
       {% endfor %}

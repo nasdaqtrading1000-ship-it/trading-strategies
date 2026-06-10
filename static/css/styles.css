@@ -96,7 +96,9 @@ html {
   transform: translateY(-3px);
 }
 
-.strategy-card > a.btn:last-child {
+.strategy-actions {
+  display: grid;
+  gap: 0.65rem;
   margin-top: auto;
 }
 

@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 BASE_DIR = Path(__file__).resolve().parent
 STATUS_FILE = BASE_DIR / "strategy_run_status.json"
 OUTPUT_DIR = BASE_DIR / "salidas_txt"
+LOG_DIR = BASE_DIR / "logs"
 
 
 STRATEGIES = [
@@ -60,23 +61,24 @@ def run_strategy(strategy):
 
     print(f"\n=== Ejecutando {filename} ===")
 
-    completed = subprocess.run(
-        [sys.executable, str(path)],
-        cwd=BASE_DIR,
-        text=True,
-        capture_output=True,
-    )
-
-    if completed.stdout:
-        print(completed.stdout.strip())
-
-    if completed.stderr:
-        print(completed.stderr.strip())
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{safe_log_name(strategy['name'])}.log"
+    with log_path.open("w", encoding="utf-8", errors="replace") as log_file:
+        log_file.write(f"=== Ejecutando {filename} ===\n")
+        log_file.flush()
+        completed = subprocess.run(
+            [sys.executable, str(path)],
+            cwd=BASE_DIR,
+            text=True,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+        )
 
     txt_updated = output_txt_updated(txt_path, previous_mtime)
     errors = []
     if completed.returncode != 0:
-        errors.append(completed.stderr.strip() or f"Return code {completed.returncode}")
+        log_tail = read_tail(log_path)
+        errors.append(log_tail or f"Return code {completed.returncode}")
 
     return {
         "name": strategy["name"],
@@ -86,8 +88,22 @@ def run_strategy(strategy):
         "txt_updated": txt_updated,
         "returncode": completed.returncode,
         "error": " | ".join(error for error in errors if error),
+        "log": str(log_path),
         "ran_at": datetime.now(UTC).isoformat(),
     }
+
+
+def safe_log_name(value):
+    cleaned = "".join(char if char.isalnum() else "_" for char in str(value))
+    return cleaned.strip("_") or "strategy"
+
+
+def read_tail(path, max_chars=1200):
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return text.strip()[-max_chars:]
 
 
 def output_txt_updated(path, previous_mtime):
@@ -111,6 +127,7 @@ def write_status_file(results, started_at, finished_at):
                 "txt_updated": result["txt_updated"],
                 "returncode": result["returncode"],
                 "error": result["error"][-800:],
+                "log": result.get("log", ""),
                 "ran_at": result["ran_at"],
             }
             for result in results

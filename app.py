@@ -48,6 +48,7 @@ from update_assets import build_assets_from_alpaca, write_assets
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_SIGNALS_DIR = (BASE_DIR / "Estrategias" / "salidas_txt").resolve()
 DEFAULT_STRATEGY_STATUS_FILE = (BASE_DIR / "Estrategias" / "strategy_run_status.json").resolve()
+DEFAULT_STRATEGY_LOG_DIR = (BASE_DIR / "Estrategias" / "logs").resolve()
 STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 SCHEDULER_THREAD_STARTED = False
@@ -327,15 +328,19 @@ def run_scheduler_task(task_name):
         timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
         env = os.environ.copy()
         env["TRADING_ACTIVE_STRATEGIES"] = json.dumps(active_strategy_names)
+        DEFAULT_STRATEGY_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        runner_log_path = DEFAULT_STRATEGY_LOG_DIR / "run_all_strategies.log"
         try:
-            completed = subprocess.run(
-                [sys.executable, str(STRATEGIES_RUNNER)],
-                cwd=str(STRATEGIES_RUNNER.parent),
-                text=True,
-                capture_output=True,
-                env=env,
-                timeout=timeout_seconds,
-            )
+            with runner_log_path.open("w", encoding="utf-8", errors="replace") as log_file:
+                completed = subprocess.run(
+                    [sys.executable, str(STRATEGIES_RUNNER)],
+                    cwd=str(STRATEGIES_RUNNER.parent),
+                    text=True,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                    timeout=timeout_seconds,
+                )
         except subprocess.TimeoutExpired:
             mark_running_strategies_error(
                 f"Estrategias canceladas por superar {timeout_seconds} segundos."
@@ -347,7 +352,8 @@ def run_scheduler_task(task_name):
         persisted_results = persist_strategy_status_file_results()
         summary = strategy_runner_summary(completed.returncode)
         if completed.returncode != 0 and not persisted_results:
-            mark_running_strategies_error(summary)
+            log_tail = read_text_tail(runner_log_path)
+            mark_running_strategies_error(f"{summary}\n{log_tail}".strip())
         if completed.returncode == 0:
             return {
                 "ok": True,
@@ -408,15 +414,19 @@ def run_single_strategy(strategy):
     previous_mtime = txt_path.stat().st_mtime if txt_path and txt_path.exists() else None
     mark_single_strategy_status(strategy, running=True)
     timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
+    DEFAULT_STRATEGY_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = DEFAULT_STRATEGY_LOG_DIR / f"{safe_log_filename(strategy['name'])}.log"
     try:
-        completed = subprocess.run(
-            [sys.executable, str(path)],
-            cwd=str(path.parent),
-            text=True,
-            capture_output=True,
-            env=os.environ.copy(),
-            timeout=timeout_seconds,
-        )
+        with log_path.open("w", encoding="utf-8", errors="replace") as log_file:
+            completed = subprocess.run(
+                [sys.executable, str(path)],
+                cwd=str(path.parent),
+                text=True,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                env=os.environ.copy(),
+                timeout=timeout_seconds,
+            )
     except subprocess.TimeoutExpired:
         result = {
             "ok": False,
@@ -426,11 +436,7 @@ def run_single_strategy(strategy):
         mark_single_strategy_status(strategy, running=False, result=result)
         return result
 
-    output = "\n".join(
-        part.strip()
-        for part in [completed.stdout, completed.stderr]
-        if part and part.strip()
-    )
+    output = read_text_tail(log_path)
     txt_updated = output_txt_updated(txt_path, previous_mtime)
     result = {
         "ok": completed.returncode == 0,
@@ -441,8 +447,8 @@ def run_single_strategy(strategy):
         ),
         "returncode": completed.returncode,
         "txt_updated": txt_updated,
-        "stdout": completed.stdout.strip()[-1200:] if completed.stdout else "",
-        "stderr": completed.stderr.strip()[-1200:] if completed.stderr else "",
+        "stdout": output,
+        "stderr": "",
     }
     mark_single_strategy_status(strategy, running=False, result=result)
     return result
@@ -462,6 +468,19 @@ def output_txt_updated(path, previous_mtime):
     if previous_mtime is None:
         return True
     return current_mtime > previous_mtime
+
+
+def safe_log_filename(value):
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value)).strip("._-")
+    return cleaned or "strategy"
+
+
+def read_text_tail(path, max_chars=1200):
+    try:
+        text_value = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return text_value.strip()[-max_chars:]
 
 
 def mark_single_strategy_status(strategy, running=False, result=None):

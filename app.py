@@ -337,11 +337,17 @@ def run_scheduler_task(task_name):
                 timeout=timeout_seconds,
             )
         except subprocess.TimeoutExpired:
+            mark_running_strategies_error(
+                f"Estrategias canceladas por superar {timeout_seconds} segundos."
+            )
             return {
                 "ok": False,
                 "message": f"Estrategias canceladas por superar {timeout_seconds} segundos.",
             }
+        persisted_results = persist_strategy_status_file_results()
         summary = strategy_runner_summary(completed.returncode)
+        if completed.returncode != 0 and not persisted_results:
+            mark_running_strategies_error(summary)
         if completed.returncode == 0:
             return {
                 "ok": True,
@@ -372,6 +378,16 @@ def strategy_runner_summary(returncode):
             f"Correctas: {ok_count}. Revisa Fallos de estrategias."
         )
     return f"Estrategias finalizadas correctamente. Correctas: {ok_count}."
+
+
+def parse_status_datetime_value(value):
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed
 
 
 def run_single_strategy(strategy):
@@ -450,6 +466,7 @@ def output_txt_updated(path, previous_mtime):
 
 def mark_single_strategy_status(strategy, running=False, result=None):
     now = datetime.now(UTC).isoformat()
+    persist_single_strategy_status(strategy, running=running, result=result, now=datetime.now(MADRID_TZ))
     data = {}
     try:
         if DEFAULT_STRATEGY_STATUS_FILE.exists():
@@ -490,6 +507,49 @@ def mark_single_strategy_status(strategy, running=False, result=None):
     )
 
 
+def persist_single_strategy_status(strategy, running=False, result=None, now=None):
+    strategy_id = strategy.get("id")
+    if not strategy_id:
+        return
+
+    now = now or datetime.now(MADRID_TZ)
+    if running:
+        values = {
+            "id": strategy_id,
+            "run_status": "RUNNING",
+            "run_message": "En ejecucion",
+            "run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+            "run_txt_updated": 0,
+            "run_returncode": None,
+        }
+    else:
+        result = result or {"ok": False, "message": "Sin resultado.", "returncode": None}
+        values = {
+            "id": strategy_id,
+            "run_status": "OK" if result.get("ok") else "ERROR",
+            "run_message": result.get("message", "")[:1000],
+            "run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+            "run_txt_updated": 1 if result.get("txt_updated") else 0,
+            "run_returncode": result.get("returncode"),
+        }
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE strategies
+                SET run_status = :run_status,
+                    run_message = :run_message,
+                    run_at = :run_at,
+                    run_txt_updated = :run_txt_updated,
+                    run_returncode = :run_returncode
+                WHERE id = :id
+                """
+            ),
+            values,
+        )
+
+
 def active_strategy_names_for_runner():
     with engine.connect() as connection:
         rows = connection.execute(
@@ -501,11 +561,25 @@ def active_strategy_names_for_runner():
 def mark_strategies_as_running_file():
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
     names = []
-    with engine.connect() as connection:
+    with engine.begin() as connection:
         rows = connection.execute(
-            text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
+            text("SELECT id, name FROM strategies WHERE is_active = 1 ORDER BY name")
         ).mappings().fetchall()
         names = [row["name"] for row in rows]
+        connection.execute(
+            text(
+                """
+                UPDATE strategies
+                SET run_status = 'RUNNING',
+                    run_message = 'En ejecucion',
+                    run_at = :run_at,
+                    run_txt_updated = 0,
+                    run_returncode = NULL
+                WHERE is_active = 1
+                """
+            ),
+            {"run_at": datetime.now(MADRID_TZ).replace(tzinfo=None)},
+        )
 
     payload = {
         "started_at": now,
@@ -528,6 +602,62 @@ def mark_strategies_as_running_file():
         json.dumps(payload, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+
+
+def persist_strategy_status_file_results():
+    try:
+        data = json.loads(DEFAULT_STRATEGY_STATUS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0
+
+    results = data.get("strategies", {})
+    if not results:
+        return 0
+
+    saved = 0
+    with engine.begin() as connection:
+        for name, item in results.items():
+            status = "OK" if item.get("ok") else "ERROR"
+            message = "" if item.get("ok") else (item.get("error", "") or "La estrategia termino con error.")
+            connection.execute(
+                text(
+                    """
+                    UPDATE strategies
+                    SET run_status = :run_status,
+                        run_message = :run_message,
+                        run_at = :run_at,
+                        run_txt_updated = :run_txt_updated,
+                        run_returncode = :run_returncode
+                    WHERE name = :name
+                    """
+                ),
+                {
+                    "name": name,
+                    "run_status": status,
+                    "run_message": message[:1000],
+                    "run_at": parse_status_datetime_value(item.get("ran_at", "")) or datetime.now(UTC),
+                    "run_txt_updated": 1 if item.get("txt_updated") else 0,
+                    "run_returncode": item.get("returncode"),
+                },
+            )
+            saved += 1
+    return saved
+
+
+def mark_running_strategies_error(message):
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE strategies
+                SET run_status = 'ERROR',
+                    run_message = :message,
+                    run_returncode = 1
+                WHERE run_status = 'RUNNING'
+                """
+            ),
+            {"message": message[:1000]},
+        )
 
 
 def start_scheduler_thread():
@@ -1258,7 +1388,11 @@ def create_app():
                 UPDATE strategies
                 SET schedule_last_message = '',
                     schedule_last_status = '',
-                    schedule_last_run_key = ''
+                    schedule_last_run_key = '',
+                    run_status = '',
+                    run_message = '',
+                    run_txt_updated = 0,
+                    run_returncode = NULL
                 """
             )
         )
@@ -1492,10 +1626,38 @@ def create_app():
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
         strategy["signals_updated_at"] = strategy_signals_updated_at(txt_name)
-        strategy["run_status"] = strategy_run_status(strategy.get("name", ""), txt_name)
+        strategy["run_status"] = strategy_run_status(strategy, txt_name)
         return strategy
 
-    def strategy_run_status(strategy_name, txt_name):
+    def strategy_run_status(strategy, txt_name):
+        db_status = (strategy.get("run_status") or "").strip()
+        if db_status:
+            ran_at = format_database_datetime(strategy.get("run_at"))
+            if db_status == "RUNNING":
+                return {
+                    "ok": False,
+                    "running": True,
+                    "label": "En ejecucion",
+                    "ran_at": ran_at,
+                    "error": "",
+                }
+            if db_status == "OK":
+                return {
+                    "ok": True,
+                    "running": False,
+                    "label": "Correcto",
+                    "ran_at": ran_at,
+                    "error": "",
+                }
+            return {
+                "ok": False,
+                "running": False,
+                "label": "Fallo",
+                "ran_at": ran_at,
+                "error": strategy.get("run_message") or "La estrategia termino con error.",
+            }
+
+        strategy_name = strategy.get("name", "")
         data = load_strategy_status_data()
         item = data.get("strategies", {}).get(strategy_name)
         if not item:
@@ -1547,6 +1709,10 @@ def create_app():
             return {}
 
     def load_strategy_failures():
+        db_failures = load_strategy_failures_from_database()
+        if db_failures:
+            return db_failures
+
         data = load_strategy_status_data()
         failures = []
         for name, item in data.get("strategies", {}).items():
@@ -1570,6 +1736,30 @@ def create_app():
             failures = load_strategy_failures_from_schedule_message()
         failures.sort(key=lambda item: item["name"])
         return failures
+
+    def load_strategy_failures_from_database():
+        rows = g.db.execute(
+            text(
+                """
+                SELECT name, python_file, signals_txt_name, run_at,
+                       run_returncode, run_message
+                FROM strategies
+                WHERE run_status = 'ERROR'
+                ORDER BY name
+                """
+            )
+        ).mappings().fetchall()
+        return [
+            {
+                "name": row["name"],
+                "file": row["python_file"] or "",
+                "txt": row["signals_txt_name"] or "",
+                "ran_at": format_database_datetime(row["run_at"]),
+                "returncode": row["run_returncode"],
+                "error": row["run_message"] or "La estrategia termino con error.",
+            }
+            for row in rows
+        ]
 
     def build_strategy_failure_error(item):
         details = []
@@ -1616,6 +1806,12 @@ def create_app():
         parsed = parse_status_datetime(value)
         if parsed is None:
             return value
+        return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
+
+    def format_database_datetime(value):
+        parsed = parse_database_datetime(value)
+        if parsed is None:
+            return ""
         return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
 
     def parse_status_datetime(value):
@@ -2037,6 +2233,11 @@ def init_db():
                     schedule_last_run_at TIMESTAMP,
                     schedule_last_status TEXT NOT NULL DEFAULT '',
                     schedule_last_message TEXT NOT NULL DEFAULT '',
+                    run_status TEXT NOT NULL DEFAULT '',
+                    run_message TEXT NOT NULL DEFAULT '',
+                    run_at TIMESTAMP,
+                    run_txt_updated INTEGER NOT NULL DEFAULT 0,
+                    run_returncode INTEGER,
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -2055,6 +2256,11 @@ def init_db():
         add_strategy_column(connection, "schedule_last_run_at", "TIMESTAMP")
         add_strategy_column(connection, "schedule_last_status")
         add_strategy_column(connection, "schedule_last_message")
+        add_strategy_column(connection, "run_status")
+        add_strategy_column(connection, "run_message")
+        add_strategy_column(connection, "run_at", "TIMESTAMP")
+        add_strategy_column(connection, "run_txt_updated", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "run_returncode", "INTEGER")
         ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()

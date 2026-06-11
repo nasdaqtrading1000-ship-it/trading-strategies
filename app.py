@@ -1035,21 +1035,16 @@ def create_app():
     def strategy_run_status(strategy_name, txt_name):
         data = load_strategy_status_data()
         item = data.get("strategies", {}).get(strategy_name)
-        txt_updated_at = strategy_signals_updated_at_datetime(txt_name)
-        txt_status = status_from_txt_update(txt_updated_at)
         if not item:
-            return txt_status or {
+            return {
                 "ok": False,
                 "running": False,
                 "label": "No ejecutado",
                 "ran_at": "",
-                "error": "Todavia no hay registro de ejecucion ni TXT actualizado para esta estrategia.",
+                "error": "Todavia no hay registro de ejecucion para esta estrategia.",
             }
 
         ran_at = format_status_datetime(item.get("ran_at", ""))
-        ran_at_datetime = parse_status_datetime(item.get("ran_at", ""))
-        if txt_updated_after_status(txt_updated_at, ran_at_datetime):
-            return txt_status
 
         if item.get("running"):
             return {
@@ -1074,22 +1069,6 @@ def create_app():
             "ran_at": ran_at,
             "error": item.get("error", "") or "La estrategia termino con error.",
         }
-
-    def status_from_txt_update(updated_at):
-        if updated_at is None:
-            return None
-        return {
-            "ok": True,
-            "running": False,
-            "label": "Correcto",
-            "ran_at": updated_at.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M"),
-            "error": "",
-        }
-
-    def txt_updated_after_status(txt_updated_at, status_at):
-        if txt_updated_at is None or status_at is None:
-            return False
-        return txt_updated_at > status_at
 
     def load_strategy_status_data():
         status_path = Path(

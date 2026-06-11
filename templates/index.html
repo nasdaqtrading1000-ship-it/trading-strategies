@@ -99,7 +99,7 @@
               <div>
                 <dt>Estado</dt>
                 <dd>
-                  <span class="status-pill {% if strategy.run_status.running %}status-running{% elif strategy.run_status.ok %}status-ok{% else %}status-error{% endif %}" {% if strategy.run_status.error %}title="{{ strategy.run_status.error }}"{% endif %}>
+                  <span class="status-pill {% if strategy.run_status.running %}status-running{% elif strategy.run_status.ok %}status-ok{% elif strategy.run_status.pending %}status-pending{% else %}status-error{% endif %}" {% if strategy.run_status.error %}title="{{ strategy.run_status.error }}"{% endif %}>
                     <span class="status-dot"></span>
                     {{ strategy.run_status.label }}
                   </span>

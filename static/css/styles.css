@@ -395,6 +395,15 @@ html {
   box-shadow: 0 0 0 4px rgba(255, 193, 7, 0.14);
 }
 
+.status-pending {
+  color: var(--muted);
+}
+
+.status-pending .status-dot {
+  background: #6c757d;
+  box-shadow: 0 0 0 4px rgba(108, 117, 125, 0.14);
+}
+
 .status-time {
   color: var(--muted);
   display: block;

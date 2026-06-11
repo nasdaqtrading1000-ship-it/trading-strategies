@@ -323,7 +323,7 @@ def run_scheduler_task(task_name):
     if task_name == "strategies":
         if not STRATEGIES_RUNNER.exists():
             return {"ok": False, "message": "No se encontro run_all_strategies.py."}
-        active_strategy_names, total_active = strategy_names_batch_for_runner()
+        active_strategy_names, total_active, next_batch_cursor = strategy_names_batch_for_runner()
         if not active_strategy_names:
             return {"ok": False, "message": "No hay estrategias activas para ejecutar."}
         mark_strategies_as_running_file(active_strategy_names)
@@ -352,6 +352,7 @@ def run_scheduler_task(task_name):
                 "message": f"Estrategias canceladas por superar {timeout_seconds} segundos.",
             }
         persisted_results = persist_strategy_status_file_results()
+        advance_strategy_batch_cursor(next_batch_cursor)
         summary = strategy_runner_summary(completed.returncode)
         summary = f"{summary} Lote ejecutado: {len(active_strategy_names)}/{total_active} activas."
         if completed.returncode != 0 and not persisted_results:
@@ -652,7 +653,7 @@ def active_strategy_names_for_runner():
 
 def strategy_names_batch_for_runner():
     batch_size = strategy_runner_batch_size()
-    with engine.begin() as connection:
+    with engine.connect() as connection:
         rows = connection.execute(
             text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
         ).mappings().fetchall()
@@ -677,6 +678,11 @@ def strategy_names_batch_for_runner():
             for index in range(min(batch_size, total))
         ]
         next_cursor = (start + len(selected)) % total
+    return selected, total, next_cursor
+
+
+def advance_strategy_batch_cursor(next_cursor):
+    with engine.begin() as connection:
         connection.execute(
             text(
                 """
@@ -687,7 +693,6 @@ def strategy_names_batch_for_runner():
             ),
             {"batch_cursor": next_cursor},
         )
-    return selected, total
 
 
 def strategy_runner_batch_size():
@@ -1813,9 +1818,10 @@ def create_app():
             return {
                 "ok": False,
                 "running": False,
-                "label": "No ejecutado",
+                "pending": True,
+                "label": "Pendiente",
                 "ran_at": "",
-                "error": "Todavia no hay registro de ejecucion para esta estrategia.",
+                "error": "Todavia no le ha tocado ejecutarse en el lote actual.",
             }
 
         ran_at = format_status_datetime(item.get("ran_at", ""))

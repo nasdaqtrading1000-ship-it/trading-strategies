@@ -238,3 +238,14 @@
   {% endif %}
 </section>
 {% endblock %}
+
+{% block scripts %}
+<script>
+  setInterval(() => {
+    const active = document.activeElement;
+    const editing = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName);
+    if (document.hidden || editing) return;
+    window.location.reload();
+  }, 30000);
+</script>
+{% endblock %}

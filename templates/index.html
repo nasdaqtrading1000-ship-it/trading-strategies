@@ -175,5 +175,11 @@
     panel.addEventListener("show.bs.collapse", () => card && card.classList.add("signals-open"));
     panel.addEventListener("hidden.bs.collapse", () => card && card.classList.remove("signals-open"));
   });
+
+  setInterval(() => {
+    const openSignals = document.querySelector(".signals-collapse.show");
+    if (document.hidden || openSignals) return;
+    window.location.reload();
+  }, 60000);
 </script>
 {% endblock %}

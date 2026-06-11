@@ -18,7 +18,7 @@ Concepto:
 import os
 from env_loader import load_env
 load_env()
-from txt_output import write_results_to_txt
+from txt_output import write_session_results_to_txt
 from datetime import datetime, timedelta, time, UTC
 from zoneinfo import ZoneInfo
 
@@ -412,6 +412,7 @@ def format_signal(signal):
     """
     return (
         f"{signal['side']} | {signal['symbol']} | "
+        f"Fecha: {signal['session_date']} | "
         f"Precio: {signal['price']:.2f} | "
         f"Cierre previo: {signal['previous_close']:.2f} | "
         f"Apertura: {signal['opening_price']:.2f} | "
@@ -427,13 +428,26 @@ def format_signal(signal):
 
 
 if __name__ == "__main__":
+    session_date = datetime.now(NY_TZ).date().isoformat()
     if not market_is_open():
-        output_path, output_count = write_results_to_txt("Gap_and_Go", [], format_signal)
+        output_path, output_count = write_session_results_to_txt(
+            "Gap_and_Go",
+            [],
+            format_signal,
+            session_date,
+        )
         print(f"TXT actualizado: {output_path} ({output_count})")
         print("Mercado cerrado. Gap & Go se usa durante la sesión.")
     else:
         results = find_gap_and_go_signals()
-        output_path, output_count = write_results_to_txt("Gap_and_Go", results, format_signal)
+        for result in results:
+            result["session_date"] = session_date
+        output_path, output_count = write_session_results_to_txt(
+            "Gap_and_Go",
+            results,
+            format_signal,
+            session_date,
+        )
         print(f"TXT actualizado: {output_path} ({output_count})")
 
         if not results:

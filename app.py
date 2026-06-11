@@ -85,6 +85,23 @@ DEFAULT_STRATEGY_FILES = {
     "Scalping The PullBacks": "ScalpingThePullBacKs.py",
     "Gap and Go": "Gap and Go.py",
 }
+DEFAULT_STRATEGY_SCHEDULES = {
+    "Momentum": {"start": "22:05", "end": "22:20", "interval": 1440},
+    "Swing Trading": {"start": "22:10", "end": "22:25", "interval": 1440},
+    "BreaKout": {"start": "15:35", "end": "21:45", "interval": 30},
+    "Mean Reversion": {"start": "22:15", "end": "22:30", "interval": 1440},
+    "Value Trading": {"start": "22:30", "end": "22:45", "interval": 1440},
+    "Dividend Growth": {"start": "22:35", "end": "22:50", "interval": 1440},
+    "Trend Following": {"start": "22:20", "end": "22:35", "interval": 1440},
+    "Pairs Trading": {"start": "16:00", "end": "21:30", "interval": 60},
+    "Sector Rotation": {"start": "22:40", "end": "22:55", "interval": 1440},
+    "Quality Investing": {"start": "22:45", "end": "23:00", "interval": 1440},
+    "Opening Range BreaKout": {"start": "15:45", "end": "17:30", "interval": 10},
+    "VWAP Reversion": {"start": "15:45", "end": "21:30", "interval": 15},
+    "Momentum Intradia": {"start": "15:35", "end": "21:30", "interval": 15},
+    "Scalping The PullBacks": {"start": "15:35", "end": "21:30", "interval": 10},
+    "Gap and Go": {"start": "15:45", "end": "18:00", "interval": 10},
+}
 SIGNAL_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9./-]{0,14}$")
 SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
 DEFAULT_REAL_STRATEGIES = [
@@ -2067,9 +2084,16 @@ def ensure_default_real_strategies(connection):
         ).mappings().fetchall()
     }
     for strategy in DEFAULT_REAL_STRATEGIES:
+        schedule = DEFAULT_STRATEGY_SCHEDULES.get(
+            strategy["name"],
+            {"start": "15:30", "end": "21:30", "interval": 30},
+        )
         strategy = {
             **strategy,
             "python_file": DEFAULT_STRATEGY_FILES.get(strategy["name"], ""),
+            "schedule_start_time": schedule["start"],
+            "schedule_end_time": schedule["end"],
+            "schedule_interval_minutes": schedule["interval"],
         }
         if strategy["name"] not in existing:
             connection.execute(
@@ -2077,9 +2101,11 @@ def ensure_default_real_strategies(connection):
                     """
                     INSERT INTO strategies
                     (name, description, risk_level, signal_frequency,
-                     historical_return, telegram_url, signals_txt_name, python_file, is_active)
+                     historical_return, telegram_url, signals_txt_name, python_file,
+                     schedule_start_time, schedule_end_time, schedule_interval_minutes, is_active)
                     VALUES (:name, :description, :risk_level, :signal_frequency,
-                            :historical_return, :telegram_url, :signals_txt_name, :python_file, 1)
+                            :historical_return, :telegram_url, :signals_txt_name, :python_file,
+                            :schedule_start_time, :schedule_end_time, :schedule_interval_minutes, 1)
                     """
                 ),
                 strategy,
@@ -2101,6 +2127,21 @@ def ensure_default_real_strategies(connection):
                     python_file = CASE
                         WHEN python_file = '' THEN :python_file
                         ELSE python_file
+                    END,
+                    schedule_start_time = CASE
+                        WHEN schedule_start_time IN ('', '15:30') AND schedule_end_time IN ('', '21:30') AND schedule_interval_minutes = 30
+                        THEN :schedule_start_time
+                        ELSE schedule_start_time
+                    END,
+                    schedule_end_time = CASE
+                        WHEN schedule_start_time IN ('', '15:30') AND schedule_end_time IN ('', '21:30') AND schedule_interval_minutes = 30
+                        THEN :schedule_end_time
+                        ELSE schedule_end_time
+                    END,
+                    schedule_interval_minutes = CASE
+                        WHEN schedule_start_time IN ('', '15:30') AND schedule_end_time IN ('', '21:30') AND schedule_interval_minutes = 30
+                        THEN :schedule_interval_minutes
+                        ELSE schedule_interval_minutes
                     END
                 WHERE name = :name
                 """

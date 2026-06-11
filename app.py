@@ -1111,6 +1111,38 @@ def create_app():
         flash("Todas las estrategias han sido desactivadas.", "warning")
         return redirect(url_for("admin_dashboard"))
 
+    @app.route("/admin/strategies/clear-failures", methods=["POST"])
+    @login_required
+    def strategies_clear_failures():
+        try:
+            DEFAULT_STRATEGY_STATUS_FILE.unlink(missing_ok=True)
+        except OSError:
+            pass
+        g.db.execute(
+            text(
+                """
+                UPDATE automation_schedules
+                SET last_message = '',
+                    last_status = '',
+                    last_run_key = ''
+                WHERE task_name = 'strategies'
+                """
+            )
+        )
+        g.db.execute(
+            text(
+                """
+                UPDATE strategies
+                SET schedule_last_message = '',
+                    schedule_last_status = '',
+                    schedule_last_run_key = ''
+                """
+            )
+        )
+        g.db.commit()
+        flash("Fallos de estrategias limpiados.", "success")
+        return redirect(url_for("admin_dashboard"))
+
     @app.route("/admin/strategies/<int:strategy_id>/run", methods=["POST"])
     @login_required
     def strategy_run_now(strategy_id):
@@ -1480,7 +1512,23 @@ def create_app():
         rows = g.db.execute(
             text("SELECT * FROM automation_schedules ORDER BY task_name")
         ).mappings().fetchall()
-        return {row["task_name"]: row for row in rows}
+        schedules = {}
+        for row in rows:
+            schedule = dict(row)
+            schedule["last_message"] = clean_schedule_message(
+                schedule["task_name"],
+                schedule.get("last_message", ""),
+            )
+            schedules[schedule["task_name"]] = schedule
+        return schedules
+
+    def clean_schedule_message(task_name, message):
+        if task_name != "strategies" or not message:
+            return message
+        technical_markers = ["===", "Traceback", "KeyError", "File \"<frozen os>\"", "Ejecutando "]
+        if any(marker in message for marker in technical_markers):
+            return "Estrategias con errores. Revisa Fallos de estrategias."
+        return message
 
     def expire_stale_running_schedules():
         rows = g.db.execute(

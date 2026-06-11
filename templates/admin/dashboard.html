@@ -123,9 +123,14 @@
         <h2 class="h5 mb-1">Fallos de estrategias</h2>
         <p class="text-secondary small mb-0">Ultimos fallos detectados por el ejecutor. Puedes copiarlos y pegarlos aqui.</p>
       </div>
-      <span class="badge {% if strategy_failures %}text-bg-danger{% else %}text-bg-success{% endif %} align-self-start">
-        {{ strategy_failures|length }} fallos
-      </span>
+      <div class="d-flex gap-2 align-items-start flex-wrap">
+        <span class="badge {% if strategy_failures %}text-bg-danger{% else %}text-bg-success{% endif %}">
+          {{ strategy_failures|length }} fallos
+        </span>
+        <form method="post" action="{{ url_for('strategies_clear_failures') }}" onsubmit="return confirm('Limpiar el cajon de fallos de estrategias?');">
+          <button class="btn btn-outline-light btn-sm" type="submit">Limpiar fallos</button>
+        </form>
+      </div>
     </div>
     {% if strategy_failures %}
       <div class="row g-3">

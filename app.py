@@ -323,8 +323,10 @@ def run_scheduler_task(task_name):
     if task_name == "strategies":
         if not STRATEGIES_RUNNER.exists():
             return {"ok": False, "message": "No se encontro run_all_strategies.py."}
-        active_strategy_names = active_strategy_names_for_runner()
-        mark_strategies_as_running_file()
+        active_strategy_names, total_active = strategy_names_batch_for_runner()
+        if not active_strategy_names:
+            return {"ok": False, "message": "No hay estrategias activas para ejecutar."}
+        mark_strategies_as_running_file(active_strategy_names)
         timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
         env = os.environ.copy()
         env["TRADING_ACTIVE_STRATEGIES"] = json.dumps(active_strategy_names)
@@ -351,6 +353,7 @@ def run_scheduler_task(task_name):
             }
         persisted_results = persist_strategy_status_file_results()
         summary = strategy_runner_summary(completed.returncode)
+        summary = f"{summary} Lote ejecutado: {len(active_strategy_names)}/{total_active} activas."
         if completed.returncode != 0 and not persisted_results:
             log_tail = read_text_tail(runner_log_path)
             mark_running_strategies_error(f"{summary}\n{log_tail}".strip())
@@ -647,28 +650,82 @@ def active_strategy_names_for_runner():
     return [row["name"] for row in rows]
 
 
-def mark_strategies_as_running_file():
-    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
-    names = []
+def strategy_names_batch_for_runner():
+    batch_size = strategy_runner_batch_size()
     with engine.begin() as connection:
         rows = connection.execute(
-            text("SELECT id, name FROM strategies WHERE is_active = 1 ORDER BY name")
+            text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
         ).mappings().fetchall()
         names = [row["name"] for row in rows]
+        total = len(names)
+        if total == 0:
+            return [], 0
+
+        cursor_row = connection.execute(
+            text(
+                """
+                SELECT batch_cursor
+                FROM automation_schedules
+                WHERE task_name = 'strategies'
+                """
+            )
+        ).mappings().fetchone()
+        cursor = int(cursor_row["batch_cursor"] or 0) if cursor_row else 0
+        start = cursor % total
+        selected = [
+            names[(start + index) % total]
+            for index in range(min(batch_size, total))
+        ]
+        next_cursor = (start + len(selected)) % total
         connection.execute(
             text(
                 """
-                UPDATE strategies
-                SET run_status = 'RUNNING',
-                    run_message = 'En ejecucion',
-                    run_at = :run_at,
-                    run_txt_updated = 0,
-                    run_returncode = NULL
-                WHERE is_active = 1
+                UPDATE automation_schedules
+                SET batch_cursor = :batch_cursor
+                WHERE task_name = 'strategies'
                 """
             ),
-            {"run_at": datetime.now(MADRID_TZ).replace(tzinfo=None)},
+            {"batch_cursor": next_cursor},
         )
+    return selected, total
+
+
+def strategy_runner_batch_size():
+    try:
+        value = int(os.environ.get("TRADING_STRATEGY_BATCH_SIZE", "3"))
+    except ValueError:
+        value = 3
+    return max(1, min(value, 15))
+
+
+def mark_strategies_as_running_file(strategy_names=None):
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+    names = list(strategy_names or [])
+    with engine.begin() as connection:
+        if not names:
+            rows = connection.execute(
+                text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
+            ).mappings().fetchall()
+            names = [row["name"] for row in rows]
+        for name in names:
+            connection.execute(
+                text(
+                    """
+                    UPDATE strategies
+                    SET run_status = 'RUNNING',
+                        run_message = 'En ejecucion',
+                        run_at = :run_at,
+                        run_txt_updated = 0,
+                        run_returncode = NULL
+                    WHERE is_active = 1
+                      AND name = :name
+                    """
+                ),
+                {
+                    "run_at": datetime.now(MADRID_TZ).replace(tzinfo=None),
+                    "name": name,
+                },
+            )
 
     payload = {
         "started_at": now,
@@ -2495,6 +2552,7 @@ def init_db():
                     runs_per_day INTEGER NOT NULL DEFAULT 1,
                     interval_minutes INTEGER NOT NULL DEFAULT 60,
                     weekdays TEXT NOT NULL DEFAULT '1,2,3,4,5',
+                    batch_cursor INTEGER NOT NULL DEFAULT 0,
                     last_run_key TEXT NOT NULL DEFAULT '',
                     last_run_at TIMESTAMP,
                     last_status TEXT NOT NULL DEFAULT '',
@@ -2505,6 +2563,7 @@ def init_db():
             )
         )
         add_automation_schedule_column(connection, "weekdays", f"TEXT NOT NULL DEFAULT '{DEFAULT_WEEKDAYS}'")
+        add_automation_schedule_column(connection, "batch_cursor", "INTEGER NOT NULL DEFAULT 0")
         existing_schedules = {
             row[0]
             for row in connection.execute(

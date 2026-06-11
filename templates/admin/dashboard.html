@@ -27,6 +27,7 @@
       <div>
         <h2 class="h5 mb-1">Programacion automatica</h2>
         <p class="text-secondary small mb-0">Hora en Espana. Ejemplo: 15:30, 5 veces al dia, cada 60 minutos.</p>
+        <p class="text-secondary small mb-0">Ejecutar estrategias lanza un lote pequeno de estrategias activas para evitar sobrecargar Render.</p>
       </div>
     </div>
     <form method="post" action="{{ url_for('admin_schedules_update') }}">

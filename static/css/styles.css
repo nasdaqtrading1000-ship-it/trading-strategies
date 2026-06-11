@@ -251,6 +251,22 @@ html {
   font-size: 1rem;
 }
 
+.term-help {
+  align-items: center;
+  background: rgba(13, 202, 240, 0.12);
+  border: 1px solid rgba(13, 202, 240, 0.35);
+  border-radius: 999px;
+  color: #8ee8ff;
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 800;
+  height: 1.05rem;
+  justify-content: center;
+  margin-left: 0.25rem;
+  padding: 0;
+  width: 1.05rem;
+}
+
 .weekday-picker {
   display: flex;
   flex-wrap: wrap;

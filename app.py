@@ -68,6 +68,23 @@ WEEKDAYS = [
     (7, "Dom"),
 ]
 DEFAULT_WEEKDAYS = "1,2,3,4,5"
+DEFAULT_STRATEGY_FILES = {
+    "Momentum": "Momentum.py",
+    "Swing Trading": "SwingTrading.py",
+    "BreaKout": "BreaKout.py",
+    "Mean Reversion": "Mean Reversion.py",
+    "Value Trading": "ValueTrading.py",
+    "Dividend Growth": "DividenGrowth.py",
+    "Trend Following": "TrendFollowing.py",
+    "Pairs Trading": "PairsTrading.py",
+    "Sector Rotation": "SectorRotation.py",
+    "Quality Investing": "QualityInvesting.py",
+    "Opening Range BreaKout": "OpeningRangeBreaKout.py",
+    "VWAP Reversion": "VWAP Reversion.py",
+    "Momentum Intradia": "MomentumIntradia.py",
+    "Scalping The PullBacks": "ScalpingThePullBacKs.py",
+    "Gap and Go": "Gap and Go.py",
+}
 SIGNAL_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9./-]{0,14}$")
 SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
 DEFAULT_REAL_STRATEGIES = [
@@ -265,22 +282,127 @@ def run_scheduler_task(task_name):
                 "ok": False,
                 "message": f"Estrategias canceladas por superar {timeout_seconds} segundos.",
             }
-        output = "\n".join(
-            part.strip()
-            for part in [completed.stdout, completed.stderr]
-            if part and part.strip()
-        )
+        summary = strategy_runner_summary(completed.returncode)
         if completed.returncode == 0:
             return {
                 "ok": True,
-                "message": "Estrategias finalizadas correctamente.",
+                "message": summary,
             }
         return {
             "ok": False,
-            "message": f"Estrategias con error. Codigo {completed.returncode}. {output[-700:]}",
+            "message": summary,
         }
 
     return {"ok": False, "message": "Tarea no reconocida."}
+
+
+def strategy_runner_summary(returncode):
+    try:
+        data = json.loads(DEFAULT_STRATEGY_STATUS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        if returncode == 0:
+            return "Estrategias finalizadas correctamente."
+        return f"Estrategias con error. Codigo {returncode}. Revisa Fallos de estrategias."
+
+    results = data.get("strategies", {})
+    ok_count = sum(1 for item in results.values() if item.get("ok"))
+    fail_count = sum(1 for item in results.values() if not item.get("ok"))
+    if fail_count:
+        return (
+            f"Estrategias finalizadas con {fail_count} fallos. "
+            f"Correctas: {ok_count}. Revisa Fallos de estrategias."
+        )
+    return f"Estrategias finalizadas correctamente. Correctas: {ok_count}."
+
+
+def run_single_strategy(strategy):
+    py_file = (strategy.get("python_file") or "").strip()
+    if not py_file:
+        return {"ok": False, "message": "La estrategia no tiene archivo Python asociado."}
+    if not valid_python_filename(py_file):
+        return {"ok": False, "message": "Archivo Python no valido."}
+
+    strategies_dir = (BASE_DIR / "Estrategias").resolve()
+    path = (strategies_dir / py_file).resolve()
+    if strategies_dir not in path.parents:
+        return {"ok": False, "message": "Ruta de estrategia no permitida."}
+    if not path.exists() or not path.is_file():
+        return {"ok": False, "message": f"No existe {py_file}."}
+
+    mark_single_strategy_status(strategy, running=True)
+    timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
+    try:
+        completed = subprocess.run(
+            [sys.executable, str(path)],
+            cwd=str(path.parent),
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        result = {
+            "ok": False,
+            "message": f"{strategy['name']} cancelada por superar {timeout_seconds} segundos.",
+            "returncode": None,
+        }
+        mark_single_strategy_status(strategy, running=False, result=result)
+        return result
+
+    output = "\n".join(
+        part.strip()
+        for part in [completed.stdout, completed.stderr]
+        if part and part.strip()
+    )
+    result = {
+        "ok": completed.returncode == 0,
+        "message": (
+            f"{strategy['name']} finalizada correctamente."
+            if completed.returncode == 0
+            else f"{strategy['name']} fallo. Codigo {completed.returncode}. {output[-700:]}"
+        ),
+        "returncode": completed.returncode,
+    }
+    mark_single_strategy_status(strategy, running=False, result=result)
+    return result
+
+
+def mark_single_strategy_status(strategy, running=False, result=None):
+    now = datetime.now(UTC).isoformat()
+    data = {}
+    try:
+        if DEFAULT_STRATEGY_STATUS_FILE.exists():
+            data = json.loads(DEFAULT_STRATEGY_STATUS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        data = {}
+
+    data.setdefault("strategies", {})
+    item = {
+        "file": strategy.get("python_file", ""),
+        "txt": strategy.get("signals_txt_name", ""),
+        "ok": False,
+        "txt_updated": False,
+        "returncode": None,
+        "error": "",
+        "ran_at": now,
+    }
+    if running:
+        item["running"] = True
+        data["started_at"] = now
+        data["finished_at"] = ""
+    else:
+        result = result or {"ok": False, "message": "Sin resultado.", "returncode": None}
+        item["running"] = False
+        item["ok"] = bool(result.get("ok"))
+        item["returncode"] = result.get("returncode")
+        item["error"] = "" if result.get("ok") else result.get("message", "")
+        data["finished_at"] = now
+
+    data["strategies"][strategy["name"]] = item
+    DEFAULT_STRATEGY_STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    DEFAULT_STRATEGY_STATUS_FILE.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
 
 def active_strategy_names_for_runner():
@@ -372,6 +494,37 @@ def process_due_schedules(background=True):
                 result = {"ok": False, "message": f"Error ejecutando tarea: {error}"}
             record_schedule_result(schedule["task_name"], due_key, result, now)
 
+    process_due_strategy_schedules(now, background=background)
+
+
+def process_due_strategy_schedules(now, background=True):
+    with engine.begin() as connection:
+        strategies = connection.execute(
+            text(
+                """
+                SELECT *
+                FROM strategies
+                WHERE is_active = 1
+                  AND auto_execute = 1
+                ORDER BY name
+                """
+            )
+        ).mappings().fetchall()
+
+    for strategy in strategies:
+        due_key = due_strategy_schedule_key(strategy, now)
+        if not due_key or due_key == strategy["schedule_last_run_key"]:
+            continue
+        record_strategy_schedule_running(strategy["id"], due_key, now)
+        if background:
+            launch_strategy_task_in_background(dict(strategy), due_key)
+        else:
+            try:
+                result = run_single_strategy(strategy)
+            except Exception as error:
+                result = {"ok": False, "message": f"Error ejecutando estrategia: {error}"}
+            record_strategy_schedule_result(strategy["id"], due_key, result, now)
+
 
 def record_schedule_result(task_name, run_key, result, now=None):
     now = now or datetime.now(MADRID_TZ)
@@ -431,6 +584,64 @@ def launch_scheduler_task_in_background(task_name, run_key):
     thread.start()
 
 
+def launch_strategy_task_in_background(strategy, run_key):
+    def worker():
+        try:
+            result = run_single_strategy(strategy)
+        except Exception as error:
+            result = {"ok": False, "message": f"Error ejecutando estrategia: {error}"}
+        record_strategy_schedule_result(strategy["id"], run_key, result)
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
+
+def record_strategy_schedule_running(strategy_id, run_key, now=None):
+    now = now or datetime.now(MADRID_TZ)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE strategies
+                SET schedule_last_run_key = :run_key,
+                    schedule_last_run_at = :last_run_at,
+                    schedule_last_status = 'RUNNING',
+                    schedule_last_message = 'En ejecucion'
+                WHERE id = :id
+                """
+            ),
+            {
+                "run_key": run_key,
+                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "id": strategy_id,
+            },
+        )
+
+
+def record_strategy_schedule_result(strategy_id, run_key, result, now=None):
+    now = now or datetime.now(MADRID_TZ)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE strategies
+                SET schedule_last_run_key = :run_key,
+                    schedule_last_run_at = :last_run_at,
+                    schedule_last_status = :status,
+                    schedule_last_message = :message
+                WHERE id = :id
+                """
+            ),
+            {
+                "run_key": run_key,
+                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "status": "OK" if result.get("ok") else "ERROR",
+                "message": result.get("message", "")[:1000],
+                "id": strategy_id,
+            },
+        )
+
+
 def due_schedule_key(schedule, now):
     try:
         hour, minute = [int(part) for part in str(schedule["start_time"]).split(":", 1)]
@@ -457,6 +668,32 @@ def due_schedule_key(schedule, now):
     return ""
 
 
+def due_strategy_schedule_key(strategy, now):
+    if now.isoweekday() not in parse_weekdays(DEFAULT_WEEKDAYS):
+        return ""
+    try:
+        start_hour, start_minute = [int(part) for part in str(strategy["schedule_start_time"]).split(":", 1)]
+        end_hour, end_minute = [int(part) for part in str(strategy["schedule_end_time"]).split(":", 1)]
+        interval_minutes = max(1, int(strategy["schedule_interval_minutes"]))
+    except (TypeError, ValueError):
+        return ""
+
+    start = now.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
+    end = now.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
+    if end < start:
+        end = end + timedelta(days=1)
+    if not start <= now <= end:
+        return ""
+
+    elapsed_minutes = int((now - start).total_seconds() // 60)
+    slot = elapsed_minutes // interval_minutes
+    planned = start + timedelta(minutes=slot * interval_minutes)
+    grace_minutes = max(5, min(interval_minutes, 60))
+    if planned <= now < planned + timedelta(minutes=grace_minutes):
+        return f"{now.date().isoformat()}|strategy|{strategy['id']}|{slot}"
+    return ""
+
+
 def parse_weekdays(value):
     days = set()
     for part in str(value or "").split(","):
@@ -467,6 +704,16 @@ def parse_weekdays(value):
         if 1 <= day <= 7:
             days.add(day)
     return days or {1, 2, 3, 4, 5}
+
+
+def valid_python_filename(filename):
+    path = Path(filename)
+    return (
+        path.name == filename
+        and filename.lower().endswith(".py")
+        and "/" not in filename
+        and "\\" not in filename
+    )
 
 
 def create_app():
@@ -542,7 +789,9 @@ def create_app():
             text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, has_telegram, signals_txt_name, is_active
+                   historical_return, telegram_url, has_telegram, signals_txt_name,
+                   python_file, auto_execute, schedule_start_time, schedule_end_time,
+                   schedule_interval_minutes, is_active
             FROM strategies
             WHERE is_active = 1
             ORDER BY created_at DESC
@@ -675,7 +924,10 @@ def create_app():
             text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, has_telegram, signals_txt_name, is_active, created_at
+                   historical_return, telegram_url, has_telegram, signals_txt_name,
+                   python_file, auto_execute, schedule_start_time, schedule_end_time,
+                   schedule_interval_minutes, schedule_last_status, schedule_last_message,
+                   schedule_last_run_at, is_active, created_at
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
@@ -859,6 +1111,19 @@ def create_app():
         flash("Todas las estrategias han sido desactivadas.", "warning")
         return redirect(url_for("admin_dashboard"))
 
+    @app.route("/admin/strategies/<int:strategy_id>/run", methods=["POST"])
+    @login_required
+    def strategy_run_now(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        if not strategy["is_active"]:
+            flash("Activa la estrategia antes de ejecutarla.", "warning")
+            return redirect(url_for("admin_dashboard"))
+        run_key = f"manual|strategy|{strategy_id}|{datetime.now(MADRID_TZ).isoformat()}"
+        record_strategy_schedule_running(strategy_id, run_key)
+        launch_strategy_task_in_background(strategy, run_key)
+        flash(f"{strategy['name']} iniciada. Refresca el panel para ver el resultado.", "info")
+        return redirect(url_for("admin_dashboard"))
+
     @app.route("/admin/strategies/<int:strategy_id>/delete", methods=["POST"])
     @login_required
     def strategy_delete(strategy_id):
@@ -885,6 +1150,16 @@ def create_app():
         telegram_url = request.form.get("telegram_url", "").strip()
         has_telegram = 1 if request.form.get("has_telegram") == "on" else 0
         signals_txt_name = request.form.get("signals_txt_name", "").strip()
+        python_file = request.form.get("python_file", "").strip()
+        auto_execute = 1 if request.form.get("auto_execute") == "on" else 0
+        schedule_start_time = request.form.get("schedule_start_time", "15:30").strip()
+        schedule_end_time = request.form.get("schedule_end_time", "21:30").strip()
+        schedule_interval_minutes = parse_schedule_int(
+            request.form.get("schedule_interval_minutes"),
+            default=30,
+            minimum=1,
+            maximum=1440,
+        )
         is_active = 1 if request.form.get("is_active") == "on" else 0
 
         errors = []
@@ -898,6 +1173,14 @@ def create_app():
             errors.append("Usa un enlace valido de Telegram o desmarca Tiene canal de Telegram.")
         if signals_txt_name and not valid_txt_name(signals_txt_name):
             errors.append("El nombre del TXT debe ser un archivo .txt sin carpetas.")
+        if python_file and not valid_python_filename(python_file):
+            errors.append("El archivo Python debe ser un .py sin carpetas.")
+        if auto_execute and not python_file:
+            errors.append("Para ejecutar automaticamente debes indicar el archivo Python.")
+        if not valid_schedule_time(schedule_start_time):
+            errors.append("La hora inicial de la estrategia no es valida.")
+        if not valid_schedule_time(schedule_end_time):
+            errors.append("La hora final de la estrategia no es valida.")
 
         form_strategy = {
             "id": strategy_id,
@@ -909,6 +1192,11 @@ def create_app():
             "telegram_url": telegram_url,
             "has_telegram": has_telegram,
             "signals_txt_name": signals_txt_name,
+            "python_file": python_file,
+            "auto_execute": auto_execute,
+            "schedule_start_time": schedule_start_time,
+            "schedule_end_time": schedule_end_time,
+            "schedule_interval_minutes": schedule_interval_minutes,
             "is_active": is_active,
         }
 
@@ -937,6 +1225,11 @@ def create_app():
                     telegram_url = :telegram_url,
                     has_telegram = :has_telegram,
                     signals_txt_name = :signals_txt_name,
+                    python_file = :python_file,
+                    auto_execute = :auto_execute,
+                    schedule_start_time = :schedule_start_time,
+                    schedule_end_time = :schedule_end_time,
+                    schedule_interval_minutes = :schedule_interval_minutes,
                     is_active = :is_active
                 WHERE id = :id
                 """,
@@ -950,6 +1243,11 @@ def create_app():
                     "telegram_url": telegram_url,
                     "has_telegram": has_telegram,
                     "signals_txt_name": signals_txt_name,
+                    "python_file": python_file,
+                    "auto_execute": auto_execute,
+                    "schedule_start_time": schedule_start_time,
+                    "schedule_end_time": schedule_end_time,
+                    "schedule_interval_minutes": schedule_interval_minutes,
                     "is_active": is_active,
                     "id": strategy_id,
                 },
@@ -961,9 +1259,13 @@ def create_app():
                 """
                 INSERT INTO strategies
                 (name, description, risk_level, signal_frequency,
-                 historical_return, telegram_url, has_telegram, signals_txt_name, is_active)
+                 historical_return, telegram_url, has_telegram, signals_txt_name,
+                 python_file, auto_execute, schedule_start_time, schedule_end_time,
+                 schedule_interval_minutes, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
-                        :historical_return, :telegram_url, :has_telegram, :signals_txt_name, :is_active)
+                        :historical_return, :telegram_url, :has_telegram, :signals_txt_name,
+                        :python_file, :auto_execute, :schedule_start_time, :schedule_end_time,
+                        :schedule_interval_minutes, :is_active)
                 """,
                 ),
                 {
@@ -975,6 +1277,11 @@ def create_app():
                     "telegram_url": telegram_url,
                     "has_telegram": has_telegram,
                     "signals_txt_name": signals_txt_name,
+                    "python_file": python_file,
+                    "auto_execute": auto_execute,
+                    "schedule_start_time": schedule_start_time,
+                    "schedule_end_time": schedule_end_time,
+                    "schedule_interval_minutes": schedule_interval_minutes,
                     "is_active": is_active,
                 },
             )
@@ -1324,7 +1631,24 @@ def create_app():
             "symbol": symbol,
             "side": side,
             "fields": fields,
+            "common": common_signal_fields(side, fields),
         }
+
+    def common_signal_fields(side, fields):
+        return {
+            "direccion": side or first_existing(fields, ["Direccion", "Dirección", "Side", "Tipo"]),
+            "apertura": first_existing(fields, ["Entrada", "Apertura", "Precio entrada", "Precio", "Entry"]),
+            "cierre": first_existing(fields, ["Salida", "Cierre", "TP1", "Objetivo", "Take Profit", "Target"]),
+            "stop": first_existing(fields, ["Stop", "Stop Loss", "SL"]),
+        }
+
+    def first_existing(fields, keys):
+        lower_fields = {str(key).lower(): value for key, value in fields.items()}
+        for key in keys:
+            value = lower_fields.get(key.lower())
+            if value:
+                return value
+        return ""
 
     def normalize_signal_symbol(symbol):
         return str(symbol).strip().upper().replace(" ", "")
@@ -1513,6 +1837,15 @@ def init_db():
                     telegram_url TEXT NOT NULL DEFAULT '',
                     has_telegram INTEGER NOT NULL DEFAULT 1,
                     signals_txt_name TEXT NOT NULL DEFAULT '',
+                    python_file TEXT NOT NULL DEFAULT '',
+                    auto_execute INTEGER NOT NULL DEFAULT 0,
+                    schedule_start_time TEXT NOT NULL DEFAULT '15:30',
+                    schedule_end_time TEXT NOT NULL DEFAULT '21:30',
+                    schedule_interval_minutes INTEGER NOT NULL DEFAULT 30,
+                    schedule_last_run_key TEXT NOT NULL DEFAULT '',
+                    schedule_last_run_at TIMESTAMP,
+                    schedule_last_status TEXT NOT NULL DEFAULT '',
+                    schedule_last_message TEXT NOT NULL DEFAULT '',
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -1522,6 +1855,15 @@ def init_db():
         ensure_universe_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
+        add_strategy_column(connection, "python_file")
+        add_strategy_column(connection, "auto_execute", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "schedule_start_time", "TEXT NOT NULL DEFAULT '15:30'")
+        add_strategy_column(connection, "schedule_end_time", "TEXT NOT NULL DEFAULT '21:30'")
+        add_strategy_column(connection, "schedule_interval_minutes", "INTEGER NOT NULL DEFAULT 30")
+        add_strategy_column(connection, "schedule_last_run_key")
+        add_strategy_column(connection, "schedule_last_run_at", "TIMESTAMP")
+        add_strategy_column(connection, "schedule_last_status")
+        add_strategy_column(connection, "schedule_last_message")
         ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
@@ -1677,15 +2019,19 @@ def ensure_default_real_strategies(connection):
         ).mappings().fetchall()
     }
     for strategy in DEFAULT_REAL_STRATEGIES:
+        strategy = {
+            **strategy,
+            "python_file": DEFAULT_STRATEGY_FILES.get(strategy["name"], ""),
+        }
         if strategy["name"] not in existing:
             connection.execute(
                 text(
                     """
                     INSERT INTO strategies
                     (name, description, risk_level, signal_frequency,
-                     historical_return, telegram_url, signals_txt_name, is_active)
+                     historical_return, telegram_url, signals_txt_name, python_file, is_active)
                     VALUES (:name, :description, :risk_level, :signal_frequency,
-                            :historical_return, :telegram_url, :signals_txt_name, 1)
+                            :historical_return, :telegram_url, :signals_txt_name, :python_file, 1)
                     """
                 ),
                 strategy,
@@ -1703,7 +2049,11 @@ def ensure_default_real_strategies(connection):
                         WHEN historical_return = '' THEN :historical_return
                         ELSE historical_return
                     END,
-                    signals_txt_name = :signals_txt_name
+                    signals_txt_name = :signals_txt_name,
+                    python_file = CASE
+                        WHEN python_file = '' THEN :python_file
+                        ELSE python_file
+                    END
                 WHERE name = :name
                 """
             ),

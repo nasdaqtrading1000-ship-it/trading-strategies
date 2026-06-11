@@ -180,6 +180,9 @@
                 {% if strategy.signals_txt_name %}
                   <span class="d-block text-info small">TXT: {{ strategy.signals_txt_name }}</span>
                 {% endif %}
+                {% if strategy.python_file %}
+                  <span class="d-block text-warning small">PY: {{ strategy.python_file }}</span>
+                {% endif %}
               </td>
               <td><span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span></td>
               <td>{{ strategy.signal_frequency }}</td>
@@ -190,10 +193,26 @@
                 {% else %}
                   <span class="badge text-bg-secondary">Inactiva</span>
                 {% endif %}
+                {% if strategy.auto_execute %}
+                  <span class="badge text-bg-info d-block mt-2">
+                    Auto {{ strategy.schedule_start_time }}-{{ strategy.schedule_end_time }} / {{ strategy.schedule_interval_minutes }}m
+                  </span>
+                {% endif %}
+                {% if strategy.schedule_last_status %}
+                  <span class="badge {% if strategy.schedule_last_status == 'OK' %}text-bg-success{% elif strategy.schedule_last_status == 'RUNNING' %}text-bg-warning{% else %}text-bg-danger{% endif %} d-block mt-2">
+                    {{ strategy.schedule_last_status }}
+                  </span>
+                  <span class="d-block text-secondary small">{{ strategy.schedule_last_message }}</span>
+                {% endif %}
               </td>
               <td>
                 <div class="d-flex justify-content-end gap-2 flex-wrap">
                   <a class="btn btn-outline-light btn-sm" href="{{ url_for('strategy_edit', strategy_id=strategy.id) }}">Editar</a>
+                  <form method="post" action="{{ url_for('strategy_run_now', strategy_id=strategy.id) }}">
+                    <button class="btn btn-outline-info btn-sm" type="submit" {% if not strategy.is_active or not strategy.python_file %}disabled{% endif %}>
+                      Ejecutar
+                    </button>
+                  </form>
                   <form method="post" action="{{ url_for('strategy_toggle', strategy_id=strategy.id) }}">
                     <button class="btn btn-outline-warning btn-sm" type="submit">
                       {% if strategy.is_active %}Desactivar{% else %}Activar{% endif %}

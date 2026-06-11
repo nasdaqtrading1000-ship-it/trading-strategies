@@ -54,15 +54,27 @@
     </div>
 
     <div class="diagnostic-box mt-4">
-      <h2 class="h5 mb-3">Resumen de datos devueltos</h2>
+      <h2 class="h5 mb-3">Operativa comun</h2>
       <div class="diagnostic-summary-grid">
         <div>
           <span>Ticker</span>
           <strong>{{ signal.symbol }}</strong>
         </div>
         <div>
-          <span>Direccion</span>
-          <strong>{{ signal.side or "No indicada" }}</strong>
+          <span>Direccion <button class="term-help" type="button" data-bs-toggle="tooltip" title="LONG busca subida del precio. SHORT busca caida del precio.">?</button></span>
+          <strong>{{ signal.common.direccion or "No indicada" }}</strong>
+        </div>
+        <div>
+          <span>Apertura / entrada <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio de referencia para abrir o vigilar la operacion simulada.">?</button></span>
+          <strong>{{ signal.common.apertura or "No indicada" }}</strong>
+        </div>
+        <div>
+          <span>Cierre / objetivo <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio objetivo o zona donde la estrategia podria cerrar con beneficio.">?</button></span>
+          <strong>{{ signal.common.cierre or "No indicado" }}</strong>
+        </div>
+        <div>
+          <span>Stop loss <button class="term-help" type="button" data-bs-toggle="tooltip" title="Nivel de salida defensiva si la operacion va en contra. Sirve para limitar perdida.">?</button></span>
+          <strong>{{ signal.common.stop or "No indicado" }}</strong>
         </div>
         <div>
           <span>Estrategia</span>
@@ -82,4 +94,12 @@
     </div>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
+    new bootstrap.Tooltip(element);
+  });
+</script>
 {% endblock %}

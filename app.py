@@ -784,15 +784,8 @@ def create_app():
             abort(404)
         run_key = f"manual|{task_name}|{datetime.now(MADRID_TZ).isoformat()}"
         record_schedule_running(task_name, run_key)
-        try:
-            result = run_scheduler_task(task_name)
-        except Exception as error:
-            result = {"ok": False, "message": f"Error ejecutando tarea: {error}"}
-        record_schedule_result(task_name, run_key, result)
-        if result["ok"]:
-            flash(f"{SCHEDULER_TASKS[task_name]} finalizado correctamente. {result['message']}", "success")
-        else:
-            flash(f"{SCHEDULER_TASKS[task_name]} fallo. {result['message']}", "danger")
+        launch_scheduler_task_in_background(task_name, run_key)
+        flash(f"{SCHEDULER_TASKS[task_name]} iniciado. Refresca el panel para ver si termina en OK o ERROR.", "info")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/schedules/<task_name>/clear-running", methods=["POST"])
@@ -1097,7 +1090,6 @@ def create_app():
         for name, item in data.get("strategies", {}).items():
             is_failure = (
                 not item.get("ok")
-                or item.get("txt_updated") is False
                 or item.get("returncode") not in (None, 0)
             )
             if item.get("running") or not is_failure:
@@ -1121,8 +1113,6 @@ def create_app():
         details = []
         if item.get("returncode") not in (None, 0):
             details.append(f"Codigo de salida: {item.get('returncode')}.")
-        if item.get("txt_updated") is False:
-            details.append(f"TXT NO ACTUALIZADO: {item.get('txt', 'archivo no indicado')}.")
         if item.get("error"):
             details.append(str(item.get("error")))
         if not details:

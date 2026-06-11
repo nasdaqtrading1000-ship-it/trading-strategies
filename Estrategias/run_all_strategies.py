@@ -77,14 +77,12 @@ def run_strategy(strategy):
     errors = []
     if completed.returncode != 0:
         errors.append(completed.stderr.strip() or f"Return code {completed.returncode}")
-    if completed.returncode == 0 and not txt_updated:
-        errors.append(f"El codigo termino sin error, pero no actualizo {strategy['txt']}.")
 
     return {
         "name": strategy["name"],
         "file": filename,
         "txt": strategy["txt"],
-        "ok": completed.returncode == 0 and txt_updated,
+        "ok": completed.returncode == 0,
         "txt_updated": txt_updated,
         "returncode": completed.returncode,
         "error": " | ".join(error for error in errors if error),
@@ -164,7 +162,7 @@ def main():
 
     for result in results:
         status = "OK" if result["ok"] else "ERROR"
-        txt_status = "TXT OK" if result["txt_updated"] else "TXT NO ACTUALIZADO"
+        txt_status = "TXT ACTUALIZADO" if result["txt_updated"] else "TXT SIN CAMBIOS"
         print(f"{status} - {result['name']} ({result['file']}) | {txt_status}")
     print(f"Estado guardado en: {STATUS_FILE}")
 

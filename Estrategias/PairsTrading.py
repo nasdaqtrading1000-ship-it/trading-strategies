@@ -330,6 +330,11 @@ def format_signal(signal):
     """
     return (
         f"{signal['symbol_a']}/{signal['symbol_b']} | "
+        f"Direccion: {signal['action']} | "
+        f"Precio actual: {signal['price_a']:.2f}/{signal['price_b']:.2f} | "
+        f"Apertura: {signal['price_a']:.2f}/{signal['price_b']:.2f} | "
+        f"Cierre: ZScore cerca de +/-{signal['exit_zscore']} | "
+        f"Stop Loss: ZScore extremo pendiente de regla | "
         f"{signal['action']} | "
         f"ZScore: {signal['zscore']:.2f} | "
         f"Corr: {signal['correlation']:.2f} | "

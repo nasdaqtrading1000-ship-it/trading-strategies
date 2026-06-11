@@ -210,8 +210,11 @@ html {
 }
 
 .diagnostic-fields dt {
+  align-items: center;
   color: var(--muted);
+  display: inline-flex;
   font-weight: 500;
+  gap: 0.25rem;
 }
 
 .diagnostic-fields dd {
@@ -313,15 +316,18 @@ html {
   border-radius: 8px;
   color: #ffd4da;
   font-size: 0.78rem;
-  max-height: 180px;
+  line-height: 1.45;
+  max-height: 280px;
   overflow: auto;
   padding: 0.75rem;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .failure-copy {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.82rem;
+  min-height: 260px;
 }
 
 .strategy-meta {
@@ -446,8 +452,111 @@ html {
   max-width: 480px;
 }
 
+.admin-dashboard-container {
+  max-width: 1680px;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
 .form-panel {
   max-width: 920px;
+}
+
+.admin-dashboard-container .form-panel,
+.admin-dashboard-container .admin-table {
+  max-width: none;
+  width: 100%;
+}
+
+.schedule-panel {
+  max-width: none;
+  width: 100%;
+}
+
+.failures-panel {
+  max-width: none;
+  width: 100%;
+}
+
+.schedule-table {
+  min-width: 1120px;
+  table-layout: fixed;
+}
+
+.schedule-table th:nth-child(1),
+.schedule-table td:nth-child(1) {
+  width: 250px;
+}
+
+.schedule-table th:nth-child(2),
+.schedule-table td:nth-child(2) {
+  width: 82px;
+}
+
+.schedule-table th:nth-child(3),
+.schedule-table td:nth-child(3) {
+  width: 130px;
+}
+
+.schedule-table th:nth-child(4),
+.schedule-table td:nth-child(4) {
+  width: 260px;
+}
+
+.schedule-table th:nth-child(5),
+.schedule-table td:nth-child(5),
+.schedule-table th:nth-child(6),
+.schedule-table td:nth-child(6) {
+  width: 135px;
+}
+
+.schedule-table th:nth-child(7),
+.schedule-table td:nth-child(7) {
+  width: 150px;
+}
+
+.schedule-table th:nth-child(8),
+.schedule-table td:nth-child(8) {
+  width: 150px;
+}
+
+.schedule-table .form-control-sm {
+  min-width: 0;
+}
+
+.strategies-table {
+  min-width: 1260px;
+  table-layout: fixed;
+}
+
+.strategies-table th:nth-child(1),
+.strategies-table td:nth-child(1) {
+  width: 360px;
+}
+
+.strategies-table th:nth-child(2),
+.strategies-table td:nth-child(2) {
+  width: 95px;
+}
+
+.strategies-table th:nth-child(3),
+.strategies-table td:nth-child(3) {
+  width: 180px;
+}
+
+.strategies-table th:nth-child(4),
+.strategies-table td:nth-child(4) {
+  width: 160px;
+}
+
+.strategies-table th:nth-child(5),
+.strategies-table td:nth-child(5) {
+  width: 230px;
+}
+
+.strategies-table th:nth-child(6),
+.strategies-table td:nth-child(6) {
+  width: 235px;
 }
 
 .form-control,

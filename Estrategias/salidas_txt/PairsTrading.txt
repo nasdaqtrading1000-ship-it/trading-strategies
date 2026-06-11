@@ -1,1 +1,0 @@
-COIN/HOOD | LONG COIN / SHORT HOOD | ZScore: -2.66 | Corr: 0.79 | Hedge: 2.43 | Salida teorica: ZScore cerca de ±0.3 | Score: 2.10

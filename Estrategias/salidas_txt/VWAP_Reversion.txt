@@ -1,9 +1,0 @@
-LONG | DVN | Precio: 44.48 | VWAP: 45.03 | Dist VWAP: -1.22% | RSI: 19.7 | Vol xMedia: 2.46 | Stop: 44.45 | TP1 VWAP: 45.03 | TP2: 44.55 | Score: 8.86
-LONG | VLO | Precio: 256.29 | VWAP: 259.10 | Dist VWAP: -1.09% | RSI: 20.0 | Vol xMedia: 2.25 | Stop: 256.01 | TP1 VWAP: 259.10 | TP2: 256.85 | Score: 8.65
-LONG | OXY | Precio: 57.10 | VWAP: 57.79 | Dist VWAP: -1.19% | RSI: 26.7 | Vol xMedia: 5.37 | Stop: 57.04 | TP1 VWAP: 57.79 | TP2: 57.22 | Score: 7.98
-LONG | AAON | Precio: 135.57 | VWAP: 137.46 | Dist VWAP: -1.38% | RSI: 27.3 | Vol xMedia: 2.07 | Stop: 135.24 | TP1 VWAP: 137.46 | TP2: 136.23 | Score: 6.91
-LONG | FANG | Precio: 196.71 | VWAP: 198.86 | Dist VWAP: -1.08% | RSI: 26.7 | Vol xMedia: 1.25 | Stop: 196.63 | TP1 VWAP: 198.86 | TP2: 196.87 | Score: 6.68
-LONG | HAL | Precio: 39.78 | VWAP: 40.35 | Dist VWAP: -1.41% | RSI: 27.6 | Vol xMedia: 0.92 | Stop: 39.73 | TP1 VWAP: 40.35 | TP2: 39.88 | Score: 6.50
-LONG | RBLX | Precio: 41.45 | VWAP: 42.29 | Dist VWAP: -1.98% | RSI: 30.4 | Vol xMedia: 1.15 | Stop: 41.44 | TP1 VWAP: 42.29 | TP2: 41.48 | Score: 6.14
-LONG | INSM | Precio: 97.02 | VWAP: 99.22 | Dist VWAP: -2.22% | RSI: 32.7 | Vol xMedia: 1.25 | Stop: 96.86 | TP1 VWAP: 99.22 | TP2: 97.34 | Score: 5.69
-LONG | CVNA | Precio: 65.87 | VWAP: 67.17 | Dist VWAP: -1.94% | RSI: 33.0 | Vol xMedia: 0.98 | Stop: 65.79 | TP1 VWAP: 67.17 | TP2: 66.03 | Score: 5.41

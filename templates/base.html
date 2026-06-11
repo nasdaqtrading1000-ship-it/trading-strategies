@@ -48,6 +48,31 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      (() => {
+        const scrollKey = `scroll:${window.location.pathname}`;
+        const saveScroll = () => {
+          sessionStorage.setItem(scrollKey, String(window.scrollY || 0));
+        };
+
+        const restoreScroll = () => {
+          const rawValue = sessionStorage.getItem(scrollKey);
+          if (!rawValue) return;
+          const y = Number.parseInt(rawValue, 10);
+          if (Number.isNaN(y)) return;
+          requestAnimationFrame(() => window.scrollTo({ top: y, left: 0, behavior: "auto" }));
+        };
+
+        window.addEventListener("beforeunload", saveScroll);
+        document.addEventListener("submit", saveScroll, true);
+        document.addEventListener("click", (event) => {
+          if (event.target.closest("button, a, input, select, textarea")) {
+            saveScroll();
+          }
+        }, true);
+        window.addEventListener("load", restoreScroll);
+      })();
+    </script>
     {% block scripts %}{% endblock %}
   </body>
 </html>

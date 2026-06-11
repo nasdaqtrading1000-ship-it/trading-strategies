@@ -424,6 +424,9 @@ def analyze_symbol(symbol, df, fundamentals):
     debt_score = max(0, (MAX_DEBT_TO_EQUITY - debt_to_equity) / MAX_DEBT_TO_EQUITY) * 10
 
     score = yield_score + growth_score + payout_score + quality_score + debt_score
+    stop_loss = min(price * 0.90, sma_slow * 0.96)
+    take_profit_1 = price * 1.12
+    take_profit_2 = price * 1.22
 
     return {
         "symbol": symbol,
@@ -441,6 +444,9 @@ def analyze_symbol(symbol, df, fundamentals):
         "avg_dollar_volume": avg_dollar_volume,
         "sma_fast": sma_fast,
         "sma_slow": sma_slow,
+        "stop_loss": stop_loss,
+        "take_profit_1": take_profit_1,
+        "take_profit_2": take_profit_2,
         "score": score,
     }
 
@@ -500,6 +506,9 @@ def format_candidate(candidate):
         f"{candidate['symbol']} | "
         f"{candidate['company_name']} | "
         f"Precio: {candidate['price']:.2f} | "
+        f"Stop: {candidate['stop_loss']:.2f} | "
+        f"TP1 Dividendo: {candidate['take_profit_1']:.2f} | "
+        f"TP2 Dividendo: {candidate['take_profit_2']:.2f} | "
         f"Yield: {candidate['dividend_yield']:.2f}% | "
         f"Crec Div 3Y: {candidate['dividend_growth_3y']:.2f}% | "
         f"Payout: {candidate['payout_ratio']:.1f}% | "

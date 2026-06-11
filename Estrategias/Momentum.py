@@ -227,6 +227,14 @@ def analyze_symbol(symbol, df, benchmark_return):
         + ((price / sma_slow - 1) * 100) * 0.2
     )
 
+    recent_support = float(df["low"].tail(20).min())
+    stop_loss = max(recent_support, sma_slow)
+    if stop_loss >= price:
+        stop_loss = price * 0.92
+    risk_per_share = price - stop_loss
+    take_profit_1 = price + risk_per_share * 2
+    take_profit_2 = price + risk_per_share * 3
+
     return {
         "symbol": symbol,
         "price": price,
@@ -236,6 +244,9 @@ def analyze_symbol(symbol, df, benchmark_return):
         "sma_fast": sma_fast,
         "sma_slow": sma_slow,
         "avg_dollar_volume": avg_dollar_volume,
+        "stop_loss": stop_loss,
+        "take_profit_1": take_profit_1,
+        "take_profit_2": take_profit_2,
         "score": score,
     }
 
@@ -297,6 +308,9 @@ def format_candidate(candidate):
     return (
         f"{candidate['symbol']} | "
         f"Precio: {candidate['price']:.2f} | "
+        f"Stop: {candidate['stop_loss']:.2f} | "
+        f"TP1: {candidate['take_profit_1']:.2f} | "
+        f"TP2: {candidate['take_profit_2']:.2f} | "
         f"Momentum: {candidate['momentum_return_pct']:.2f}% | "
         f"RS: {candidate['relative_strength_pct']:.2f}% | "
         f"Vol$: {candidate['avg_dollar_volume'] / 1_000_000:.1f}M | "

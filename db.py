@@ -2,6 +2,10 @@ import os
 
 from sqlalchemy import create_engine
 
+from config_env import load_local_env
+
+
+load_local_env()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 SQLITE_DATABASE = os.path.join(BASE_DIR, "strategies.db")

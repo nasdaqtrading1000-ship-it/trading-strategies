@@ -179,6 +179,7 @@
   setInterval(() => {
     const openSignals = document.querySelector(".signals-collapse.show");
     if (document.hidden || openSignals) return;
+    sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY || 0));
     window.location.reload();
   }, 60000);
 </script>

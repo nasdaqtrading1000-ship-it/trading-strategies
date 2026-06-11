@@ -264,6 +264,7 @@ def analyze_sector(sector_name, etf_symbol, sector_df, benchmark_df):
     return {
         "sector": sector_name,
         "etf": etf_symbol,
+        "price": float(sector_df["close"].iloc[-1]),
         "return_20d": sector_short,
         "return_60d": sector_medium,
         "return_120d": sector_long,
@@ -434,7 +435,12 @@ def format_sector(sector):
     Formatea un sector líder.
     """
     return (
-        f"{sector['sector']} ({sector['etf']}) | "
+        f"{sector['etf']} | "
+        f"Sector: {sector['sector']} | "
+        f"Precio: {sector['price']:.2f} | "
+        f"Stop: {sector['price'] * 0.94:.2f} | "
+        f"TP1 Sector: {sector['price'] * 1.08:.2f} | "
+        f"TP2 Sector: {sector['price'] * 1.14:.2f} | "
         f"RS 20d: {sector['rs_20d']:.2f}% | "
         f"RS 60d: {sector['rs_60d']:.2f}% | "
         f"RS 120d: {sector['rs_120d']:.2f}% | "
@@ -449,6 +455,9 @@ def format_stock(stock):
     return (
         f"{stock['symbol']} | "
         f"Precio: {stock['price']:.2f} | "
+        f"Stop: {stock['price'] * 0.92:.2f} | "
+        f"TP1 Accion sector: {stock['price'] * 1.12:.2f} | "
+        f"TP2 Accion sector: {stock['price'] * 1.20:.2f} | "
         f"Ret 20d: {stock['return_20d']:.2f}% | "
         f"RS vs sector: {stock['rs_vs_sector']:.2f}% | "
         f"Vol$: {stock['avg_dollar_volume'] / 1_000_000:.1f}M | "

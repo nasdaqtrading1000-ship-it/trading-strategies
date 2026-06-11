@@ -29,7 +29,13 @@
             <dl class="diagnostic-fields">
               {% for key, value in signal.fields.items() %}
                 <div>
-                  <dt>{{ key }}</dt>
+                  {% set help_text = technical_term_help(key) %}
+                  <dt>
+                    {{ key }}
+                    {% if help_text %}
+                      <button class="term-help" type="button" data-bs-toggle="tooltip" title="{{ help_text }}">?</button>
+                    {% endif %}
+                  </dt>
                   <dd>{{ value }}</dd>
                 </div>
               {% endfor %}
@@ -63,6 +69,10 @@
         <div>
           <span>Direccion <button class="term-help" type="button" data-bs-toggle="tooltip" title="LONG busca subida del precio. SHORT busca caida del precio.">?</button></span>
           <strong>{{ signal.common.direccion or "No indicada" }}</strong>
+        </div>
+        <div>
+          <span>Precio actual <button class="term-help" type="button" data-bs-toggle="tooltip" title="Ultimo precio usado por la estrategia cuando genero el aviso.">?</button></span>
+          <strong>{{ signal.common.precio_actual or "No indicado" }}</strong>
         </div>
         <div>
           <span>Apertura / entrada <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio de referencia para abrir o vigilar la operacion simulada.">?</button></span>

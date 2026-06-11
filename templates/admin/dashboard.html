@@ -3,7 +3,7 @@
 {% block title %}Panel de administracion{% endblock %}
 
 {% block content %}
-<section class="container py-4 py-md-5">
+<section class="container-fluid admin-dashboard-container py-4 py-md-5">
   <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center mb-4">
     <div>
       <p class="text-info fw-semibold mb-1">Administracion</p>
@@ -15,11 +15,14 @@
       <form method="post" action="{{ url_for('strategies_deactivate_all') }}" onsubmit="return confirm('Desactivar todas las estrategias? No se ejecutara ninguna hasta que vuelvas a activarlas.');">
         <button class="btn btn-outline-warning" type="submit">Desactivar todas</button>
       </form>
+      <form method="post" action="{{ url_for('strategies_apply_recommended_schedules') }}" onsubmit="return confirm('Aplicar horarios recomendados a todas las estrategias?');">
+        <button class="btn btn-outline-info" type="submit">Aplicar horarios recomendados</button>
+      </form>
       <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_new') }}">Crear estrategia</a>
     </div>
   </div>
 
-  <div class="form-panel p-4 mb-4">
+  <div class="form-panel schedule-panel p-4 mb-4">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
       <div>
         <h2 class="h5 mb-1">Programacion automatica</h2>
@@ -27,8 +30,8 @@
       </div>
     </div>
     <form method="post" action="{{ url_for('admin_schedules_update') }}">
-      <div class="table-responsive">
-        <table class="table table-dark align-middle mb-0">
+      <div class="table-responsive schedule-table-wrap">
+        <table class="table table-dark align-middle mb-0 schedule-table">
           <thead>
             <tr>
               <th>Tarea</th>
@@ -117,7 +120,7 @@
     </form>
   </div>
 
-  <div class="form-panel p-4 mb-4">
+  <div class="form-panel failures-panel p-4 mb-4">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
       <div>
         <h2 class="h5 mb-1">Fallos de estrategias</h2>
@@ -135,7 +138,7 @@
     {% if strategy_failures %}
       <div class="row g-3">
         {% for failure in strategy_failures %}
-          <div class="col-lg-6">
+          <div class="col-xl-6">
             <div class="failure-box">
               <div class="d-flex justify-content-between gap-2 mb-2">
                 <strong>{{ failure.name }}</strong>
@@ -150,7 +153,7 @@
         {% endfor %}
       </div>
       <label class="form-label mt-3">Bloque para copiar</label>
-      <textarea class="form-control failure-copy" rows="8" readonly>{% for failure in strategy_failures %}{{ failure.name }} | {{ failure.file }} | {{ failure.txt }} | {{ failure.ran_at }}
+      <textarea class="form-control failure-copy" rows="12" readonly>{% for failure in strategy_failures %}{{ failure.name }} | {{ failure.file }} | {{ failure.txt }} | {{ failure.ran_at }}
 {{ failure.error }}
 
 {% endfor %}</textarea>
@@ -159,9 +162,9 @@
     {% endif %}
   </div>
 
-  <div class="admin-table">
-    <div class="table-responsive">
-      <table class="table table-dark table-hover align-middle mb-0">
+  <div class="admin-table strategies-panel">
+    <div class="table-responsive strategies-table-wrap">
+      <table class="table table-dark table-hover align-middle mb-0 strategies-table">
         <thead>
           <tr>
             <th>Nombre</th>
@@ -247,6 +250,9 @@
         <div class="col-md-3"><span class="text-secondary small d-block">Estado</span><strong>{% if update.ok %}OK{% else %}Error{% endif %}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Activos cargados</span><strong>{{ update.loaded_assets }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Universo total</span><strong>{{ update.total_universe or 0 }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Universo base</span><strong>{{ update.base_universe or 0 }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Tickers estrategias</span><strong>{{ update.strategy_tickers or 0 }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Anadidos desde estrategias</span><strong>{{ update.added_strategy_tickers or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Metricas Alpaca</span><strong>{{ update.metrics or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Guardados</span><strong>{{ update.saved_rows or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Modo</span><strong>{{ update.update_mode or "tanda" }}</strong></div>
@@ -269,6 +275,7 @@
     const active = document.activeElement;
     const editing = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName);
     if (document.hidden || editing) return;
+    sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY || 0));
     window.location.reload();
   }, 30000);
 </script>

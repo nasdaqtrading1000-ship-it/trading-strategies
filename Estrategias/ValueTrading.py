@@ -274,6 +274,9 @@ def analyze_symbol(symbol, df, fundamentals):
     )
 
     score = valuation_score + quality_score
+    stop_loss = min(price * 0.88, sma_slow * 0.95)
+    take_profit_1 = price * 1.25
+    take_profit_2 = price * 1.40
 
     return {
         "symbol": symbol,
@@ -290,6 +293,9 @@ def analyze_symbol(symbol, df, fundamentals):
         "avg_dollar_volume": avg_dollar_volume,
         "sma_fast": sma_fast,
         "sma_slow": sma_slow,
+        "stop_loss": stop_loss,
+        "take_profit_1": take_profit_1,
+        "take_profit_2": take_profit_2,
         "score": score,
     }
 
@@ -349,6 +355,9 @@ def format_candidate(candidate):
         f"{candidate['symbol']} | "
         f"{candidate['company_name']} | "
         f"Precio: {candidate['price']:.2f} | "
+        f"Stop: {candidate['stop_loss']:.2f} | "
+        f"TP1 Valor: {candidate['take_profit_1']:.2f} | "
+        f"TP2 Valor: {candidate['take_profit_2']:.2f} | "
         f"PER: {candidate['pe_ratio']:.1f} | "
         f"P/B: {candidate['price_to_book']:.1f} | "
         f"P/S: {candidate['price_to_sales']:.1f} | "

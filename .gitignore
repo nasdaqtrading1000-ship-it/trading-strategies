@@ -6,7 +6,12 @@ __pycache__/
 .Python
 .env
 Estrategias/.env
+Estrategias/historico_txt/
+Estrategias/salidas_txt/*.txt
+!Estrategias/salidas_txt/.gitkeep
 Estrategias/sent_signals.json
+Estrategias/strategy_run_status.json
+data/market_data.csv
 strategies.db
 instance/
 .pytest_cache/

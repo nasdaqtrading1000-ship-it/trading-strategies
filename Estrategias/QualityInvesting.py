@@ -416,6 +416,9 @@ def analyze_symbol(symbol, df, fundamentals):
         + debt_score
         + valuation_score
     )
+    stop_loss = min(price * 0.90, sma_slow * 0.96)
+    take_profit_1 = price * 1.18
+    take_profit_2 = price * 1.32
 
     return {
         "symbol": symbol,
@@ -435,6 +438,9 @@ def analyze_symbol(symbol, df, fundamentals):
         "avg_dollar_volume": avg_dollar_volume,
         "sma_fast": sma_fast,
         "sma_slow": sma_slow,
+        "stop_loss": stop_loss,
+        "take_profit_1": take_profit_1,
+        "take_profit_2": take_profit_2,
         "score": score,
     }
 
@@ -494,6 +500,9 @@ def format_candidate(candidate):
         f"{candidate['symbol']} | "
         f"{candidate['company_name']} | "
         f"Precio: {candidate['price']:.2f} | "
+        f"Stop: {candidate['stop_loss']:.2f} | "
+        f"TP1 Calidad: {candidate['take_profit_1']:.2f} | "
+        f"TP2 Calidad: {candidate['take_profit_2']:.2f} | "
         f"ROE: {candidate['roe']:.1f}% | "
         f"ROIC: {candidate['roic']:.1f}% | "
         f"Margen Op: {candidate['operating_margin']:.1f}% | "

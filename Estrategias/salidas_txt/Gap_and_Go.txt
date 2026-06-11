@@ -1,7 +1,0 @@
-SHORT | NBIS | Precio: 224.96 | Cierre previo: 259.66 | Apertura: 246.57 | Gap: -5.04% | Rango inicial: 238.63-246.71 | Ruptura: 6.08% | Vol xMedia: 3.36 | Stop: 246.71 | TP1: 192.34 | TP2: 170.59 | Score: 4.76
-SHORT | GWRE | Precio: 137.90 | Cierre previo: 150.82 | Apertura: 141.05 | Gap: -6.48% | Rango inicial: 138.87-146.56 | Ruptura: 0.70% | Vol xMedia: 2.44 | Stop: 146.56 | TP1: 124.91 | TP2: 116.25 | Score: 3.33
-SHORT | SATS | Precio: 114.12 | Cierre previo: 124.59 | Apertura: 121.50 | Gap: -2.49% | Rango inicial: 119.06-121.50 | Ruptura: 4.32% | Vol xMedia: 3.22 | Stop: 121.50 | TP1: 103.06 | TP2: 95.68 | Score: 3.30
-SHORT | RIOT | Precio: 24.40 | Cierre previo: 27.46 | Apertura: 26.44 | Gap: -3.71% | Rango inicial: 25.33-26.44 | Ruptura: 3.81% | Vol xMedia: 2.38 | Stop: 26.44 | TP1: 21.34 | TP2: 19.30 | Score: 3.28
-SHORT | CRWV | Precio: 99.00 | Cierre previo: 108.04 | Apertura: 104.35 | Gap: -3.42% | Rango inicial: 101.91-104.63 | Ruptura: 2.94% | Vol xMedia: 2.43 | Stop: 104.63 | TP1: 90.56 | TP2: 84.93 | Score: 2.93
-SHORT | INTC | Precio: 102.41 | Cierre previo: 111.78 | Apertura: 106.41 | Gap: -4.80% | Rango inicial: 104.77-106.41 | Ruptura: 2.30% | Vol xMedia: 1.57 | Stop: 106.41 | TP1: 96.41 | TP2: 92.41 | Score: 2.92
-SHORT | AVGO | Precio: 394.42 | Cierre previo: 418.95 | Apertura: 407.56 | Gap: -2.72% | Rango inicial: 400.00-410.18 | Ruptura: 1.41% | Vol xMedia: 1.90 | Stop: 410.18 | TP1: 370.78 | TP2: 355.02 | Score: 2.04

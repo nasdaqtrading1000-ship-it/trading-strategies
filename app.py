@@ -86,24 +86,66 @@ DEFAULT_STRATEGY_FILES = {
     "Gap and Go": "Gap and Go.py",
 }
 DEFAULT_STRATEGY_SCHEDULES = {
-    "Momentum": {"start": "22:05", "end": "22:20", "interval": 1440},
-    "Swing Trading": {"start": "22:10", "end": "22:25", "interval": 1440},
-    "BreaKout": {"start": "15:35", "end": "21:45", "interval": 30},
-    "Mean Reversion": {"start": "22:15", "end": "22:30", "interval": 1440},
-    "Value Trading": {"start": "22:30", "end": "22:45", "interval": 1440},
-    "Dividend Growth": {"start": "22:35", "end": "22:50", "interval": 1440},
+    "Momentum": {"start": "22:10", "end": "22:25", "interval": 1440},
+    "Swing Trading": {"start": "22:15", "end": "22:30", "interval": 1440},
+    "BreaKout": {"start": "15:45", "end": "21:45", "interval": 30},
+    "Mean Reversion": {"start": "21:30", "end": "21:55", "interval": 30},
+    "Value Trading": {"start": "22:35", "end": "22:50", "interval": 1440},
+    "Dividend Growth": {"start": "22:40", "end": "22:55", "interval": 1440},
     "Trend Following": {"start": "22:20", "end": "22:35", "interval": 1440},
-    "Pairs Trading": {"start": "16:00", "end": "21:30", "interval": 60},
-    "Sector Rotation": {"start": "22:40", "end": "22:55", "interval": 1440},
+    "Pairs Trading": {"start": "16:00", "end": "21:45", "interval": 60},
+    "Sector Rotation": {"start": "22:30", "end": "22:45", "interval": 1440},
     "Quality Investing": {"start": "22:45", "end": "23:00", "interval": 1440},
-    "Opening Range BreaKout": {"start": "15:45", "end": "17:30", "interval": 10},
-    "VWAP Reversion": {"start": "15:45", "end": "21:30", "interval": 15},
-    "Momentum Intradia": {"start": "15:35", "end": "21:30", "interval": 15},
-    "Scalping The PullBacks": {"start": "15:35", "end": "21:30", "interval": 10},
-    "Gap and Go": {"start": "15:45", "end": "18:00", "interval": 10},
+    "Opening Range BreaKout": {"start": "15:35", "end": "17:00", "interval": 10},
+    "VWAP Reversion": {"start": "16:00", "end": "21:45", "interval": 20},
+    "Momentum Intradia": {"start": "15:40", "end": "21:45", "interval": 15},
+    "Scalping The PullBacks": {"start": "15:40", "end": "21:45", "interval": 10},
+    "Gap and Go": {"start": "15:35", "end": "17:30", "interval": 10},
 }
 SIGNAL_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9./-]{0,14}$")
 SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
+TECHNICAL_TERM_HELP = [
+    ("precio actual", "Ultimo precio usado por la estrategia cuando genero el aviso."),
+    ("precio", "Precio de referencia del activo en el momento del calculo."),
+    ("direccion", "Sentido de la operacion: LONG busca subida, SHORT busca caida."),
+    ("apertura", "Precio de referencia para abrir o vigilar la operacion."),
+    ("entrada", "Precio de referencia para entrar en la operacion."),
+    ("cierre", "Precio objetivo o condicion de salida de la operacion."),
+    ("salida", "Zona o condicion donde la estrategia podria cerrar la operacion."),
+    ("stop loss", "Nivel defensivo para limitar la perdida si la operacion va en contra."),
+    ("stop", "Nivel defensivo para limitar la perdida si la operacion va en contra."),
+    ("tp", "Take profit: objetivo de beneficio propuesto por la estrategia."),
+    ("score", "Puntuacion interna para ordenar candidatos. Cuanto mayor, mejor segun la estrategia."),
+    ("rs vs sector", "Fuerza relativa de la accion comparada con su sector."),
+    ("rs ", "Fuerza relativa frente a un indice, sector o referencia."),
+    ("rsi", "Indicador de fuerza relativa. Valores bajos suelen indicar sobreventa y altos sobrecompra."),
+    ("vwap", "Precio medio ponderado por volumen durante la sesion."),
+    ("sma", "Media movil simple. Resume el precio medio de las ultimas velas o dias."),
+    ("ema", "Media movil exponencial. Da mas peso a los precios recientes."),
+    ("atr", "Rango medio real. Mide volatilidad y ayuda a colocar stops."),
+    ("vol xmedia", "Volumen actual comparado con su volumen medio."),
+    ("vol$", "Volumen monetario negociado: precio multiplicado por volumen."),
+    ("vol", "Volumen negociado. Ayuda a medir liquidez e interes del mercado."),
+    ("momentum", "Fuerza del movimiento reciente del precio."),
+    ("ruptura", "El precio supera una zona importante, como resistencia o rango previo."),
+    ("breakout", "Ruptura de una resistencia o rango relevante."),
+    ("resistencia", "Zona donde antes el precio tuvo dificultad para seguir subiendo."),
+    ("soporte", "Zona donde antes el precio tuvo dificultad para seguir bajando."),
+    ("gap", "Diferencia entre el precio de apertura y el cierre anterior."),
+    ("zscore", "Distancia estadistica frente a la media. En pares mide si el spread esta extremo."),
+    ("corr", "Correlacion entre activos. Cerca de 1 significa que suelen moverse parecido."),
+    ("hedge", "Relacion aproximada entre dos activos para construir una posicion de pares."),
+    ("per", "Precio dividido entre beneficio por accion. Mide valoracion relativa."),
+    ("p/b", "Precio dividido entre valor contable. Mide cuanto paga el mercado por el patrimonio."),
+    ("p/s", "Precio dividido entre ventas. Mide valoracion frente a ingresos."),
+    ("roe", "Rentabilidad sobre fondos propios. Mide eficiencia del capital de la empresa."),
+    ("roic", "Rentabilidad sobre capital invertido. Mide calidad del negocio."),
+    ("yield", "Rentabilidad por dividendo aproximada."),
+    ("payout", "Porcentaje del beneficio que se destina a dividendos."),
+    ("deuda", "Nivel de endeudamiento de la empresa."),
+    ("margen", "Porcentaje de ventas que queda como beneficio o resultado operativo."),
+    ("crec", "Crecimiento historico de ingresos, beneficios o dividendos."),
+]
 DEFAULT_REAL_STRATEGIES = [
     {
         "name": "Momentum",
@@ -346,6 +388,8 @@ def run_single_strategy(strategy):
     if not path.exists() or not path.is_file():
         return {"ok": False, "message": f"No existe {py_file}."}
 
+    txt_path = single_strategy_txt_path(strategy)
+    previous_mtime = txt_path.stat().st_mtime if txt_path and txt_path.exists() else None
     mark_single_strategy_status(strategy, running=True)
     timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
     try:
@@ -354,6 +398,7 @@ def run_single_strategy(strategy):
             cwd=str(path.parent),
             text=True,
             capture_output=True,
+            env=os.environ.copy(),
             timeout=timeout_seconds,
         )
     except subprocess.TimeoutExpired:
@@ -370,17 +415,37 @@ def run_single_strategy(strategy):
         for part in [completed.stdout, completed.stderr]
         if part and part.strip()
     )
+    txt_updated = output_txt_updated(txt_path, previous_mtime)
     result = {
         "ok": completed.returncode == 0,
         "message": (
-            f"{strategy['name']} finalizada correctamente."
+            f"{strategy['name']} ejecutada correctamente. TXT {'actualizado' if txt_updated else 'sin cambios'}."
             if completed.returncode == 0
             else f"{strategy['name']} fallo. Codigo {completed.returncode}. {output[-700:]}"
         ),
         "returncode": completed.returncode,
+        "txt_updated": txt_updated,
+        "stdout": completed.stdout.strip()[-1200:] if completed.stdout else "",
+        "stderr": completed.stderr.strip()[-1200:] if completed.stderr else "",
     }
     mark_single_strategy_status(strategy, running=False, result=result)
     return result
+
+
+def single_strategy_txt_path(strategy):
+    txt_name = (strategy.get("signals_txt_name") or "").strip()
+    if not txt_name or not valid_txt_name(txt_name):
+        return None
+    return (BASE_DIR / "Estrategias" / "salidas_txt" / txt_name).resolve()
+
+
+def output_txt_updated(path, previous_mtime):
+    if path is None or not path.exists() or not path.is_file():
+        return False
+    current_mtime = path.stat().st_mtime
+    if previous_mtime is None:
+        return True
+    return current_mtime > previous_mtime
 
 
 def mark_single_strategy_status(strategy, running=False, result=None):
@@ -410,8 +475,11 @@ def mark_single_strategy_status(strategy, running=False, result=None):
         result = result or {"ok": False, "message": "Sin resultado.", "returncode": None}
         item["running"] = False
         item["ok"] = bool(result.get("ok"))
+        item["txt_updated"] = bool(result.get("txt_updated"))
         item["returncode"] = result.get("returncode")
         item["error"] = "" if result.get("ok") else result.get("message", "")
+        item["stdout"] = result.get("stdout", "")
+        item["stderr"] = result.get("stderr", "")
         data["finished_at"] = now
 
     data["strategies"][strategy["name"]] = item
@@ -733,12 +801,42 @@ def valid_python_filename(filename):
     )
 
 
+def valid_txt_name(txt_name):
+    path = Path(txt_name)
+    return (
+        path.name == txt_name
+        and txt_name.lower().endswith(".txt")
+        and "/" not in txt_name
+        and "\\" not in txt_name
+    )
+
+
+def technical_term_help(term):
+    normalized = re.sub(r"\s+", " ", str(term).strip().lower())
+    compact = normalized.replace(" ", "")
+    for key, help_text in TECHNICAL_TERM_HELP:
+        key_normalized = key.strip().lower()
+        key_compact = key_normalized.replace(" ", "")
+        if normalized == key_normalized or compact == key_compact:
+            return help_text
+    for key, help_text in TECHNICAL_TERM_HELP:
+        key_normalized = key.strip().lower()
+        key_compact = key_normalized.replace(" ", "")
+        if (
+            normalized.startswith(key_normalized)
+            or compact.startswith(key_compact)
+        ):
+            return help_text
+    return ""
+
+
 def create_app():
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-this-secret-key")
     app.config["ADMIN_PASSWORD_HASH"] = os.environ.get(
         "ADMIN_PASSWORD_HASH", generate_password_hash("admin123")
     )
+    app.jinja_env.globals["technical_term_help"] = technical_term_help
 
     @app.before_request
     def before_request():
@@ -1126,6 +1224,14 @@ def create_app():
         g.db.execute(text("UPDATE strategies SET is_active = 0 WHERE is_active = 1"))
         g.db.commit()
         flash("Todas las estrategias han sido desactivadas.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/strategies/apply-recommended-schedules", methods=["POST"])
+    @login_required
+    def strategies_apply_recommended_schedules():
+        apply_recommended_strategy_schedules(g.db)
+        g.db.commit()
+        flash("Horarios recomendados aplicados a las estrategias.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/clear-failures", methods=["POST"])
@@ -1663,10 +1769,24 @@ def create_app():
             return [
                 parse_signal_line(line.strip())
                 for line in path.read_text(encoding="utf-8").splitlines()
-                if line.strip()
+                if line.strip() and signal_line_is_today(line.strip())
             ][:50]
         except OSError:
             return []
+
+    def signal_line_is_today(line):
+        date_value = signal_line_field(line, "Fecha")
+        if not date_value:
+            return False
+        return date_value == datetime.now(MADRID_TZ).date().isoformat()
+
+    def signal_line_field(line, field_name):
+        expected = f"{field_name.lower()}:"
+        for part in line.split("|"):
+            part = part.strip()
+            if part.lower().startswith(expected):
+                return part.split(":", 1)[1].strip()
+        return ""
 
     def parse_signal_line(line):
         parts = [part.strip() for part in line.split("|") if part.strip()]
@@ -1675,13 +1795,14 @@ def create_app():
         field_parts = parts
 
         if parts:
-            first = parts[0].upper()
+            first_clean = parts[0].strip().lstrip("-").strip()
+            first = first_clean.upper()
             if first in SIGNAL_SIDE_WORDS and len(parts) > 1:
                 side = parts[0]
                 symbol = parts[1]
                 field_parts = parts[2:]
-            elif SIGNAL_SYMBOL_RE.match(parts[0]):
-                symbol = parts[0]
+            elif SIGNAL_SYMBOL_RE.match(first_clean):
+                symbol = first_clean
                 field_parts = parts[1:]
 
         fields = {}
@@ -1702,7 +1823,8 @@ def create_app():
     def common_signal_fields(side, fields):
         return {
             "direccion": side or first_existing(fields, ["Direccion", "Dirección", "Side", "Tipo"]),
-            "apertura": first_existing(fields, ["Entrada", "Apertura", "Precio entrada", "Precio", "Entry"]),
+            "precio_actual": first_existing(fields, ["Precio actual", "Precio", "Price", "Current Price"]),
+            "apertura": first_existing(fields, ["Apertura", "Entrada", "Precio entrada", "Precio actual", "Precio", "Entry"]),
             "cierre": first_existing(fields, ["Salida", "Cierre", "TP1", "Objetivo", "Take Profit", "Target"]),
             "stop": first_existing(fields, ["Stop", "Stop Loss", "SL"]),
         }
@@ -1710,9 +1832,13 @@ def create_app():
     def first_existing(fields, keys):
         lower_fields = {str(key).lower(): value for key, value in fields.items()}
         for key in keys:
-            value = lower_fields.get(key.lower())
+            lookup_key = key.lower()
+            value = lower_fields.get(lookup_key)
             if value:
                 return value
+            for field_key, field_value in lower_fields.items():
+                if field_key.startswith(f"{lookup_key} ") and field_value:
+                    return field_value
         return ""
 
     def normalize_signal_symbol(symbol):
@@ -2147,6 +2273,27 @@ def ensure_default_real_strategies(connection):
                 """
             ),
             strategy,
+        )
+
+
+def apply_recommended_strategy_schedules(connection):
+    for name, schedule in DEFAULT_STRATEGY_SCHEDULES.items():
+        connection.execute(
+            text(
+                """
+                UPDATE strategies
+                SET schedule_start_time = :start_time,
+                    schedule_end_time = :end_time,
+                    schedule_interval_minutes = :interval_minutes
+                WHERE name = :name
+                """
+            ),
+            {
+                "name": name,
+                "start_time": schedule["start"],
+                "end_time": schedule["end"],
+                "interval_minutes": schedule["interval"],
+            },
         )
 
 

@@ -12,6 +12,7 @@ from market_scanner import load_universe_assets
 
 
 MARKET_DATA_CSV_PATH = Path(__file__).resolve().parent / "data" / "market_data.csv"
+STRATEGY_TICKERS_PATH = Path(__file__).resolve().parent / "Estrategias" / "tickers.txt"
 
 
 def ensure_snapshot_table(connection):
@@ -104,7 +105,9 @@ def metric_value(metric, key, fallback=0):
 
 
 def update_market_data(max_symbols=None, full=False):
-    assets = load_universe_assets()
+    base_assets = load_universe_assets()
+    strategy_assets = load_strategy_ticker_assets()
+    assets = merge_assets(base_assets, strategy_assets)
     max_symbols = resolve_max_symbols(max_symbols)
     total_universe = len(assets)
     if not assets:
@@ -135,6 +138,9 @@ def update_market_data(max_symbols=None, full=False):
     metrics, source, diagnostics = get_daily_asset_metrics(symbols)
     diagnostics["loaded_assets"] = len(assets)
     diagnostics["total_universe"] = total_universe
+    diagnostics["base_universe"] = len(base_assets)
+    diagnostics["strategy_tickers"] = len(strategy_assets)
+    diagnostics["added_strategy_tickers"] = max(0, len(assets) - len(base_assets))
     diagnostics["batch_offset"] = batch_offset
     diagnostics["next_batch_offset"] = next_offset
     diagnostics["max_symbols"] = max_symbols
@@ -281,6 +287,41 @@ def update_market_data(max_symbols=None, full=False):
         "csv_rows": csv_rows,
         **diagnostics,
     }
+
+
+def load_strategy_ticker_assets(path=STRATEGY_TICKERS_PATH):
+    if not path.exists():
+        return []
+
+    assets = []
+    seen = set()
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        symbol = raw_line.strip().upper()
+        if not symbol or symbol.startswith("#") or symbol in seen:
+            continue
+        seen.add(symbol)
+        assets.append(
+            {
+                "symbol": symbol,
+                "name": symbol,
+                "sector": "Sin clasificar",
+                "market": "Otro",
+                "price": 0,
+                "money_volume": 0,
+                "day_volume_score": 1,
+                "week_volume_score": 1,
+            }
+        )
+    return assets
+
+
+def merge_assets(base_assets, extra_assets):
+    merged = {asset["symbol"].upper(): dict(asset) for asset in base_assets}
+    for asset in extra_assets:
+        symbol = asset["symbol"].upper()
+        if symbol not in merged:
+            merged[symbol] = dict(asset)
+    return sorted(merged.values(), key=lambda item: item["symbol"])
 
 
 def resolve_max_symbols(max_symbols):

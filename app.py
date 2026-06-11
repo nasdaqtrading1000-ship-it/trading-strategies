@@ -2039,15 +2039,15 @@ def create_app():
         g.db.commit()
 
     def completed_strategy_runner_result(last_run_at):
+        schedule_started_at = parse_database_datetime(last_run_at)
         data = load_strategy_status_data()
         finished_at = parse_status_datetime(data.get("finished_at", ""))
         if finished_at is None:
-            return None
+            return completed_strategy_runner_result_from_database(schedule_started_at)
 
         started_at = parse_status_datetime(data.get("started_at", ""))
-        schedule_started_at = parse_database_datetime(last_run_at)
         if schedule_started_at and started_at and started_at < schedule_started_at:
-            return None
+            return completed_strategy_runner_result_from_database(schedule_started_at)
 
         results = data.get("strategies", {})
         if not results:
@@ -2069,6 +2069,69 @@ def create_app():
         return {
             "ok": True,
             "message": "Estrategias finalizadas correctamente.",
+        }
+
+    def completed_strategy_runner_result_from_database(schedule_started_at):
+        if not schedule_started_at:
+            return None
+
+        rows = g.db.execute(
+            text(
+                """
+                SELECT name, run_status, run_at, run_message
+                FROM strategies
+                WHERE run_status IN ('RUNNING', 'OK', 'ERROR')
+                  AND run_at IS NOT NULL
+                """
+            )
+        ).mappings().fetchall()
+
+        recent = []
+        for row in rows:
+            run_at = parse_database_datetime(row["run_at"])
+            if run_at and run_at >= schedule_started_at - timedelta(minutes=1):
+                recent.append(row)
+
+        if not recent:
+            timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
+            if datetime.now(UTC) - schedule_started_at > timedelta(seconds=timeout_seconds + 300):
+                return {
+                    "ok": False,
+                    "message": "Ejecucion de estrategias sin resultado final. Posible reinicio o corte de Render.",
+                }
+            return None
+
+        running = [row for row in recent if row["run_status"] == "RUNNING"]
+        if running:
+            timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
+            if datetime.now(UTC) - schedule_started_at <= timedelta(seconds=timeout_seconds + 300):
+                return None
+            g.db.execute(
+                text(
+                    """
+                    UPDATE strategies
+                    SET run_status = 'ERROR',
+                        run_message = 'Ejecucion cortada o bloqueada antes de finalizar.',
+                        run_returncode = 1
+                    WHERE run_status = 'RUNNING'
+                    """
+                )
+            )
+            return {
+                "ok": False,
+                "message": f"Ejecucion bloqueada o cortada. Aun figuraban RUNNING: {', '.join(row['name'] for row in running[:6])}.",
+            }
+
+        failures = [row for row in recent if row["run_status"] == "ERROR"]
+        if failures:
+            return {
+                "ok": False,
+                "message": f"Lote finalizado con {len(failures)} fallos: {', '.join(row['name'] for row in failures[:6])}.",
+            }
+
+        return {
+            "ok": True,
+            "message": f"Lote finalizado correctamente. Estrategias ejecutadas: {len(recent)}.",
         }
 
     def parse_database_datetime(value):

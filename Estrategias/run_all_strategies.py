@@ -7,6 +7,7 @@ Este script solo las lanza una a una y muestra un resumen final.
 
 from pathlib import Path
 import json
+import os
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -120,13 +121,36 @@ def write_status_file(results, started_at, finished_at):
     STATUS_FILE.write_text(json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def selected_strategies():
+    active_names_raw = os.environ.get("TRADING_ACTIVE_STRATEGIES")
+    if active_names_raw is None:
+        return STRATEGIES
+
+    try:
+        active_names = set(json.loads(active_names_raw))
+    except json.JSONDecodeError:
+        print("No se pudo leer TRADING_ACTIVE_STRATEGIES. Se ejecutan todas.", file=sys.stderr)
+        return STRATEGIES
+
+    return [
+        strategy
+        for strategy in STRATEGIES
+        if strategy["name"] in active_names
+    ]
+
+
 def main():
     started_at = datetime.now(UTC)
     print(f"Inicio ejecucion: {started_at.isoformat()}")
 
+    strategies = selected_strategies()
+    print(f"Estrategias seleccionadas: {len(strategies)}")
+    for strategy in strategies:
+        print(f"- {strategy['name']}")
+
     results = [
         run_strategy(strategy)
-        for strategy in STRATEGIES
+        for strategy in strategies
     ]
     finished_at = datetime.now(UTC)
     write_status_file(results, started_at, finished_at)

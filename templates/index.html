@@ -115,9 +115,11 @@
                   Ver avisos actuales{% if strategy.signals_count %} ({{ strategy.signals_count }}){% endif %}
                 </button>
               {% endif %}
-              <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
-                Acceder al canal
-              </a>
+              {% if strategy.has_telegram and strategy.telegram_url %}
+                <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
+                  Acceder al canal
+                </a>
+              {% endif %}
               {% if strategy.signals_txt_name %}
                 <div class="collapse signals-collapse" id="signals-{{ strategy.id }}">
                   <div class="signals-panel">

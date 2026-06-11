@@ -169,7 +169,11 @@
             <tr>
               <td>
                 <strong>{{ strategy.name }}</strong>
-                <span class="d-block text-secondary small">{{ strategy.telegram_url }}</span>
+                {% if strategy.has_telegram and strategy.telegram_url %}
+                  <span class="d-block text-secondary small">{{ strategy.telegram_url }}</span>
+                {% else %}
+                  <span class="d-block text-secondary small">Sin canal de Telegram visible</span>
+                {% endif %}
                 {% if strategy.signals_txt_name %}
                   <span class="d-block text-info small">TXT: {{ strategy.signals_txt_name }}</span>
                 {% endif %}

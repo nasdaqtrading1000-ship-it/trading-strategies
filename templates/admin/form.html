@@ -38,9 +38,15 @@
         <label class="form-label" for="historical_return">Rentabilidad historica</label>
         <input class="form-control" id="historical_return" name="historical_return" value="{{ strategy.historical_return if strategy else '' }}">
       </div>
-      <div class="col-12">
+      <div class="col-md-8">
         <label class="form-label" for="telegram_url">Enlace de Telegram</label>
-        <input class="form-control" id="telegram_url" name="telegram_url" value="{{ strategy.telegram_url if strategy else '' }}" placeholder="https://t.me/tu_canal" required>
+        <input class="form-control" id="telegram_url" name="telegram_url" value="{{ strategy.telegram_url if strategy else '' }}" placeholder="https://t.me/tu_canal">
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="has_telegram" name="has_telegram" {% if not strategy or strategy.has_telegram %}checked{% endif %}>
+          <label class="form-check-label" for="has_telegram">Tiene canal de Telegram</label>
+        </div>
       </div>
       <div class="col-12">
         <label class="form-label" for="signals_txt_name">Nombre del TXT de avisos</label>

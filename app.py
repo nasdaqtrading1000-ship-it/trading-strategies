@@ -246,14 +246,18 @@ def run_scheduler_task(task_name):
     if task_name == "strategies":
         if not STRATEGIES_RUNNER.exists():
             return {"ok": False, "message": "No se encontro run_all_strategies.py."}
+        active_strategy_names = active_strategy_names_for_runner()
         mark_strategies_as_running_file()
         timeout_seconds = int(os.environ.get("STRATEGY_RUN_TIMEOUT_SECONDS", "3600"))
+        env = os.environ.copy()
+        env["TRADING_ACTIVE_STRATEGIES"] = json.dumps(active_strategy_names)
         try:
             completed = subprocess.run(
                 [sys.executable, str(STRATEGIES_RUNNER)],
                 cwd=str(STRATEGIES_RUNNER.parent),
                 text=True,
                 capture_output=True,
+                env=env,
                 timeout=timeout_seconds,
             )
         except subprocess.TimeoutExpired:
@@ -277,6 +281,14 @@ def run_scheduler_task(task_name):
         }
 
     return {"ok": False, "message": "Tarea no reconocida."}
+
+
+def active_strategy_names_for_runner():
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
+        ).mappings().fetchall()
+    return [row["name"] for row in rows]
 
 
 def mark_strategies_as_running_file():
@@ -530,7 +542,7 @@ def create_app():
             text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, signals_txt_name, is_active
+                   historical_return, telegram_url, has_telegram, signals_txt_name, is_active
             FROM strategies
             WHERE is_active = 1
             ORDER BY created_at DESC
@@ -663,7 +675,7 @@ def create_app():
             text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, signals_txt_name, is_active, created_at
+                   historical_return, telegram_url, has_telegram, signals_txt_name, is_active, created_at
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
@@ -870,6 +882,7 @@ def create_app():
         signal_frequency = request.form.get("signal_frequency", "").strip()
         historical_return = request.form.get("historical_return", "").strip()
         telegram_url = request.form.get("telegram_url", "").strip()
+        has_telegram = 1 if request.form.get("has_telegram") == "on" else 0
         signals_txt_name = request.form.get("signals_txt_name", "").strip()
         is_active = 1 if request.form.get("is_active") == "on" else 0
 
@@ -878,10 +891,10 @@ def create_app():
             errors.append("El nombre es obligatorio.")
         if risk_level not in {"Bajo", "Medio", "Alto"}:
             errors.append("El nivel de riesgo no es valido.")
-        if not telegram_url.startswith(
+        if has_telegram and not telegram_url.startswith(
             ("https://t.me/", "http://t.me/", "https://telegram.me/")
         ):
-            errors.append("Usa un enlace valido de Telegram.")
+            errors.append("Usa un enlace valido de Telegram o desmarca Tiene canal de Telegram.")
         if signals_txt_name and not valid_txt_name(signals_txt_name):
             errors.append("El nombre del TXT debe ser un archivo .txt sin carpetas.")
 
@@ -893,6 +906,7 @@ def create_app():
             "signal_frequency": signal_frequency,
             "historical_return": historical_return,
             "telegram_url": telegram_url,
+            "has_telegram": has_telegram,
             "signals_txt_name": signals_txt_name,
             "is_active": is_active,
         }
@@ -920,6 +934,7 @@ def create_app():
                     signal_frequency = :signal_frequency,
                     historical_return = :historical_return,
                     telegram_url = :telegram_url,
+                    has_telegram = :has_telegram,
                     signals_txt_name = :signals_txt_name,
                     is_active = :is_active
                 WHERE id = :id
@@ -932,6 +947,7 @@ def create_app():
                     "signal_frequency": signal_frequency,
                     "historical_return": historical_return,
                     "telegram_url": telegram_url,
+                    "has_telegram": has_telegram,
                     "signals_txt_name": signals_txt_name,
                     "is_active": is_active,
                     "id": strategy_id,
@@ -944,9 +960,9 @@ def create_app():
                 """
                 INSERT INTO strategies
                 (name, description, risk_level, signal_frequency,
-                 historical_return, telegram_url, signals_txt_name, is_active)
+                 historical_return, telegram_url, has_telegram, signals_txt_name, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
-                        :historical_return, :telegram_url, :signals_txt_name, :is_active)
+                        :historical_return, :telegram_url, :has_telegram, :signals_txt_name, :is_active)
                 """,
                 ),
                 {
@@ -956,6 +972,7 @@ def create_app():
                     "signal_frequency": signal_frequency,
                     "historical_return": historical_return,
                     "telegram_url": telegram_url,
+                    "has_telegram": has_telegram,
                     "signals_txt_name": signals_txt_name,
                     "is_active": is_active,
                 },
@@ -1517,6 +1534,7 @@ def init_db():
                     signal_frequency TEXT NOT NULL DEFAULT '',
                     historical_return TEXT NOT NULL DEFAULT '',
                     telegram_url TEXT NOT NULL DEFAULT '',
+                    has_telegram INTEGER NOT NULL DEFAULT 1,
                     signals_txt_name TEXT NOT NULL DEFAULT '',
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -1526,6 +1544,7 @@ def init_db():
         )
         ensure_universe_table(connection)
         add_strategy_column(connection, "signals_txt_name")
+        add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
@@ -1755,12 +1774,12 @@ def automation_schedule_column_exists(connection, column_name):
     return any(row[1] == column_name for row in rows)
 
 
-def add_strategy_column(connection, column_name):
+def add_strategy_column(connection, column_name, definition="TEXT NOT NULL DEFAULT ''"):
     if strategy_column_exists(connection, column_name):
         return
     connection.execute(
         text(
-            f"ALTER TABLE strategies ADD COLUMN {column_name} TEXT NOT NULL DEFAULT ''"
+            f"ALTER TABLE strategies ADD COLUMN {column_name} {definition}"
         )
     )
 

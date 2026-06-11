@@ -450,6 +450,8 @@ def run_single_strategy(strategy):
         "stdout": output,
         "stderr": "",
     }
+    if result["ok"] and txt_path:
+        sync_signal_file_to_database(strategy.get("signals_txt_name", ""), txt_path)
     mark_single_strategy_status(strategy, running=False, result=result)
     return result
 
@@ -481,6 +483,74 @@ def read_text_tail(path, max_chars=1200):
     except OSError:
         return ""
     return text_value.strip()[-max_chars:]
+
+
+def signal_date_from_line(line):
+    expected = "fecha:"
+    for part in str(line).split("|"):
+        part = part.strip()
+        if part.lower().startswith(expected):
+            value = part.split(":", 1)[1].strip()
+            return value[:10]
+    return ""
+
+
+def sync_signal_file_to_database(txt_name, path=None):
+    if not txt_name or not valid_txt_name_global(txt_name):
+        return 0
+
+    path = path or (DEFAULT_SIGNALS_DIR / txt_name)
+    try:
+        lines = [
+            line.strip()
+            for line in Path(path).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    except OSError:
+        return 0
+
+    saved = 0
+    with engine.begin() as connection:
+        for line in lines:
+            signal_date = signal_date_from_line(line)
+            if not signal_date:
+                continue
+            exists = connection.execute(
+                text(
+                    """
+                    SELECT 1
+                    FROM strategy_signals
+                    WHERE txt_name = :txt_name
+                      AND signal_date = :signal_date
+                      AND line = :line
+                    LIMIT 1
+                    """
+                ),
+                {"txt_name": txt_name, "signal_date": signal_date, "line": line},
+            ).fetchone()
+            if exists:
+                continue
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO strategy_signals (txt_name, signal_date, line)
+                    VALUES (:txt_name, :signal_date, :line)
+                    """
+                ),
+                {"txt_name": txt_name, "signal_date": signal_date, "line": line},
+            )
+            saved += 1
+    return saved
+
+
+def valid_txt_name_global(txt_name):
+    path = Path(txt_name)
+    return (
+        path.name == txt_name
+        and txt_name.lower().endswith(".txt")
+        and "/" not in txt_name
+        and "\\" not in txt_name
+    )
 
 
 def mark_single_strategy_status(strategy, running=False, result=None):
@@ -636,6 +706,9 @@ def persist_strategy_status_file_results():
     saved = 0
     with engine.begin() as connection:
         for name, item in results.items():
+            txt_name = item.get("txt", "")
+            if txt_name:
+                sync_signal_file_to_database(txt_name)
             status = "OK" if item.get("ok") else "ERROR"
             message = "" if item.get("ok") else (item.get("error", "") or "La estrategia termino con error.")
             connection.execute(
@@ -1977,6 +2050,31 @@ def create_app():
 
     def read_strategy_signals(txt_name):
         path = strategy_signals_path(txt_name)
+        if path is None and not valid_txt_name_global(txt_name):
+            return []
+
+        if path is not None:
+            sync_signal_file_to_database(txt_name, path)
+
+        today = datetime.now(MADRID_TZ).date().isoformat()
+        rows = g.db.execute(
+            text(
+                """
+                SELECT line
+                FROM strategy_signals
+                WHERE txt_name = :txt_name
+                  AND signal_date = :signal_date
+                ORDER BY created_at DESC, id DESC
+                LIMIT 50
+                """
+            ),
+            {"txt_name": txt_name, "signal_date": today},
+        ).mappings().fetchall()
+        if rows:
+            return [
+                parse_signal_line(row["line"])
+                for row in rows
+            ]
         if path is None:
             return []
 
@@ -2264,6 +2362,7 @@ def init_db():
             )
         )
         ensure_universe_table(connection)
+        ensure_strategy_signals_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "python_file")
@@ -2538,6 +2637,27 @@ def add_automation_schedule_column(connection, column_name, definition):
     connection.execute(
         text(
             f"ALTER TABLE automation_schedules ADD COLUMN {column_name} {definition}"
+        )
+    )
+
+
+def ensure_strategy_signals_table(connection):
+    id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS strategy_signals (
+                id {id_column},
+                txt_name TEXT NOT NULL,
+                signal_date TEXT NOT NULL,
+                line TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
         )
     )
 

@@ -85,6 +85,9 @@ def append_new_lines(path, lines):
 
 def replace_session_lines(path, lines, session_marker):
     clean_lines = [normalize_common_fields(line) for line in lines if line and line.strip()]
+    if not clean_lines:
+        return path, 0
+
     if clean_lines:
         append_history_lines(path, clean_lines)
 
@@ -99,7 +102,7 @@ def replace_session_lines(path, lines, session_marker):
     kept_lines = [
         line
         for line in existing_lines
-        if session_marker in line
+        if session_marker not in line
     ]
     existing_set = set(kept_lines)
     new_lines = [

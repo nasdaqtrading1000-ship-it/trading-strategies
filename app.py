@@ -858,6 +858,14 @@ def create_app():
         flash("Estado actualizado.", "success")
         return redirect(url_for("admin_dashboard"))
 
+    @app.route("/admin/strategies/deactivate-all", methods=["POST"])
+    @login_required
+    def strategies_deactivate_all():
+        g.db.execute(text("UPDATE strategies SET is_active = 0 WHERE is_active = 1"))
+        g.db.commit()
+        flash("Todas las estrategias han sido desactivadas.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
     @app.route("/admin/strategies/<int:strategy_id>/delete", methods=["POST"])
     @login_required
     def strategy_delete(strategy_id):

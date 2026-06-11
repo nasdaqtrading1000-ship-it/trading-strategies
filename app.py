@@ -1703,8 +1703,7 @@ def ensure_default_real_strategies(connection):
                         WHEN historical_return = '' THEN :historical_return
                         ELSE historical_return
                     END,
-                    signals_txt_name = :signals_txt_name,
-                    is_active = 1
+                    signals_txt_name = :signals_txt_name
                 WHERE name = :name
                 """
             ),

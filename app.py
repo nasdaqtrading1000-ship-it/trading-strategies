@@ -1819,9 +1819,9 @@ def create_app():
                 "ok": False,
                 "running": False,
                 "pending": True,
-                "label": "Pendiente",
+                "label": "Activo",
                 "ran_at": "",
-                "error": "Todavia no le ha tocado ejecutarse en el lote actual.",
+                "error": "Estrategia activa sin registro de ejecucion reciente.",
             }
 
         ran_at = format_status_datetime(item.get("ran_at", ""))

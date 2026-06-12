@@ -1190,7 +1190,8 @@ def create_app():
             SELECT id, name, description, risk_level, signal_frequency,
                    historical_return, telegram_url, has_telegram, signals_txt_name,
                    python_file, auto_execute, schedule_start_time, schedule_end_time,
-                   schedule_interval_minutes, is_active
+                   schedule_interval_minutes, run_status, run_message, run_at,
+                   run_txt_updated, run_returncode, is_active
             FROM strategies
             WHERE is_active = 1
             ORDER BY created_at DESC
@@ -2438,12 +2439,25 @@ Devuelve 4 bloques cortos:
                 ),
                 {"txt_name": txt_name},
             ).mappings().fetchone()
-            return parse_database_datetime(row["updated_at"]) if row and row["updated_at"] else None
+            return parse_utc_database_datetime(row["updated_at"]) if row and row["updated_at"] else None
 
         try:
             return datetime.fromtimestamp(path.stat().st_mtime, UTC)
         except OSError:
             return None
+
+    def parse_utc_database_datetime(value):
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            parsed = value
+        else:
+            parsed = parse_status_datetime(value)
+            if parsed is None:
+                return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
 
     def strategy_signals_path(txt_name):
         if not txt_name or not valid_txt_name(txt_name):

@@ -86,19 +86,23 @@ def main():
 
 
 def sync_active_strategies_from_selection():
-    selected = selected_strategy_names_from_file()
+    selected = selected_strategy_settings_from_file()
     if selected is None:
         return None
 
     catalog_names = [strategy["name"] for strategy in STRATEGIES]
     with engine.begin() as connection:
         for strategy in STRATEGIES:
-            is_active = 1 if strategy["name"] in selected else 0
+            settings = selected.get(strategy["name"])
+            is_active = 1 if settings else 0
             connection.execute(
                 text(
                     """
                     UPDATE strategies
-                    SET is_active = :is_active
+                    SET is_active = :is_active,
+                        schedule_start_time = CASE WHEN :is_active = 1 THEN :start_time ELSE schedule_start_time END,
+                        schedule_end_time = CASE WHEN :is_active = 1 THEN :end_time ELSE schedule_end_time END,
+                        schedule_interval_minutes = CASE WHEN :is_active = 1 THEN :interval_minutes ELSE schedule_interval_minutes END
                     WHERE name = :name
                        OR python_file = :python_file
                        OR signals_txt_name = :txt_name
@@ -106,6 +110,9 @@ def sync_active_strategies_from_selection():
                 ),
                 {
                     "is_active": is_active,
+                    "start_time": settings["start"] if settings else "15:30",
+                    "end_time": settings["end"] if settings else "22:00",
+                    "interval_minutes": settings["interval"] if settings else 60,
                     "name": strategy["name"],
                     "python_file": strategy["file"],
                     "txt_name": strategy["txt"],
@@ -114,7 +121,7 @@ def sync_active_strategies_from_selection():
     return sum(1 for name in catalog_names if name in selected)
 
 
-def selected_strategy_names_from_file():
+def selected_strategy_settings_from_file():
     if not SELECTION_FILE.exists() or not SELECTION_FILE.is_file():
         return None
 
@@ -122,12 +129,12 @@ def selected_strategy_names_from_file():
     for raw_line in SELECTION_FILE.read_text(encoding="utf-8").splitlines():
         line = raw_line.split("#", 1)[0].strip()
         if line:
-            requested.append(normalize_key(line.split("|", 1)[0].strip()))
+            requested.append(parse_selection_line(line))
 
     if not requested:
         return None
 
-    selected = []
+    selected = {}
     for strategy in STRATEGIES:
         keys = {
             normalize_key(strategy["name"]),
@@ -135,9 +142,29 @@ def selected_strategy_names_from_file():
             normalize_key(Path(strategy["file"]).stem),
             normalize_key(strategy["txt"]),
         }
-        if any(value in keys for value in requested):
-            selected.append(strategy["name"])
-    return set(selected)
+        for item in requested:
+            if item["key"] in keys:
+                selected[strategy["name"]] = item
+                break
+    return selected
+
+
+def parse_selection_line(line):
+    parts = [part.strip() for part in line.split("|")]
+    return {
+        "key": normalize_key(parts[0]),
+        "start": parts[1] if len(parts) > 1 and parts[1] else "15:30",
+        "end": parts[2] if len(parts) > 2 and parts[2] else "22:00",
+        "interval": parse_int(parts[3], 60) if len(parts) > 3 else 60,
+    }
+
+
+def parse_int(value, default):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, parsed)
 
 
 def ensure_strategy_signals_table():
@@ -252,11 +279,16 @@ def sync_file(path):
             connection.execute(
                 text(
                     """
-                    INSERT INTO strategy_signals (txt_name, signal_date, line)
-                    VALUES (:txt_name, :signal_date, :line)
+                    INSERT INTO strategy_signals (txt_name, signal_date, line, created_at)
+                    VALUES (:txt_name, :signal_date, :line, :created_at)
                     """
                 ),
-                {"txt_name": path.name, "signal_date": signal_date, "line": line},
+                {
+                    "txt_name": path.name,
+                    "signal_date": signal_date,
+                    "line": line,
+                    "created_at": datetime.utcnow(),
+                },
             )
             inserted += 1
     return len(lines), inserted

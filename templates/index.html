@@ -89,11 +89,15 @@
                 <dd>{{ strategy.signal_frequency }}</dd>
               </div>
               <div>
+                <dt>Horario</dt>
+                <dd>{{ strategy.schedule_start_time }} - {{ strategy.schedule_end_time }} | cada {{ strategy.schedule_interval_minutes }} min</dd>
+              </div>
+              <div>
                 <dt>Rentabilidad historica</dt>
                 <dd>{{ strategy.historical_return }}</dd>
               </div>
               <div>
-                <dt>Ultima actualizacion</dt>
+                <dt>Ultima actualizacion de avisos</dt>
                 <dd>{{ strategy.signals_updated_at or "Sin actualizar" }}</dd>
               </div>
               <div>

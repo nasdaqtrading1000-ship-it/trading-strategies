@@ -17,6 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STATUS_FILE = BASE_DIR / "strategy_run_status.json"
 OUTPUT_DIR = BASE_DIR / "salidas_txt"
 LOG_DIR = BASE_DIR / "logs"
+SELECTION_FILE = BASE_DIR / "estrategias_a_ejecutar.txt"
 
 
 STRATEGIES = [
@@ -139,6 +140,9 @@ def write_status_file(results, started_at, finished_at):
 def selected_strategies():
     active_names_raw = os.environ.get("TRADING_ACTIVE_STRATEGIES")
     if active_names_raw is None:
+        selected_from_file = selected_strategies_from_file()
+        if selected_from_file is not None:
+            return selected_from_file
         return STRATEGIES
 
     try:
@@ -152,6 +156,52 @@ def selected_strategies():
         for strategy in STRATEGIES
         if strategy["name"] in active_names
     ]
+
+
+def selected_strategies_from_file():
+    selection_path = Path(os.environ.get("TRADING_STRATEGY_SELECTION_FILE", SELECTION_FILE))
+    if not selection_path.exists() or not selection_path.is_file():
+        return None
+
+    requested = []
+    for raw_line in selection_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if line:
+            requested.append(normalize_key(line))
+
+    if not requested:
+        return None
+
+    selected = [
+        strategy
+        for strategy in STRATEGIES
+        if normalize_key(strategy["name"]) in requested
+        or normalize_key(strategy["file"]) in requested
+        or normalize_key(Path(strategy["file"]).stem) in requested
+        or normalize_key(strategy["txt"]) in requested
+    ]
+
+    missing = [
+        value
+        for value in requested
+        if not any(
+            value in {
+                normalize_key(strategy["name"]),
+                normalize_key(strategy["file"]),
+                normalize_key(Path(strategy["file"]).stem),
+                normalize_key(strategy["txt"]),
+            }
+            for strategy in STRATEGIES
+        )
+    ]
+    for value in missing:
+        print(f"No se encontro estrategia para: {value}", file=sys.stderr)
+
+    return selected
+
+
+def normalize_key(value):
+    return "".join(char.lower() for char in str(value) if char.isalnum())
 
 
 def main():
@@ -169,6 +219,7 @@ def main():
     ]
     finished_at = datetime.now(UTC)
     write_status_file(results, started_at, finished_at)
+    sync_to_database()
 
     ok_count = sum(1 for result in results if result["ok"])
     fail_count = len(results) - ok_count
@@ -184,6 +235,24 @@ def main():
     print(f"Estado guardado en: {STATUS_FILE}")
 
     return 0 if fail_count == 0 else 1
+
+
+def sync_to_database():
+    if os.environ.get("TRADING_SKIP_DB_SYNC") == "1":
+        return
+
+    sync_script = BASE_DIR.parent / "sync_signals_to_db.py"
+    if not sync_script.exists():
+        print("Sincronizacion PostgreSQL omitida: no existe sync_signals_to_db.py")
+        return
+
+    completed = subprocess.run(
+        [sys.executable, str(sync_script)],
+        cwd=str(BASE_DIR.parent),
+        text=True,
+    )
+    if completed.returncode != 0:
+        print(f"Sincronizacion PostgreSQL con avisos: codigo {completed.returncode}", file=sys.stderr)
 
 
 if __name__ == "__main__":

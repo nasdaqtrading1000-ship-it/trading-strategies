@@ -2412,7 +2412,17 @@ Devuelve 4 bloques cortos:
     def strategy_signals_updated_at_datetime(txt_name):
         path = strategy_signals_path(txt_name)
         if path is None:
-            return None
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT MAX(created_at) AS updated_at
+                    FROM strategy_signals
+                    WHERE txt_name = :txt_name
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).mappings().fetchone()
+            return parse_database_datetime(row["updated_at"]) if row and row["updated_at"] else None
 
         try:
             return datetime.fromtimestamp(path.stat().st_mtime, UTC)

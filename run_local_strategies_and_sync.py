@@ -1,5 +1,8 @@
 """
-Ejecuta las estrategias en este PC y sincroniza los avisos con PostgreSQL.
+Ejecuta las estrategias en este PC.
+
+run_all_strategies.py sincroniza automaticamente los avisos y estados con
+PostgreSQL al terminar.
 
 Uso:
     python run_local_strategies_and_sync.py
@@ -16,7 +19,6 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
-SYNC = BASE_DIR / "sync_signals_to_db.py"
 
 
 def main():
@@ -31,21 +33,11 @@ def main():
         text=True,
     )
 
-    print("")
-    print("Sincronizando avisos con PostgreSQL...")
-    sync_result = subprocess.run(
-        [sys.executable, str(SYNC)],
-        cwd=str(BASE_DIR),
-        text=True,
-    )
-
     if run_result.returncode != 0:
         print("")
         print(f"Las estrategias terminaron con codigo {run_result.returncode}.")
-    if sync_result.returncode != 0:
-        print(f"La sincronizacion termino con codigo {sync_result.returncode}.")
 
-    return run_result.returncode or sync_result.returncode
+    return run_result.returncode
 
 
 if __name__ == "__main__":

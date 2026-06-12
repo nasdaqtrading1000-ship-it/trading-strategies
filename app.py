@@ -1784,6 +1784,16 @@ def create_app():
         return strategy
 
     def strategy_run_status(strategy, txt_name):
+        if market_is_closed_for_status():
+            return {
+                "ok": False,
+                "running": False,
+                "pending": True,
+                "label": "Fuera de mercado",
+                "ran_at": format_database_datetime(strategy.get("run_at")) if strategy.get("run_at") else "",
+                "error": "",
+            }
+
         db_status = (strategy.get("run_status") or "").strip()
         if db_status:
             ran_at = format_database_datetime(strategy.get("run_at"))
@@ -1799,7 +1809,7 @@ def create_app():
                 return {
                     "ok": True,
                     "running": False,
-                    "label": "Correcto",
+                    "label": "Activo",
                     "ran_at": ran_at,
                     "error": "",
                 }
@@ -1838,7 +1848,7 @@ def create_app():
             return {
                 "ok": True,
                 "running": False,
-                "label": "Correcto",
+                "label": "Activo",
                 "ran_at": ran_at,
                 "error": "",
             }
@@ -1849,6 +1859,12 @@ def create_app():
             "ran_at": ran_at,
             "error": item.get("error", "") or "La estrategia termino con error.",
         }
+
+    def market_is_closed_for_status():
+        now = datetime.now(MADRID_TZ)
+        start = now.replace(hour=15, minute=30, second=0, microsecond=0)
+        end = now.replace(hour=22, minute=0, second=0, microsecond=0)
+        return not (start <= now < end)
 
     def load_strategy_status_data():
         status_path = Path(

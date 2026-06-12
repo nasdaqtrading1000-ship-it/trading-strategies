@@ -8,7 +8,7 @@ Necesita DATABASE_URL en .env apuntando a la base PostgreSQL de Render.
 No sube archivos por Git y no reinicia la web.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -54,6 +54,9 @@ def main():
 
     ensure_strategy_signals_table()
     ensure_strategy_status_columns()
+    pruned = prune_old_signals()
+    if pruned:
+        print(f"Senales antiguas limpiadas de PostgreSQL: {pruned}")
     active_count = sync_active_strategies_from_selection()
     if active_count is not None:
         print(f"Estrategias activas sincronizadas en PostgreSQL: {active_count}")
@@ -119,7 +122,7 @@ def selected_strategy_names_from_file():
     for raw_line in SELECTION_FILE.read_text(encoding="utf-8").splitlines():
         line = raw_line.split("#", 1)[0].strip()
         if line:
-            requested.append(normalize_key(line))
+            requested.append(normalize_key(line.split("|", 1)[0].strip()))
 
     if not requested:
         return None
@@ -174,6 +177,28 @@ def ensure_strategy_status_columns():
             connection.execute(
                 text(f"ALTER TABLE strategies ADD COLUMN {column_name} {definition}")
             )
+
+
+def prune_old_signals():
+    try:
+        retention_days = int(os.environ.get("TRADING_SIGNAL_RETENTION_DAYS", "30"))
+    except ValueError:
+        retention_days = 30
+    if retention_days <= 0:
+        return 0
+
+    cutoff = (datetime.now().date() - timedelta(days=retention_days)).isoformat()
+    with engine.begin() as connection:
+        result = connection.execute(
+            text(
+                """
+                DELETE FROM strategy_signals
+                WHERE signal_date < :cutoff
+                """
+            ),
+            {"cutoff": cutoff},
+        )
+    return result.rowcount or 0
 
 
 def strategy_column_exists(connection, column_name):

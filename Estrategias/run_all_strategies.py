@@ -6,11 +6,14 @@ Este script solo las lanza una a una y muestra un resumen final.
 """
 
 from pathlib import Path
+import argparse
 import json
 import os
 import subprocess
 import sys
-from datetime import UTC, datetime
+import time
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -18,6 +21,14 @@ STATUS_FILE = BASE_DIR / "strategy_run_status.json"
 OUTPUT_DIR = BASE_DIR / "salidas_txt"
 LOG_DIR = BASE_DIR / "logs"
 SELECTION_FILE = BASE_DIR / "estrategias_a_ejecutar.txt"
+PROJECT_DIR = BASE_DIR.parent
+MARKET_UPDATE_SCRIPT = PROJECT_DIR / "run_local_market_update.py"
+MADRID_TZ = ZoneInfo("Europe/Madrid")
+DEFAULT_START_TIME = "15:30"
+DEFAULT_END_TIME = "22:00"
+DEFAULT_INTERVAL_MINUTES = 60
+MARKET_UPDATE_INTERVAL_MINUTES = int(os.environ.get("LOCAL_MARKET_UPDATE_INTERVAL_MINUTES", "240"))
+LOOP_SLEEP_SECONDS = int(os.environ.get("LOCAL_TRADING_LOOP_SLEEP_SECONDS", "30"))
 
 
 STRATEGIES = [
@@ -175,7 +186,22 @@ def selected_strategies():
     ]
 
 
-def selected_strategies_from_file():
+def selected_strategy_schedules():
+    selected = selected_strategies_from_file(include_schedule=True)
+    if selected is None:
+        selected = [
+            {
+                **strategy,
+                "start": DEFAULT_START_TIME,
+                "end": DEFAULT_END_TIME,
+                "interval": DEFAULT_INTERVAL_MINUTES,
+            }
+            for strategy in selected_strategies()
+        ]
+    return selected
+
+
+def selected_strategies_from_file(include_schedule=False):
     selection_path = Path(os.environ.get("TRADING_STRATEGY_SELECTION_FILE", SELECTION_FILE))
     if not selection_path.exists() or not selection_path.is_file():
         return None
@@ -183,33 +209,23 @@ def selected_strategies_from_file():
     requested = []
     for raw_line in selection_path.read_text(encoding="utf-8").splitlines():
         line = raw_line.split("#", 1)[0].strip()
-        if line:
-            requested.append(normalize_key(line))
+        if not line:
+            continue
+        requested.append(parse_selection_line(line))
 
     if not requested:
         return None
 
-    selected = [
-        strategy
-        for strategy in STRATEGIES
-        if normalize_key(strategy["name"]) in requested
-        or normalize_key(strategy["file"]) in requested
-        or normalize_key(Path(strategy["file"]).stem) in requested
-        or normalize_key(strategy["txt"]) in requested
-    ]
+    selected = []
+    for item in requested:
+        strategy = find_strategy(item["key"])
+        if strategy:
+            selected.append({**strategy, **item} if include_schedule else strategy)
 
     missing = [
-        value
-        for value in requested
-        if not any(
-            value in {
-                normalize_key(strategy["name"]),
-                normalize_key(strategy["file"]),
-                normalize_key(Path(strategy["file"]).stem),
-                normalize_key(strategy["txt"]),
-            }
-            for strategy in STRATEGIES
-        )
+        item["key"]
+        for item in requested
+        if not find_strategy(item["key"])
     ]
     for value in missing:
         print(f"No se encontro estrategia para: {value}", file=sys.stderr)
@@ -217,15 +233,46 @@ def selected_strategies_from_file():
     return selected
 
 
+def parse_selection_line(line):
+    parts = [part.strip() for part in line.split("|")]
+    name = parts[0]
+    return {
+        "key": normalize_key(name),
+        "start": parts[1] if len(parts) > 1 and parts[1] else DEFAULT_START_TIME,
+        "end": parts[2] if len(parts) > 2 and parts[2] else DEFAULT_END_TIME,
+        "interval": parse_int(parts[3], DEFAULT_INTERVAL_MINUTES) if len(parts) > 3 else DEFAULT_INTERVAL_MINUTES,
+    }
+
+
+def find_strategy(key):
+    for strategy in STRATEGIES:
+        if key in {
+            normalize_key(strategy["name"]),
+            normalize_key(strategy["file"]),
+            normalize_key(Path(strategy["file"]).stem),
+            normalize_key(strategy["txt"]),
+        }:
+            return strategy
+    return None
+
+
+def parse_int(value, default):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, parsed)
+
+
 def normalize_key(value):
     return "".join(char.lower() for char in str(value) if char.isalnum())
 
 
-def main():
+def run_selected_once(strategies=None):
     started_at = datetime.now(UTC)
     print(f"Inicio ejecucion: {started_at.isoformat()}")
 
-    strategies = selected_strategies()
+    strategies = strategies or selected_strategies()
     print(f"Estrategias seleccionadas: {len(strategies)}")
     for strategy in strategies:
         print(f"- {strategy['name']}")
@@ -257,6 +304,82 @@ def main():
     return 0 if fail_count == 0 else 1
 
 
+def run_loop():
+    schedules = selected_strategy_schedules()
+    if not schedules:
+        print("No hay estrategias configuradas para ejecutar.")
+        return 1
+
+    print("Modo automatico local iniciado.")
+    for strategy in schedules:
+        print(f"- {strategy['name']} | {strategy['start']} - {strategy['end']} | cada {strategy['interval']} min")
+
+    last_strategy_runs = {}
+    last_market_update = None
+    run_market_update()
+    last_market_update = datetime.now(MADRID_TZ)
+
+    while True:
+        now = datetime.now(MADRID_TZ)
+        if last_market_update is None or now - last_market_update >= timedelta(minutes=MARKET_UPDATE_INTERVAL_MINUTES):
+            run_market_update()
+            last_market_update = datetime.now(MADRID_TZ)
+
+        due = due_strategies(schedules, now, last_strategy_runs)
+        for strategy in due:
+            result_code = run_selected_once([strategy])
+            last_strategy_runs[strategy["name"]] = datetime.now(MADRID_TZ)
+            if result_code != 0:
+                print(f"{strategy['name']} termino con aviso/error, se continua con la siguiente.")
+
+        time.sleep(LOOP_SLEEP_SECONDS)
+
+
+def due_strategies(schedules, now, last_strategy_runs):
+    due = []
+    for strategy in schedules:
+        if not within_time_window(now, strategy["start"], strategy["end"]):
+            continue
+        last_run = last_strategy_runs.get(strategy["name"])
+        if last_run is None or now - last_run >= timedelta(minutes=strategy["interval"]):
+            due.append(strategy)
+    return due
+
+
+def within_time_window(now, start_value, end_value):
+    start = time_for_today(now, start_value)
+    end = time_for_today(now, end_value)
+    if end < start:
+        end += timedelta(days=1)
+    return start <= now <= end
+
+
+def time_for_today(now, value):
+    try:
+        hour, minute = [int(part) for part in str(value).split(":", 1)]
+    except (TypeError, ValueError):
+        hour, minute = 15, 30
+    return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
+def run_market_update():
+    if os.environ.get("LOCAL_SKIP_MARKET_UPDATE") == "1":
+        print("Actualizacion de mercado omitida por LOCAL_SKIP_MARKET_UPDATE=1.")
+        return
+    if not MARKET_UPDATE_SCRIPT.exists():
+        print("Actualizacion de mercado omitida: no existe run_local_market_update.py")
+        return
+
+    print("\n=== Actualizando activos y mercado desde local ===")
+    completed = subprocess.run(
+        [sys.executable, str(MARKET_UPDATE_SCRIPT), "--all"],
+        cwd=str(PROJECT_DIR),
+        text=True,
+    )
+    if completed.returncode != 0:
+        print(f"Actualizacion de mercado con aviso/error. Codigo {completed.returncode}. Se continua.")
+
+
 def sync_to_database():
     if os.environ.get("TRADING_SKIP_DB_SYNC") == "1":
         return
@@ -273,6 +396,15 @@ def sync_to_database():
     )
     if completed.returncode != 0:
         print(f"Sincronizacion PostgreSQL con avisos: codigo {completed.returncode}", file=sys.stderr)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Ejecuta estrategias locales y sincroniza PostgreSQL.")
+    parser.add_argument("--loop", action="store_true", help="Modo automatico: respeta horarios e intervalos del TXT.")
+    args = parser.parse_args()
+    if args.loop:
+        return run_loop()
+    return run_selected_once()
 
 
 if __name__ == "__main__":

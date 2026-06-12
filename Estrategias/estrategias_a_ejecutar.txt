@@ -1,15 +1,20 @@
-Momentum
-Swing Trading
-BreaKout
-Mean Reversion
-Value Trading
-Dividend Growth
-Trend Following
-Pairs Trading
-Sector Rotation
-Quality Investing
-Opening Range BreaKout
-VWAP Reversion
-Momentum Intradia
-Scalping The PullBacks
-Gap and Go
+# Formato:
+# Estrategia | Hora inicio | Hora fin | Cada cuantos minutos
+#
+# El horario esta en hora de Espana.
+
+Momentum | 15:30 | 22:00 | 60
+Swing Trading | 15:30 | 22:00 | 240
+BreaKout | 15:30 | 22:00 | 30
+Mean Reversion | 15:30 | 22:00 | 120
+Value Trading | 15:30 | 22:00 | 240
+Dividend Growth | 15:30 | 22:00 | 240
+Trend Following | 15:30 | 22:00 | 120
+Pairs Trading | 15:30 | 22:00 | 60
+Sector Rotation | 15:30 | 22:00 | 240
+Quality Investing | 15:30 | 22:00 | 240
+Opening Range BreaKout | 15:30 | 22:00 | 10
+VWAP Reversion | 15:30 | 22:00 | 10
+Momentum Intradia | 15:30 | 22:00 | 15
+Scalping The PullBacks | 15:30 | 22:00 | 10
+Gap and Go | 15:30 | 22:00 | 10

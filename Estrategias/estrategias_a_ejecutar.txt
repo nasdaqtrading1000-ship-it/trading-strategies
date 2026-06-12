@@ -1,10 +1,15 @@
-# Estrategias a ejecutar en local.
-# Puedes poner el nombre de la estrategia o el archivo .py.
-# Una por linea. Las lineas con # se ignoran.
-#
-# Ejemplos:
-# Momentum
-# Gap and Go.py
-# VWAP Reversion
-
 Momentum
+Swing Trading
+BreaKout
+Mean Reversion
+Value Trading
+Dividend Growth
+Trend Following
+Pairs Trading
+Sector Rotation
+Quality Investing
+Opening Range BreaKout
+VWAP Reversion
+Momentum Intradia
+Scalping The PullBacks
+Gap and Go

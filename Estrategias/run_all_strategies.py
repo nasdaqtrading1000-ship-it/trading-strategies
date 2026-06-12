@@ -94,6 +94,23 @@ def run_strategy(strategy):
     }
 
 
+def run_strategy_safely(strategy):
+    try:
+        return run_strategy(strategy)
+    except Exception as error:
+        return {
+            "name": strategy.get("name", "Estrategia desconocida"),
+            "file": strategy.get("file", ""),
+            "txt": strategy.get("txt", ""),
+            "ok": False,
+            "txt_updated": False,
+            "returncode": None,
+            "error": f"Error inesperado en runner: {error}",
+            "log": "",
+            "ran_at": datetime.now(UTC).isoformat(),
+        }
+
+
 def safe_log_name(value):
     cleaned = "".join(char if char.isalnum() else "_" for char in str(value))
     return cleaned.strip("_") or "strategy"
@@ -215,7 +232,7 @@ def main():
 
     results = []
     for strategy in strategies:
-        result = run_strategy(strategy)
+        result = run_strategy_safely(strategy)
         results.append(result)
         write_status_file(results, started_at, datetime.now(UTC))
         sync_to_database()

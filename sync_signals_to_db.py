@@ -23,7 +23,26 @@ from db import engine
 BASE_DIR = Path(__file__).resolve().parent
 SIGNALS_DIR = BASE_DIR / "Estrategias" / "salidas_txt"
 STATUS_FILE = BASE_DIR / "Estrategias" / "strategy_run_status.json"
+SELECTION_FILE = BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"
 TXT_RE = re.compile(r"^[^\\/]+\.txt$", re.IGNORECASE)
+
+STRATEGIES = [
+    {"name": "Momentum", "file": "Momentum.py", "txt": "Momentum.txt"},
+    {"name": "Swing Trading", "file": "SwingTrading.py", "txt": "SwingTrading.txt"},
+    {"name": "BreaKout", "file": "BreaKout.py", "txt": "BreaKout.txt"},
+    {"name": "Mean Reversion", "file": "Mean Reversion.py", "txt": "Mean_Reversion.txt"},
+    {"name": "Value Trading", "file": "ValueTrading.py", "txt": "ValueTrading.txt"},
+    {"name": "Dividend Growth", "file": "DividenGrowth.py", "txt": "DividenGrowth.txt"},
+    {"name": "Trend Following", "file": "TrendFollowing.py", "txt": "TrendFollowing.txt"},
+    {"name": "Pairs Trading", "file": "PairsTrading.py", "txt": "PairsTrading.txt"},
+    {"name": "Sector Rotation", "file": "SectorRotation.py", "txt": "SectorRotation.txt"},
+    {"name": "Quality Investing", "file": "QualityInvesting.py", "txt": "QualityInvesting.txt"},
+    {"name": "Opening Range BreaKout", "file": "OpeningRangeBreaKout.py", "txt": "OpeningRangeBreaKout.txt"},
+    {"name": "VWAP Reversion", "file": "VWAP Reversion.py", "txt": "VWAP_Reversion.txt"},
+    {"name": "Momentum Intradia", "file": "MomentumIntradia.py", "txt": "MomentumIntradia.txt"},
+    {"name": "Scalping The PullBacks", "file": "ScalpingThePullBacKs.py", "txt": "ScalpingThePullBacKs.txt"},
+    {"name": "Gap and Go", "file": "Gap and Go.py", "txt": "Gap_and_Go.txt"},
+]
 
 
 def main():
@@ -35,6 +54,9 @@ def main():
 
     ensure_strategy_signals_table()
     ensure_strategy_status_columns()
+    active_count = sync_active_strategies_from_selection()
+    if active_count is not None:
+        print(f"Estrategias activas sincronizadas en PostgreSQL: {active_count}")
 
     if not SIGNALS_DIR.exists():
         print(f"No existe la carpeta: {SIGNALS_DIR}")
@@ -58,6 +80,61 @@ def main():
     status_count = sync_strategy_status()
     print(f"Estados de estrategias actualizados en PostgreSQL: {status_count}")
     return 0
+
+
+def sync_active_strategies_from_selection():
+    selected = selected_strategy_names_from_file()
+    if selected is None:
+        return None
+
+    catalog_names = [strategy["name"] for strategy in STRATEGIES]
+    with engine.begin() as connection:
+        for strategy in STRATEGIES:
+            is_active = 1 if strategy["name"] in selected else 0
+            connection.execute(
+                text(
+                    """
+                    UPDATE strategies
+                    SET is_active = :is_active
+                    WHERE name = :name
+                       OR python_file = :python_file
+                       OR signals_txt_name = :txt_name
+                    """
+                ),
+                {
+                    "is_active": is_active,
+                    "name": strategy["name"],
+                    "python_file": strategy["file"],
+                    "txt_name": strategy["txt"],
+                },
+            )
+    return sum(1 for name in catalog_names if name in selected)
+
+
+def selected_strategy_names_from_file():
+    if not SELECTION_FILE.exists() or not SELECTION_FILE.is_file():
+        return None
+
+    requested = []
+    for raw_line in SELECTION_FILE.read_text(encoding="utf-8").splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if line:
+            requested.append(normalize_key(line))
+
+    if not requested:
+        return None
+
+    selected = []
+    for strategy in STRATEGIES:
+        keys = {
+            normalize_key(strategy["name"]),
+            normalize_key(strategy["file"]),
+            normalize_key(Path(strategy["file"]).stem),
+            normalize_key(strategy["txt"]),
+        }
+        if any(value in keys for value in requested):
+            selected.append(strategy["name"])
+    return set(selected)
 
 
 def ensure_strategy_signals_table():
@@ -229,6 +306,10 @@ def signal_date_from_line(line):
 
 def valid_txt_name(txt_name):
     return bool(TXT_RE.match(txt_name))
+
+
+def normalize_key(value):
+    return "".join(char.lower() for char in str(value) if char.isalnum())
 
 
 if __name__ == "__main__":

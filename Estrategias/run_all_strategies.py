@@ -213,10 +213,13 @@ def main():
     for strategy in strategies:
         print(f"- {strategy['name']}")
 
-    results = [
-        run_strategy(strategy)
-        for strategy in strategies
-    ]
+    results = []
+    for strategy in strategies:
+        result = run_strategy(strategy)
+        results.append(result)
+        write_status_file(results, started_at, datetime.now(UTC))
+        sync_to_database()
+
     finished_at = datetime.now(UTC)
     write_status_file(results, started_at, finished_at)
     sync_to_database()

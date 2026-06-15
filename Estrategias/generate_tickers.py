@@ -20,9 +20,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import os
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
+from alpaca_request import get_stock_bars_data
 from alpaca.data.timeframe import TimeFrame
 from alpaca.trading.client import TradingClient
 from alpaca.trading.enums import AssetClass, AssetStatus
@@ -33,6 +34,7 @@ from env_loader import load_env
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_FILE = BASE_DIR / "tickers.txt"
+TOP_MONEY_VOLUME_FILE = BASE_DIR / "top_money_volume_assets.txt"
 
 DEFAULT_MARKETS = {"NASDAQ", "NYSE", "AMEX"}
 
@@ -165,13 +167,14 @@ def get_market_metrics(data_client, symbols, args):
         request = StockBarsRequest(
             symbol_or_symbols=batch,
             timeframe=TimeFrame.Day,
+            adjustment=Adjustment.RAW,
             start=datetime.now(UTC) - timedelta(days=args.lookback_days),
             end=datetime.now(UTC),
             feed=feed,
         )
 
         try:
-            bars = data_client.get_stock_bars(request).data
+            bars = get_stock_bars_data(data_client, request)
         except Exception as exc:
             print(f"Lote omitido ({len(batch)} activos): {exc}")
             time.sleep(1)
@@ -249,6 +252,28 @@ def write_tickers(path, rows):
     )
 
 
+def write_top_money_volume_assets(path, rows, limit=20):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# rank | symbol | name | market | price | money_volume",
+    ]
+    for rank, row in enumerate(rows[:limit], start=1):
+        lines.append(
+            " | ".join(
+                [
+                    str(rank),
+                    row["symbol"],
+                    row["name"],
+                    row["exchange"],
+                    f"{row['price']:.4f}",
+                    f"{row['avg_dollar_volume']:.2f}",
+                ]
+            )
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main():
     args = parse_args()
     markets = {
@@ -278,8 +303,10 @@ def main():
 
     filtered = filter_assets(assets, metrics, args)
     write_tickers(args.output, filtered)
+    write_top_money_volume_assets(TOP_MONEY_VOLUME_FILE, filtered)
 
     print(f"tickers.txt generado: {args.output}")
+    print(f"top_money_volume_assets.txt generado: {TOP_MONEY_VOLUME_FILE}")
     print(f"Activos finales: {len(filtered)}")
     print("Top 20 por volumen monetario:")
     for row in filtered[:20]:

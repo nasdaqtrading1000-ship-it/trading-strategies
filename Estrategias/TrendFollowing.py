@@ -18,10 +18,12 @@ from txt_output import write_results_to_txt
 from datetime import datetime, timedelta, UTC
 
 import pandas as pd
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
+from alpaca_request import get_stock_bars_data
 from alpaca.data.timeframe import TimeFrame
+from analysis_debug import log_strategy_summary, log_symbol_decision
 
 
 # Archivo con tickers.
@@ -73,12 +75,13 @@ def get_daily_bars(client, symbols):
     request = StockBarsRequest(
         symbol_or_symbols=symbols,
         timeframe=TimeFrame.Day,
+        adjustment=Adjustment.RAW,
         start=datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS),
         end=datetime.now(UTC),
         feed=DataFeed.IEX,
     )
 
-    bars = client.get_stock_bars(request).data
+    bars = get_stock_bars_data(client, request)
     data = {}
 
     for symbol, symbol_bars in bars.items():
@@ -285,17 +288,25 @@ def find_trend_following_candidates():
     data = get_daily_bars(client, symbols)
 
     candidates = []
+    with_data_count = 0
+    accepted_count = 0
 
     for symbol in symbols:
         df = data.get(symbol)
 
         if df is None or df.empty:
+            log_symbol_decision("Trend Following", symbol, "SIN DATOS", "Alpaca no devolvio velas")
             continue
 
+        with_data_count += 1
         result = analyze_symbol(symbol, df)
 
         if result:
+            accepted_count += 1
+            log_symbol_decision("Trend Following", symbol, "OK", format_candidate(result))
             candidates.append(result)
+        else:
+            log_symbol_decision("Trend Following", symbol, "DESCARTADO", "No cumple tendencia de largo plazo, ruptura o liquidez")
 
     candidates = sorted(
         candidates,
@@ -303,7 +314,9 @@ def find_trend_following_candidates():
         reverse=True,
     )
 
-    return candidates[:TOP_N]
+    selected = candidates[:TOP_N]
+    log_strategy_summary("Trend Following", len(symbols), with_data_count, accepted_count, len(selected))
+    return selected
 
 
 def format_candidate(candidate):

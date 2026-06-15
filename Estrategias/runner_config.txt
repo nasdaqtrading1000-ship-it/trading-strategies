@@ -1,0 +1,26 @@
+# Configuracion global del ejecutor local de estrategias.
+# Cambia estos valores sin tocar el codigo.
+
+# loop = espera a la hora de inicio, ejecuta ciclos y sale a la hora final.
+# once = ejecuta una sola pasada y termina.
+MODO=loop
+
+# Dias permitidos. Usa numeros 1-7: 1=Lunes, 2=Martes, ..., 7=Domingo.
+DIAS=1,2,3,4,5
+
+# Ventana global en hora de Espana.
+HORA_GLOBAL_INICIO=15:30
+HORA_GLOBAL_FIN=22:00
+
+# True = ignora horarios y ejecuta aunque este fuera de hora.
+# False = respeta la ventana global y la hora de cada estrategia.
+IGNORAR_HORARIOS=False
+
+# Genera Estrategias/tickers.txt antes de empezar.
+GENERAR_TICKERS=si
+
+# Numero de tickers del principio de tickers.txt que usan las estrategias con FMP.
+FMP_TICKER_LIMIT=20
+
+# Segundos entre comprobaciones del loop.
+ESPERA_SEGUNDOS=30

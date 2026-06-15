@@ -23,10 +23,12 @@ from datetime import datetime, timedelta, time, UTC
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
+from alpaca_request import get_stock_bars_data
 from alpaca.data.timeframe import TimeFrame
+from analysis_debug import log_strategy_summary, log_symbol_decision
 
 
 # Archivo de tickers.
@@ -132,12 +134,13 @@ def get_intraday_bars(client, symbols):
     request = StockBarsRequest(
         symbol_or_symbols=symbols,
         timeframe=TimeFrame.Minute,
+        adjustment=Adjustment.RAW,
         start=datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS),
         end=datetime.now(UTC),
         feed=DataFeed.IEX,
     )
 
-    bars = client.get_stock_bars(request).data
+    bars = get_stock_bars_data(client, request)
     data = {}
 
     for symbol, symbol_bars in bars.items():
@@ -385,17 +388,25 @@ def find_gap_and_go_signals():
     data = get_intraday_bars(client, symbols)
 
     signals = []
+    with_data_count = 0
+    accepted_count = 0
 
     for symbol in symbols:
         df = data.get(symbol)
 
         if df is None or df.empty:
+            log_symbol_decision("Gap and Go", symbol, "SIN DATOS", "Alpaca no devolvio velas intradia")
             continue
 
+        with_data_count += 1
         result = analyze_symbol(symbol, df)
 
         if result:
+            accepted_count += 1
+            log_symbol_decision("Gap and Go", symbol, "OK", format_signal(result))
             signals.append(result)
+        else:
+            log_symbol_decision("Gap and Go", symbol, "DESCARTADO", "No cumple gap, rango inicial, volumen o direccion")
 
     signals = sorted(
         signals,
@@ -403,7 +414,9 @@ def find_gap_and_go_signals():
         reverse=True,
     )
 
-    return signals[:TOP_N]
+    selected = signals[:TOP_N]
+    log_strategy_summary("Gap and Go", len(symbols), with_data_count, accepted_count, len(selected))
+    return selected
 
 
 def format_signal(signal):

@@ -60,6 +60,106 @@
     </div>
 
     <div class="diagnostic-box mt-4">
+      <h2 class="h5 mb-3">Operacion ejecutada</h2>
+      {% if operation %}
+        <div class="diagnostic-summary-grid">
+          <div>
+            <span>Estado</span>
+            <strong>{{ operation.status_label }}</strong>
+          </div>
+          <div>
+            <span>Fecha datos aviso</span>
+            <strong>{{ signal.notice_datetime or operation.signal_date or "No indicada" }}</strong>
+          </div>
+          <div>
+            <span>Ejecutada</span>
+            <strong>{{ operation.opened_at_display }}</strong>
+          </div>
+          <div>
+            <span>Direccion</span>
+            <strong>{{ operation.direction }}</strong>
+          </div>
+          <div>
+            <span>Entrada</span>
+            <strong>{{ operation.entry_price_display }}</strong>
+          </div>
+          <div>
+            <span>Acciones</span>
+            <strong>{{ operation.shares_display }}</strong>
+          </div>
+          <div>
+            <span>Precio actual</span>
+            <strong>{{ operation.current_price_display }}</strong>
+          </div>
+          <div>
+            <span>Valor inversion</span>
+            <strong>{{ operation.investment_value_display }}</strong>
+          </div>
+          <div>
+            <span>Beneficio / perdida</span>
+            <strong class="{{ operation.profit_class }}">{{ operation.profit_usd_display }}</strong>
+          </div>
+          <div>
+            <span>Rentabilidad</span>
+            <strong class="{{ operation.profit_class }}">{{ operation.profit_pct_display }}</strong>
+          </div>
+          <div>
+            <span>Cierre objetivo</span>
+            <strong>{{ operation.target_price_display }}</strong>
+          </div>
+          <div>
+            <span>Stop loss</span>
+            <strong>{{ operation.stop_loss_display }}</strong>
+          </div>
+          <div>
+            <span>Ultima revision</span>
+            <strong>{{ operation.updated_at_display }}</strong>
+          </div>
+          <div>
+            <span>Cierre real</span>
+            <strong>{{ operation.closed_at_display }}</strong>
+          </div>
+          <div>
+            <span>Motivo cierre</span>
+            <strong>{{ operation.close_reason or "Operacion abierta" }}</strong>
+          </div>
+        </div>
+      {% else %}
+        <div class="diagnostic-summary-grid">
+          <div>
+            <span>Estado</span>
+            <strong>Pendiente de ejecucion</strong>
+          </div>
+          <div>
+            <span>Fecha datos aviso</span>
+            <strong>{{ signal.notice_datetime or signal.fields.Fecha or "No indicada" }}</strong>
+          </div>
+          <div>
+            <span>Ticker</span>
+            <strong>{{ signal.symbol }}</strong>
+          </div>
+          <div>
+            <span>Direccion</span>
+            <strong>{{ signal.common.direccion or "No indicada" }}</strong>
+          </div>
+          <div>
+            <span>Entrada prevista</span>
+            <strong>{{ signal.common.apertura or "No indicada" }}</strong>
+          </div>
+          <div>
+            <span>Cierre objetivo</span>
+            <strong>{{ signal.common.cierre or "No indicado" }}</strong>
+          </div>
+          <div>
+            <span>Stop loss</span>
+            <strong>{{ signal.common.stop or "No indicado" }}</strong>
+          </div>
+        </div>
+        <p class="text-secondary small mb-0 mt-3">Aviso detectado, pendiente de revision para abrir la operacion si procede.</p>
+      {% endif %}
+    </div>
+
+    <div class="diagnostic-box mt-4">
       <h2 class="h5 mb-3">Operativa comun</h2>
       <div class="diagnostic-summary-grid">
         <div>
@@ -75,7 +175,7 @@
           <strong>{{ signal.common.precio_actual or "No indicado" }}</strong>
         </div>
         <div>
-          <span>Apertura / entrada <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio de referencia para abrir o vigilar la operacion simulada.">?</button></span>
+          <span>Apertura / entrada <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio de referencia para abrir o vigilar la operacion.">?</button></span>
           <strong>{{ signal.common.apertura or "No indicada" }}</strong>
         </div>
         <div>

@@ -49,6 +49,9 @@ BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_SIGNALS_DIR = (BASE_DIR / "Estrategias" / "salidas_txt").resolve()
 DEFAULT_STRATEGY_STATUS_FILE = (BASE_DIR / "Estrategias" / "strategy_run_status.json").resolve()
 DEFAULT_STRATEGY_LOG_DIR = (BASE_DIR / "Estrategias" / "logs").resolve()
+DEFAULT_STRATEGY_TICKERS_FILE = (BASE_DIR / "Estrategias" / "tickers.txt").resolve()
+DEFAULT_TOP_MONEY_VOLUME_FILE = (BASE_DIR / "Estrategias" / "top_money_volume_assets.txt").resolve()
+DEFAULT_SIMULATED_OPERATIONS_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_estado.json").resolve()
 STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 SCHEDULER_THREAD_STARTED = False
@@ -505,16 +508,41 @@ def sync_signal_file_to_database(txt_name, path=None):
 
     path = path or (DEFAULT_SIGNALS_DIR / txt_name)
     try:
-        lines = [
+        lines = list(dict.fromkeys(
             line.strip()
             for line in Path(path).read_text(encoding="utf-8").splitlines()
             if line.strip()
-        ]
+        ))
     except OSError:
         return 0
 
     saved = 0
+    lines_by_date = {}
+    for line in lines:
+        signal_date = signal_date_from_line(line)
+        if signal_date:
+            lines_by_date.setdefault(signal_date, set()).add(line)
+
     with engine.begin() as connection:
+        for signal_date, current_lines in lines_by_date.items():
+            existing_rows = connection.execute(
+                text(
+                    """
+                    SELECT id, line
+                    FROM strategy_signals
+                    WHERE txt_name = :txt_name
+                      AND signal_date = :signal_date
+                    """
+                ),
+                {"txt_name": txt_name, "signal_date": signal_date},
+            ).mappings().fetchall()
+            for row in existing_rows:
+                if row["line"] not in current_lines:
+                    connection.execute(
+                        text("DELETE FROM strategy_signals WHERE id = :id"),
+                        {"id": row["id"]},
+                    )
+
         for line in lines:
             signal_date = signal_date_from_line(line)
             if not signal_date:
@@ -1114,6 +1142,555 @@ def technical_term_help(term):
     return ""
 
 
+def format_money_usd(value):
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+
+    absolute = abs(amount)
+    if absolute >= 1_000_000_000_000:
+        return f"{amount / 1_000_000_000_000:.2f} T USD"
+    if absolute >= 1_000_000_000:
+        return f"{amount / 1_000_000_000:.2f} B USD"
+    if absolute >= 1_000_000:
+        return f"{amount / 1_000_000:.1f} M USD"
+    if absolute >= 1_000:
+        return f"{amount / 1_000:.1f} K USD"
+    return f"{amount:.0f} USD"
+
+
+def parse_return_percent(value):
+    match = re.search(r"[-+]?\d+(?:[.,]\d+)?", str(value or ""))
+    if not match:
+        return 0.0
+    try:
+        return float(match.group(0).replace(",", "."))
+    except ValueError:
+        return 0.0
+
+
+STRATEGY_SHORT_NAMES = {
+    "momentum": "MOM",
+    "swingtrading": "SWING",
+    "breakout": "BRK",
+    "meanreversion": "REV",
+    "valuetrading": "VALUE",
+    "dividendgrowth": "DIV",
+    "trendfollowing": "TREND",
+    "pairstrading": "PAIRS",
+    "sectorrotation": "SECTOR",
+    "qualityinvesting": "QUALITY",
+    "openingrangebreakout": "ORB",
+    "vwapreversion": "VWAP",
+    "momentumintradia": "MOM-I",
+    "scalpingthepullbacks": "SCALP",
+    "gapandgo": "GAP",
+}
+
+
+def strategy_short_name(name):
+    key = strategy_info_key(name)
+    if key in STRATEGY_SHORT_NAMES:
+        return STRATEGY_SHORT_NAMES[key]
+    words = re.findall(r"[A-Za-z0-9]+", str(name or ""))
+    if not words:
+        return "EST"
+    if len(words) == 1:
+        return words[0][:8].upper()
+    return "".join(word[0] for word in words[:4]).upper()
+
+
+def strategy_return_badge(value):
+    text_value = str(value or "").strip()
+    if not text_value:
+        return "SOS"
+    ops_match = re.search(r"\((\d+)\s+ops", text_value, re.IGNORECASE)
+    if "sin operaciones" in text_value.lower():
+        return "SOS"
+    if ops_match and int(ops_match.group(1)) <= 0:
+        return "SOS"
+    percent_match = re.search(r"[-+]?\d+(?:[.,]\d+)?\s*%", text_value)
+    if percent_match:
+        return percent_match.group(0).replace(",", ".").replace(" ", "")
+    return "SOS"
+
+
+def clean_public_return_text(value):
+    text_value = str(value or "").strip()
+    if not text_value:
+        return "SOS"
+    text_value = re.sub(r"\s+simulad[oa]s?", "", text_value, flags=re.IGNORECASE)
+    return text_value
+
+
+def build_totalizer(strategies):
+    selected = [
+        strategy
+        for strategy in strategies
+        if int(strategy.get("include_in_totalizer") or 0) == 1
+    ]
+    total = sum(parse_return_percent(strategy.get("historical_return")) for strategy in selected)
+    return {
+        "strategies": selected,
+        "count": len(selected),
+        "total": total,
+        "display": f"{total:+.2f}%",
+    }
+
+
+def strategy_info_key(value):
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+STRATEGY_EXPLANATIONS = {
+    "momentum": {
+        "summary": "Busca acciones que suben mas fuerte que el mercado y mantienen tendencia alcista.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario. Anade QQQ como benchmark para comparar fuerza relativa.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "Benchmark QQQ para comparar fuerza relativa.",
+            "Momentum de 20 dias.",
+            "SMA20 y SMA50.",
+            "Maximo/minimo reciente de 20 dias para soporte.",
+            "Volumen monetario medio de 20 dias.",
+        ],
+        "filters": [
+            "Momentum de 20 dias positivo.",
+            "Fuerza relativa positiva: rentabilidad del activo menos rentabilidad de QQQ.",
+            "Precio por encima de SMA50.",
+            "SMA20 por encima de SMA50.",
+            "Volumen monetario medio 20 dias >= 20 M USD.",
+        ],
+        "score": "Ordena por fuerza relativa, momentum y distancia positiva frente a SMA50.",
+        "risk": "Stop entre soporte reciente de 20 dias y SMA50. Objetivos TP1 y TP2 por multiplos de riesgo.",
+    },
+    "swingtrading": {
+        "summary": "Busca entradas de varios dias en acciones alcistas que han corregido de forma controlada y empiezan a recuperar fuerza.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA20 y SMA50.",
+            "RSI14.",
+            "Rentabilidad de 50 dias.",
+            "Maximo de 20 dias para medir pullback.",
+            "Maximos recientes de 3 dias para confirmar recuperacion.",
+            "Volumen monetario medio de 20 dias.",
+        ],
+        "filters": [
+            "Tendencia positiva: precio > SMA50, SMA20 > SMA50 y rentabilidad 50 dias positiva.",
+            "Pullback desde maximos de 20 dias entre 3% y 12%.",
+            "RSI14 entre 40 y 60.",
+            "Cierre actual supera maximos recientes de 3 dias y cierra mejor que ayer.",
+            "Volumen monetario medio >= 20 M USD.",
+        ],
+        "score": "Prioriza tendencia de 50 dias, pullback sano, RSI equilibrado y distancia positiva sobre SMA50.",
+        "risk": "Stop bajo minimo de 5 dias o SMA50. Objetivos TP1 y TP2 por multiplos de riesgo.",
+    },
+    "breakout": {
+        "summary": "Detecta rupturas de resistencia reciente con tendencia y volumen fuerte.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA20 y SMA50.",
+            "Resistencia: maximo de 20 dias excluyendo la vela actual.",
+            "Volumen medio de 20 dias.",
+            "Ratio de volumen actual frente a volumen medio.",
+            "Volumen monetario medio de 20 dias.",
+            "Minimo reciente de 5 dias para stop.",
+        ],
+        "filters": [
+            "Resistencia = maximo de los ultimos 20 dias excluyendo la vela actual.",
+            "Ruptura minima: cierre al menos 0.2% por encima de resistencia.",
+            "Tendencia: precio > SMA50 y SMA20 > SMA50.",
+            "Volumen actual >= 1.5 veces el volumen medio de 20 dias.",
+            "Volumen monetario medio >= 20 M USD.",
+        ],
+        "score": "Combina porcentaje de ruptura, ratio de volumen y distancia sobre SMA50.",
+        "risk": "Stop bajo resistencia rota o minimo reciente. Objetivos TP1 y TP2 por multiplos de riesgo.",
+    },
+    "meanreversion": {
+        "summary": "Busca activos sobrevendidos que se alejaron demasiado de su media y podrian rebotar.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA20 como media de reversion.",
+            "SMA100 como filtro de tendencia/daño.",
+            "RSI14.",
+            "Bandas de Bollinger de 20 periodos y 2 desviaciones.",
+            "ATR14 para medir volatilidad y colocar stop.",
+            "Volumen monetario medio de 20 dias.",
+        ],
+        "filters": [
+            "Precio al menos 4% por debajo de SMA20.",
+            "Precio en o bajo banda inferior de Bollinger 20 periodos y 2 desviaciones.",
+            "RSI14 <= 35.",
+            "No demasiado roto: distancia frente a SMA100 no inferior a -12%.",
+            "Volumen monetario medio >= 20 M USD.",
+            "Primer signo de estabilizacion: no cierra peor que ayer o deja minimo superior.",
+        ],
+        "score": "Prioriza mayor desviacion respecto a SMA20, RSI bajo, margen hasta SMA100 y potencial de vuelta a media.",
+        "risk": "Stop bajo minimo reciente menos ATR14. Objetivos: vuelta a SMA20 y media de Bollinger.",
+    },
+    "valuetrading": {
+        "summary": "Filtra empresas con valoracion barata y fundamentales aceptables.",
+        "universe": "Analiza tickets filtrados por liquidez y volumen monetario. Para fundamentales usa solo los primeros activos mas liquidos para limitar llamadas externas.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA20 y SMA50 como filtro tecnico.",
+            "Volumen monetario medio de 20 dias.",
+            "PER.",
+            "Precio/valor contable.",
+            "Precio/ventas.",
+            "ROE.",
+            "Deuda/capital.",
+            "Crecimiento de ingresos.",
+        ],
+        "filters": [
+            "PER <= 18.",
+            "Precio/valor contable <= 3.",
+            "Precio/ventas <= 4.",
+            "ROE >= 8.",
+            "Deuda/capital <= 150.",
+            "Crecimiento de ingresos >= -5%.",
+            "Volumen monetario medio >= 10 M USD.",
+            "Filtro tecnico con SMA20 y SMA50.",
+        ],
+        "score": "Prioriza descuento de valoracion, rentabilidad del negocio, menor deuda y tendencia suficiente.",
+        "risk": "Stop aproximado por porcentaje y SMA50. Objetivos por multiplos de riesgo.",
+    },
+    "dividendgrowth": {
+        "summary": "Busca empresas con dividendo razonable, crecimiento de dividendos y estabilidad financiera.",
+        "universe": "Analiza tickets filtrados por liquidez y volumen monetario. Para dividendos usa solo los primeros activos mas liquidos para no gastar demasiadas llamadas externas.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA50 y SMA100 como filtro tecnico.",
+            "Volumen monetario medio de 20 dias.",
+            "Dividend yield.",
+            "Crecimiento de dividendo a 3 años.",
+            "Payout ratio.",
+            "ROE.",
+            "Deuda/capital.",
+            "Crecimiento de ingresos.",
+        ],
+        "filters": [
+            "Dividend yield entre 1% y 6%.",
+            "Crecimiento de dividendo 3 anos >= 3%.",
+            "Payout ratio <= 75%.",
+            "ROE >= 8.",
+            "Deuda/capital <= 180.",
+            "Crecimiento de ingresos >= -5%.",
+            "Volumen monetario medio >= 10 M USD.",
+            "Filtro tecnico con SMA50 y SMA100.",
+        ],
+        "score": "Ordena por crecimiento de dividendo, rentabilidad, seguridad del payout, deuda y tendencia.",
+        "risk": "Stop por porcentaje y SMA100. Objetivos por multiplos de riesgo.",
+    },
+    "trendfollowing": {
+        "summary": "Sigue tendencias largas ya confirmadas y evita anticipar suelos.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA50 y SMA200.",
+            "Pendiente de SMA200 comparada con 20 sesiones atras.",
+            "Maximo de 55 dias para ruptura.",
+            "ATR14.",
+            "Rentabilidad de 3 meses.",
+            "Volumen monetario medio de 20 dias.",
+        ],
+        "filters": [
+            "Precio por encima de SMA200.",
+            "SMA50 por encima de SMA200.",
+            "Pendiente positiva de SMA200 frente a 20 sesiones atras.",
+            "Ruptura de maximos de 55 dias.",
+            "Volumen monetario medio >= 20 M USD.",
+        ],
+        "score": "Prioriza ruptura, rentabilidad de 3 meses y pendiente positiva de SMA200.",
+        "risk": "Stop dinamico: maximo entre precio - 3 ATR14 y SMA50. Objetivos TP1 y TP2.",
+    },
+    "pairstrading": {
+        "summary": "Analiza pares correlacionados y busca desviaciones estadisticas para operar convergencia.",
+        "universe": "Analiza pares de activos predefinidos y correlacionados. No usa el universo general de tickets filtrados.",
+        "data": [
+            "Velas diarias de los dos activos del par: apertura, maximo, minimo, cierre y volumen.",
+            "Correlacion entre ambos activos.",
+            "Spread estadistico del par.",
+            "Media y desviacion del spread en ventana de 60 sesiones.",
+            "ZScore de spread.",
+            "Ratio hedge aproximado.",
+            "Volumen monetario medio.",
+        ],
+        "filters": [
+            "Correlacion minima entre activos: 0.70.",
+            "ZScore de entrada absoluto >= 2.0.",
+            "Salida teorica cuando ZScore vuelve cerca de +/-0.3.",
+            "Volumen monetario medio >= 10 M USD.",
+        ],
+        "score": "Prioriza desviacion estadistica, correlacion y calidad del par.",
+        "risk": "La salida principal es convergencia del spread; stop por ZScore extremo queda pendiente de regla fina.",
+    },
+    "sectorrotation": {
+        "summary": "Busca sectores fuertes frente a SPY y acciones lideres dentro de esos sectores.",
+        "universe": "Compara ETFs sectoriales fijos y despues revisa acciones representativas de los sectores lideres.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "Benchmark SPY.",
+            "ETFs sectoriales.",
+            "Fuerza relativa en ventanas de 20, 60 y 120 dias.",
+            "SMA20 y SMA50 para acciones lideres.",
+            "Volumen monetario medio de 20 dias.",
+        ],
+        "filters": [
+            "Compara fuerza relativa de sectores en ventanas 20, 60 y 120 dias.",
+            "Selecciona TOP_SECTORS = 3.",
+            "Dentro de cada sector busca acciones con precio > SMA50 y SMA20 > SMA50.",
+            "Volumen monetario medio >= 20 M USD.",
+            "Devuelve hasta TOP_STOCKS_PER_SECTOR = 5.",
+        ],
+        "score": "Prioriza sectores con mejor fuerza relativa y acciones lideres dentro de ellos.",
+        "risk": "Stop orientativo por porcentaje sobre precio o por estructura tecnica de la accion.",
+    },
+    "qualityinvesting": {
+        "summary": "Busca empresas de calidad con buenos margenes, crecimiento y deuda controlada.",
+        "universe": "Analiza tickets filtrados por liquidez y volumen monetario. Para fundamentales usa solo los primeros activos mas liquidos para limitar llamadas externas.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA50 y SMA100 como filtro tecnico.",
+            "Volumen monetario medio de 20 dias.",
+            "ROE y ROIC.",
+            "Margen operativo y margen neto.",
+            "Deuda/capital.",
+            "Crecimiento de ingresos a 3 años.",
+            "Crecimiento de EPS a 3 años.",
+            "PER y precio/ventas.",
+        ],
+        "filters": [
+            "ROE >= 12 y ROIC >= 8.",
+            "Margen operativo >= 12 y margen neto >= 8.",
+            "Deuda/capital <= 150.",
+            "Crecimiento de ingresos y EPS 3 anos >= 0.",
+            "PER <= 45 y precio/ventas <= 15.",
+            "Volumen monetario medio >= 10 M USD.",
+            "Filtro tecnico con SMA50 y SMA100.",
+        ],
+        "score": "Prioriza calidad de negocio, crecimiento, deuda razonable, valoracion y tendencia.",
+        "risk": "Stop por porcentaje y SMA100. Objetivos por multiplos de riesgo.",
+    },
+    "openingrangebreakout": {
+        "summary": "Estrategia intradia que opera la ruptura del rango inicial de la sesion.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas intradia: apertura, maximo, minimo, cierre y volumen.",
+            "Rango inicial de 15 minutos.",
+            "Maximo y minimo del rango inicial.",
+            "Ruptura porcentual del rango.",
+            "Volumen medio intradia.",
+            "Ratio de volumen frente a la media.",
+            "Volumen monetario del rango inicial.",
+        ],
+        "filters": [
+            "Solo funciona durante mercado regular USA.",
+            "Calcula maximo/minimo del rango inicial.",
+            "Ruptura minima: 0.05% por encima/debajo del rango.",
+            "Volumen >= 1.5 veces volumen medio.",
+            "Volumen monetario del rango inicial >= 1 M USD.",
+        ],
+        "score": "Ordena por fuerza de ruptura, volumen y claridad del movimiento.",
+        "risk": "Stop al otro lado del rango inicial. Objetivos TP1 y TP2 por multiplos de riesgo.",
+    },
+    "vwapreversion": {
+        "summary": "Busca reversion intradia cuando el precio se aleja demasiado de VWAP.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas intradia: apertura, maximo, minimo, cierre y volumen.",
+            "VWAP de la sesion.",
+            "Distancia porcentual del precio respecto a VWAP.",
+            "RSI14.",
+            "Volumen medio de 20 velas.",
+            "Ratio de volumen frente a la media.",
+            "Volumen monetario diario.",
+            "Maximos/minimos recientes para stop.",
+        ],
+        "filters": [
+            "Distancia minima a VWAP: 1%.",
+            "Para LONG: RSI14 <= 35 y precio por debajo de VWAP.",
+            "Para SHORT: RSI14 >= 65 y precio por encima de VWAP.",
+            "Volumen relativo >= 0.8.",
+            "Volumen monetario diario >= 2 M USD.",
+        ],
+        "score": "Prioriza distancia a VWAP, extremo de RSI, volumen y potencial de vuelta.",
+        "risk": "Stop sobre maximo/minimo reciente. Objetivo principal: retorno hacia VWAP.",
+    },
+    "momentumintradia": {
+        "summary": "Detecta movimientos fuertes dentro de la sesion con momentum reciente y volumen relativo.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas intradia: apertura, maximo, minimo, cierre y volumen.",
+            "Momentum de 15 minutos.",
+            "Maximos/minimos de 20 minutos para ruptura.",
+            "VWAP de la sesion.",
+            "Volumen medio de 20 velas.",
+            "Ratio de volumen frente a la media.",
+            "Volumen monetario diario.",
+        ],
+        "filters": [
+            "Solo tras al menos 10 minutos desde apertura.",
+            "Momentum minimo: 1% en 15 minutos.",
+            "Ruptura de maximos/minimos de 20 minutos.",
+            "Volumen >= 2 veces la media de 20 velas.",
+            "Volumen monetario diario >= 3 M USD.",
+            "Usa VWAP como confirmacion de direccion.",
+        ],
+        "score": "Ordena por momentum, volumen relativo y distancia/confirmacion frente a VWAP.",
+        "risk": "Stop bajo/encima de zona reciente. Objetivos por multiplos de riesgo.",
+    },
+    "scalpingthepullbacks": {
+        "summary": "Busca pequenos retrocesos intradia dentro de una tendencia para entrar a favor del movimiento.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas intradia: apertura, maximo, minimo, cierre y volumen.",
+            "EMA9 y EMA21.",
+            "RSI14.",
+            "VWAP de la sesion.",
+            "Volumen medio de 20 velas.",
+            "Ratio de volumen frente a la media.",
+            "Pullback de 20 velas.",
+            "Distancia del precio a EMA9.",
+            "Volumen monetario diario.",
+        ],
+        "filters": [
+            "Solo tras al menos 10 minutos desde apertura.",
+            "Tendencia con EMA9 y EMA21.",
+            "Pullback minimo de 0.3%.",
+            "Precio cerca de EMA9: maximo 0.4% de distancia.",
+            "Volumen >= 1.2 veces la media.",
+            "Volumen monetario diario >= 2 M USD.",
+        ],
+        "score": "Prioriza pullback limpio, recuperacion, volumen y alineacion con EMAs/VWAP.",
+        "risk": "Stop cercano bajo/encima del retroceso. Objetivos cortos por multiplos de riesgo.",
+    },
+    "gapandgo": {
+        "summary": "Detecta activos que abren con gap relevante y continuan en la direccion del impulso inicial.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas intradia: apertura, maximo, minimo, cierre y volumen.",
+            "Cierre previo.",
+            "Precio de apertura.",
+            "Gap porcentual frente al cierre previo.",
+            "Rango inicial de 15 minutos.",
+            "Maximo/minimo del rango inicial.",
+            "Volumen medio de 20 velas.",
+            "Ratio de volumen frente a la media.",
+            "Volumen monetario inicial.",
+        ],
+        "filters": [
+            "Gap minimo 2% y maximo 20% frente al cierre previo.",
+            "Espera confirmacion de los primeros 15 minutos.",
+            "Ruptura del rango inicial con buffer de 0.05%.",
+            "Volumen monetario inicial >= 2 M USD.",
+            "Volumen >= 1.5 veces la media.",
+        ],
+        "score": "Prioriza tamano del gap, volumen y ruptura del rango inicial.",
+        "risk": "Stop al otro lado del rango inicial. Objetivos TP1 y TP2 por multiplos de riesgo.",
+    },
+}
+
+
+STRATEGY_MANUAL_GUIDES = {
+    "momentum": [
+        "Para usar Momentum manualmente, abre una grafica diaria del activo y comparalo con QQQ. La estrategia busca acciones que suben con mas fuerza que el mercado, no acciones simplemente baratas. Debes ver que el precio mantiene estructura alcista y que no esta perdiendo sus medias principales.",
+        "Anade SMA20 y SMA50. La lectura buena es: precio por encima de SMA50, SMA20 por encima de SMA50, momentum de 20 dias positivo y fuerza relativa superior a QQQ. Si el activo sube mas que QQQ en las ultimas semanas y respeta soportes, la senal tiene mas sentido.",
+        "La entrada manual se puede plantear en continuidad o tras un pequeno retroceso sano. El stop suele ir bajo un soporte reciente o bajo SMA50. Los objetivos se calculan por multiplos del riesgo asumido. Evita perseguir velas muy verticales o activos con volumen pobre.",
+    ],
+    "swingtrading": [
+        "Swing Trading busca operaciones de varios dias. Manualmente debes localizar una accion alcista que haya corregido sin romper su tendencia. No se trata de comprar cualquier caida, sino un retroceso ordenado dentro de una estructura fuerte.",
+        "En la grafica diaria usa SMA20, SMA50 y RSI14. Lo ideal es precio por encima de SMA50, SMA20 por encima de SMA50, RSI entre 40 y 60 y recuperacion de maximos recientes de corto plazo. Eso indica que la correccion podria estar terminando.",
+        "La entrada suele hacerse cuando el precio confirma recuperacion tras el pullback. El stop puede ir bajo el minimo reciente o bajo SMA50. El objetivo puede estar en antiguos maximos o en multiplos del riesgo. Evita acciones que pierden SMA50 con fuerza o que siguen haciendo minimos decrecientes.",
+    ],
+    "breakout": [
+        "BreaKout se usa buscando rupturas de resistencia. Manualmente dibuja en la grafica diaria una zona donde el precio haya frenado varias veces. La senal tiene sentido cuando el precio supera esa zona con claridad.",
+        "Comprueba que el precio este por encima de SMA50, que SMA20 este por encima de SMA50 y que la vela de ruptura venga con volumen superior a su media. Una ruptura sin volumen suele tener mas riesgo de fallo.",
+        "La entrada puede hacerse al romper o en un retroceso hacia la resistencia rota. El stop va bajo la resistencia rota o bajo un minimo reciente. Si el precio vuelve rapidamente por debajo del nivel roto, la ruptura pierde calidad y conviene salir o no entrar.",
+    ],
+    "meanreversion": [
+        "Mean Reversion busca rebotes cuando el precio se aleja demasiado de su media. Manualmente abre una grafica diaria y mira si el precio esta muy por debajo de SMA20, cerca de la banda inferior de Bollinger y con RSI14 bajo.",
+        "La idea es que un movimiento bajista de corto plazo puede estar estirado y volver hacia la media. Antes de entrar, busca una primera senal de freno: rechazo en minimos, vela con mecha inferior, cierre que deja de caer o minimo superior.",
+        "El objetivo suele ser la vuelta hacia SMA20 o hacia la media de Bollinger. El stop se coloca bajo el minimo reciente, ajustado con ATR si hay mucha volatilidad. Evita activos que caen por noticias graves o que rompen soportes mayores sin reaccion.",
+    ],
+    "valuetrading": [
+        "Value Trading mezcla valoracion fundamental y filtro tecnico. Manualmente revisa si la empresa parece barata por PER, precio/ventas o precio/valor contable, pero tambien si mantiene calidad minima: ROE razonable, deuda controlada y ventas estables.",
+        "Despues abre la grafica diaria con SMA20 y SMA50. Aunque una accion sea barata, conviene que el precio este estabilizando o intentando recuperar medias. Una empresa barata en caida libre puede seguir cayendo durante mucho tiempo.",
+        "La entrada manual tiene mas sentido cerca de soporte, tras recuperacion de media o con mejora clara de estructura. El stop puede ir bajo soporte o bajo SMA50. Evita empresas baratas por deterioro real: deuda excesiva, margenes cayendo o ingresos desplomandose.",
+    ],
+    "dividendgrowth": [
+        "Dividend Growth busca empresas que pagan dividendo y pueden aumentarlo. Manualmente revisa dividend yield, crecimiento del dividendo, payout ratio, ROE, deuda/capital y crecimiento de ingresos. El dividendo debe ser sostenible, no solo alto.",
+        "En la grafica diaria usa SMA50 y SMA100 para no comprar en deterioro tecnico fuerte. Lo ideal es una accion estable, con correcciones controladas y sin perdida clara de tendencia.",
+        "La entrada puede plantearse en retrocesos hacia soporte o medias. El stop suele ir bajo SMA100 o bajo soporte relevante. Evita yields demasiado altos si vienen acompanados de deuda, caida de beneficios o riesgo de recorte de dividendo.",
+    ],
+    "trendfollowing": [
+        "Trend Following sigue tendencias largas ya confirmadas. Manualmente no intenta encontrar suelos; busca activos que ya estan por encima de sus medias principales y renovando maximos.",
+        "En la grafica diaria usa SMA50 y SMA200. La lectura buena es precio por encima de SMA200, SMA50 por encima de SMA200 y SMA200 con pendiente positiva. La senal mejora si el precio rompe maximos de 55 dias.",
+        "El stop puede ser dinamico, por debajo de SMA50 o a varias veces ATR14. El objetivo no siempre es fijo: muchas veces se deja correr la tendencia y se sale cuando pierde estructura. Evita mercados laterales con medias cruzandose sin direccion.",
+    ],
+    "pairstrading": [
+        "Pairs Trading compara dos activos relacionados. Manualmente no se analiza solo si una accion sube o baja, sino si la relacion entre ambas se ha alejado demasiado de su comportamiento normal.",
+        "La estrategia calcula correlacion, hedge ratio, spread y ZScore. Si el ZScore es alto, el primer activo esta caro frente al segundo: la idea es SHORT primer activo y LONG segundo. Si el ZScore es bajo, la idea es LONG primer activo y SHORT segundo.",
+        "La salida teorica llega cuando el ZScore vuelve cerca de la media. La web muestra un precio objetivo del primer activo para poder simularlo, pero la logica real es la convergencia del par. Evita pares con baja correlacion, poca liquidez o noticias que rompan la relacion historica.",
+    ],
+    "sectorrotation": [
+        "Sector Rotation busca invertir donde esta entrando el dinero. Manualmente compara ETFs sectoriales frente a SPY en ventanas de 20, 60 y 120 dias. Un sector interesante deberia hacerlo mejor que el mercado de forma consistente.",
+        "Despues busca acciones lideres dentro de esos sectores. En la grafica diaria usa SMA20 y SMA50; interesan acciones que esten fuertes, con precio por encima de medias y volumen monetario suficiente.",
+        "La entrada puede hacerse en pullbacks ordenados o rupturas dentro de sectores lideres. El stop va bajo soporte o bajo una media relevante. Evita acciones debiles solo porque pertenecen a un sector fuerte.",
+    ],
+    "qualityinvesting": [
+        "Quality Investing busca empresas de calidad: buenos margenes, ROE/ROIC altos, deuda razonable y crecimiento estable. Manualmente revisa primero el negocio, no solo la grafica.",
+        "En la parte tecnica usa SMA50 y SMA100. Una empresa excelente puede ser mala compra si esta excesivamente extendida o si el precio ha roto su estructura. Busca calidad con entrada razonable.",
+        "La entrada suele tener sentido en correcciones hacia medias, recuperacion de soporte o continuidad alcista confirmada. El stop puede ir bajo SMA100 o bajo soporte estructural. Evita pagar cualquier precio por calidad si el crecimiento no lo justifica.",
+    ],
+    "openingrangebreakout": [
+        "Opening Range BreaKout es intradia. Manualmente marca el maximo y minimo de los primeros 15 minutos de sesion. Ese rango inicial sera la referencia principal.",
+        "La senal aparece si el precio rompe por encima o por debajo de ese rango con volumen fuerte. Si rompe arriba, la operacion es larga; si rompe abajo, corta. No basta con tocar el nivel: debe haber ruptura clara.",
+        "El stop suele ir al otro lado del rango inicial. Los objetivos se calculan por multiplos del riesgo. Evita rangos iniciales enormes, volumen bajo o rupturas que vuelven inmediatamente dentro del rango.",
+    ],
+    "vwapreversion": [
+        "VWAP Reversion es intradia y busca vuelta hacia VWAP cuando el precio se aleja demasiado. Manualmente activa VWAP y RSI14 en una grafica corta.",
+        "Para largos, interesa precio por debajo de VWAP y RSI bajo; para cortos, precio por encima de VWAP y RSI alto. La entrada mejora si aparece rechazo del extremo o perdida de fuerza del movimiento.",
+        "El objetivo suele ser VWAP o una zona intermedia hacia VWAP. El stop va mas alla del maximo o minimo reciente que invalida la reversion. Evita operar contra tendencias intradia muy fuertes con volumen creciente.",
+    ],
+    "momentumintradia": [
+        "Momentum Intradia busca aceleraciones dentro de la sesion. Manualmente usa grafica de 1 a 5 minutos y revisa si el precio rompe maximos o minimos recientes con volumen relativo alto.",
+        "La confirmacion mejora si el movimiento esta alineado con VWAP y si el volumen supera claramente su media de corto plazo. Para largos, el precio deberia mantenerse fuerte por encima de zonas recientes; para cortos, lo contrario.",
+        "La entrada suele hacerse en ruptura o tras pequeno retroceso que no rompe estructura. El stop va bajo el ultimo retroceso o bajo VWAP. Evita entrar tras una sola vela aislada sin continuidad.",
+    ],
+    "scalpingthepullbacks": [
+        "Scalping The PullBacks busca retrocesos pequenos dentro de una tendencia intradia. Manualmente usa EMA9, EMA21, VWAP y RSI14.",
+        "Primero identifica direccion: para largos, EMA9 sobre EMA21 y precio por encima o cerca de VWAP; para cortos, lo contrario. Despues espera que el precio retroceda hacia EMA9 o EMA21 y vuelva a reaccionar.",
+        "La entrada debe ser rapida y disciplinada. El stop va bajo el retroceso o al otro lado de EMA21/VWAP. Los objetivos son cortos, por multiplos del riesgo. Evita laterales donde las medias se cruzan constantemente.",
+    ],
+    "gapandgo": [
+        "Gap and Go busca activos que abren con gap y continuan en la direccion del gap. Manualmente compara la apertura con el cierre anterior y confirma que el gap es relevante.",
+        "Despues marca el rango de los primeros 15 minutos. Si el gap es alcista, busca ruptura por encima del rango con volumen. Si es bajista, ruptura por debajo. El gap por si solo no basta: necesitas continuidad.",
+        "El stop suele ir al otro lado del rango inicial. Los objetivos se calculan por multiplos del riesgo o zonas intradia. Evita gaps demasiado grandes sin liquidez, o gaps que se giran inmediatamente tras la apertura.",
+    ],
+}
+
+
+def strategy_explanation_for(strategy):
+    key = strategy_info_key(strategy.get("name"))
+    explanation = STRATEGY_EXPLANATIONS.get(key)
+    if explanation:
+        return {**explanation, "manual": STRATEGY_MANUAL_GUIDES.get(key, [])}
+    return {
+        "summary": strategy.get("description") or "Estrategia personalizada.",
+        "universe": "Usa la configuracion indicada en el panel de administracion.",
+        "data": ["Revisa el archivo Python vinculado para conocer la fuente exacta de datos."],
+        "filters": ["No hay ficha tecnica detallada para esta estrategia personalizada."],
+        "score": "La ordenacion depende del codigo asociado a la estrategia.",
+        "risk": "El stop, objetivo y gestion de riesgo dependen del aviso generado por el codigo.",
+        "manual": [],
+    }
+
+
 def create_app():
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-this-secret-key")
@@ -1121,6 +1698,7 @@ def create_app():
         "ADMIN_PASSWORD_HASH", generate_password_hash("admin123")
     )
     app.jinja_env.globals["technical_term_help"] = technical_term_help
+    app.jinja_env.filters["money_usd"] = format_money_usd
 
     @app.before_request
     def before_request():
@@ -1191,7 +1769,7 @@ def create_app():
                    historical_return, telegram_url, has_telegram, signals_txt_name,
                    python_file, auto_execute, schedule_start_time, schedule_end_time,
                    schedule_interval_minutes, run_status, run_message, run_at,
-                   run_txt_updated, run_returncode, is_active
+                   run_txt_updated, run_returncode, include_in_totalizer, is_active
             FROM strategies
             WHERE is_active = 1
             ORDER BY created_at DESC
@@ -1202,13 +1780,25 @@ def create_app():
             strategy_with_signals(row)
             for row in rows
         ]
+        strategies.sort(
+            key=lambda strategy: (
+                -int(strategy.get("signals_count") or 0),
+                strategy.get("name", ""),
+            )
+        )
         community_url = os.environ.get("COMMUNITY_URL")
         if not community_url and strategies:
             community_url = strategies[0]["telegram_url"]
         donation_url = os.environ.get("DONATION_URL", "").strip()
+        top_assets = top_money_volume_assets()
+        totalizer = build_totalizer(strategies)
         return render_template(
             "index.html",
             strategies=strategies,
+            totalizer=totalizer,
+            top_money_volume_assets=top_assets["rows"],
+            top_money_volume_updated_at=top_assets["updated_at"],
+            top_money_volume_source=top_assets["source"],
             community_url=community_url,
             donation_url=donation_url,
         )
@@ -1230,11 +1820,58 @@ def create_app():
             abort(404)
 
         diagnostic = build_signal_diagnostic(strategy, signal)
+        operation = simulated_operation_for_signal(strategy, signal)
         return render_template(
             "strategy_diagnostic.html",
             strategy=strategy,
             signal=signal,
             diagnostic=diagnostic,
+            operation=operation,
+        )
+
+    @app.route("/estrategia/<int:strategy_id>/avisos")
+    def strategy_signals(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        signals = read_strategy_signals(strategy["signals_txt_name"])
+        attach_simulated_operations_to_signals(strategy, signals)
+
+        selected_symbol = normalize_signal_symbol(request.args.get("symbol", ""))
+        selected_signal = None
+        if selected_symbol:
+            selected_signal = next(
+                (
+                    item
+                    for item in signals
+                    if normalize_signal_symbol(item.get("symbol", "")) == selected_symbol
+                ),
+                None,
+            )
+        if selected_signal is None and signals:
+            selected_signal = signals[0]
+
+        diagnostic = None
+        operation = None
+        if selected_signal is not None:
+            diagnostic = build_signal_diagnostic(strategy, selected_signal)
+            operation = simulated_operation_for_signal(strategy, selected_signal)
+
+        return render_template(
+            "strategy_signals.html",
+            strategy=strategy,
+            signals=signals,
+            selected_signal=selected_signal,
+            selected_symbol=normalize_signal_symbol(selected_signal.get("symbol", "")) if selected_signal else "",
+            diagnostic=diagnostic,
+            operation=operation,
+        )
+
+    @app.route("/estrategia/<int:strategy_id>/funcionamiento")
+    def strategy_details(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        return render_template(
+            "strategy_details.html",
+            strategy=strategy,
+            explanation=strategy_explanation_for(strategy),
         )
 
     @app.route("/filtrado-activos")
@@ -1327,7 +1964,7 @@ def create_app():
                    historical_return, telegram_url, has_telegram, signals_txt_name,
                    python_file, auto_execute, schedule_start_time, schedule_end_time,
                    schedule_interval_minutes, schedule_last_status, schedule_last_message,
-                   schedule_last_run_at, is_active, created_at
+                   schedule_last_run_at, include_in_totalizer, is_active, created_at
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
@@ -1604,6 +2241,7 @@ def create_app():
             minimum=1,
             maximum=1440,
         )
+        include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
         is_active = 1 if request.form.get("is_active") == "on" else 0
 
         errors = []
@@ -1641,6 +2279,7 @@ def create_app():
             "schedule_start_time": schedule_start_time,
             "schedule_end_time": schedule_end_time,
             "schedule_interval_minutes": schedule_interval_minutes,
+            "include_in_totalizer": include_in_totalizer,
             "is_active": is_active,
         }
 
@@ -1674,6 +2313,7 @@ def create_app():
                     schedule_start_time = :schedule_start_time,
                     schedule_end_time = :schedule_end_time,
                     schedule_interval_minutes = :schedule_interval_minutes,
+                    include_in_totalizer = :include_in_totalizer,
                     is_active = :is_active
                 WHERE id = :id
                 """,
@@ -1692,6 +2332,7 @@ def create_app():
                     "schedule_start_time": schedule_start_time,
                     "schedule_end_time": schedule_end_time,
                     "schedule_interval_minutes": schedule_interval_minutes,
+                    "include_in_totalizer": include_in_totalizer,
                     "is_active": is_active,
                     "id": strategy_id,
                 },
@@ -1705,11 +2346,11 @@ def create_app():
                 (name, description, risk_level, signal_frequency,
                  historical_return, telegram_url, has_telegram, signals_txt_name,
                  python_file, auto_execute, schedule_start_time, schedule_end_time,
-                 schedule_interval_minutes, is_active)
+                 schedule_interval_minutes, include_in_totalizer, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
                         :historical_return, :telegram_url, :has_telegram, :signals_txt_name,
                         :python_file, :auto_execute, :schedule_start_time, :schedule_end_time,
-                        :schedule_interval_minutes, :is_active)
+                        :schedule_interval_minutes, :include_in_totalizer, :is_active)
                 """,
                 ),
                 {
@@ -1726,6 +2367,7 @@ def create_app():
                     "schedule_start_time": schedule_start_time,
                     "schedule_end_time": schedule_end_time,
                     "schedule_interval_minutes": schedule_interval_minutes,
+                    "include_in_totalizer": include_in_totalizer,
                     "is_active": is_active,
                 },
             )
@@ -1774,27 +2416,174 @@ def create_app():
             {"cutoff": cutoff},
         ).scalar_one()
 
+    def top_money_volume_assets(limit=20):
+        database_data = top_money_volume_assets_from_database(limit)
+        if database_data["rows"]:
+            return database_data
+        txt_data = top_money_volume_assets_from_txt(limit)
+        if txt_data["rows"]:
+            return txt_data
+        return top_money_volume_assets_from_tickers(limit)
+
+    def top_money_volume_assets_from_database(limit=20):
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT asset_rank AS rank, symbol, name, market, price, money_volume
+                    FROM top_money_volume_assets
+                    ORDER BY asset_rank
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).mappings().fetchall()
+            updated_at = g.db.execute(
+                text("SELECT MAX(updated_at) FROM top_money_volume_assets")
+            ).scalar()
+        except Exception:
+            return {"rows": [], "updated_at": "", "source": "database"}
+        return {
+            "rows": [dict(row) for row in rows],
+            "updated_at": format_any_madrid_datetime(updated_at),
+            "source": "database",
+        }
+
+    def top_money_volume_assets_from_txt(limit=20):
+        path = Path(os.environ.get("TOP_MONEY_VOLUME_FILE", DEFAULT_TOP_MONEY_VOLUME_FILE)).resolve()
+        try:
+            if path != DEFAULT_TOP_MONEY_VOLUME_FILE and BASE_DIR not in path.parents:
+                return {"rows": [], "updated_at": "", "source": "top_txt"}
+            if not path.exists() or not path.is_file():
+                return {"rows": [], "updated_at": "", "source": "top_txt"}
+            rows = []
+            for raw_line in path.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = [part.strip() for part in line.split("|")]
+                if len(parts) < 6:
+                    continue
+                rows.append(
+                    {
+                        "rank": parse_display_int(parts[0], len(rows) + 1),
+                        "symbol": parts[1].upper(),
+                        "name": parts[2],
+                        "market": parts[3],
+                        "price": parse_display_float(parts[4]),
+                        "money_volume": parse_display_float(parts[5]),
+                    }
+                )
+                if len(rows) >= limit:
+                    break
+            return {
+                "rows": rows,
+                "updated_at": format_any_madrid_datetime(path.stat().st_mtime),
+                "source": "top_txt",
+            }
+        except OSError:
+            return {"rows": [], "updated_at": "", "source": "top_txt"}
+
+    def top_money_volume_assets_from_tickers(limit=20):
+        path = Path(os.environ.get("STRATEGY_TICKERS_FILE", DEFAULT_STRATEGY_TICKERS_FILE)).resolve()
+        try:
+            if path != DEFAULT_STRATEGY_TICKERS_FILE and BASE_DIR not in path.parents:
+                return {"rows": [], "updated_at": "", "source": "tickers"}
+            if not path.exists() or not path.is_file():
+                return {"rows": [], "updated_at": "", "source": "tickers"}
+            rows = []
+            for raw_line in path.read_text(encoding="utf-8").splitlines():
+                symbol = raw_line.strip().upper()
+                if not symbol or symbol.startswith("#"):
+                    continue
+                rows.append(
+                    {
+                        "rank": len(rows) + 1,
+                        "symbol": symbol,
+                        "name": "Pendiente de datos enriquecidos",
+                        "market": "",
+                        "price": 0,
+                        "money_volume": 0,
+                        "source": "tickers",
+                    }
+                )
+                if len(rows) >= limit:
+                    break
+            return {
+                "rows": rows,
+                "updated_at": format_any_madrid_datetime(path.stat().st_mtime),
+                "source": "tickers",
+            }
+        except OSError:
+            return {"rows": [], "updated_at": "", "source": "tickers"}
+
+    def parse_display_int(value, default):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def parse_display_float(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def read_top_strategy_tickers(limit=20):
+        path = Path(os.environ.get("STRATEGY_TICKERS_FILE", DEFAULT_STRATEGY_TICKERS_FILE)).resolve()
+        try:
+            if path != DEFAULT_STRATEGY_TICKERS_FILE and BASE_DIR not in path.parents:
+                return []
+            if not path.exists() or not path.is_file():
+                return []
+            tickers = []
+            seen = set()
+            for raw_line in path.read_text(encoding="utf-8").splitlines():
+                symbol = raw_line.strip().upper()
+                if not symbol or symbol.startswith("#") or symbol in seen:
+                    continue
+                seen.add(symbol)
+                tickers.append(symbol)
+                if len(tickers) >= limit:
+                    break
+            return tickers
+        except OSError:
+            return []
+
     def strategy_with_signals(row):
         strategy = dict(row)
         txt_name = strategy.get("signals_txt_name", "")
         signals = read_strategy_signals(txt_name)
+        attach_simulated_operations_to_signals(strategy, signals)
+        signals_updated_at = strategy_signals_updated_at_datetime(txt_name)
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
-        strategy["signals_updated_at"] = strategy_signals_updated_at(txt_name)
+        strategy["_signals_updated_at_datetime"] = signals_updated_at
+        strategy["signals_updated_at"] = format_madrid_datetime(signals_updated_at)
         strategy["run_status"] = strategy_run_status(strategy, txt_name)
+        strategy["short_name"] = strategy_short_name(strategy.get("name"))
+        strategy["historical_return_public"] = clean_public_return_text(strategy.get("historical_return"))
+        strategy["return_badge"] = strategy_return_badge(strategy.get("historical_return"))
+        strategy["return_badge_class"] = "return-sos" if strategy["return_badge"] == "SOS" else ""
         return strategy
 
-    def strategy_run_status(strategy, txt_name):
-        if market_is_closed_for_status():
-            return {
-                "ok": False,
-                "running": False,
-                "pending": True,
-                "label": "Fuera de mercado",
-                "ran_at": format_database_datetime(strategy.get("run_at")) if strategy.get("run_at") else "",
-                "error": "",
-            }
+    def attach_simulated_operations_to_signals(strategy, signals):
+        for signal in signals:
+            operation = simulated_operation_for_signal(strategy, signal)
+            if operation:
+                signal["operation_summary"] = {
+                    "status_label": operation["status_label"],
+                    "profit_pct_display": operation["profit_pct_display"],
+                    "profit_class": operation["profit_class"],
+                }
+            else:
+                signal["operation_summary"] = {
+                    "status_label": "Pendiente",
+                    "profit_pct_display": "Pendiente",
+                    "profit_class": "text-warning",
+                }
 
+    def strategy_run_status(strategy, txt_name):
         db_status = (strategy.get("run_status") or "").strip()
         if db_status:
             ran_at = format_database_datetime(strategy.get("run_at"))
@@ -1810,7 +2599,7 @@ def create_app():
                 return {
                     "ok": True,
                     "running": False,
-                    "label": "Activo",
+                    "label": "Correcto",
                     "ran_at": ran_at,
                     "error": "",
                 }
@@ -1826,11 +2615,20 @@ def create_app():
         data = load_strategy_status_data()
         item = data.get("strategies", {}).get(strategy_name)
         if not item:
+            signals_updated_at = strategy.get("_signals_updated_at_datetime")
+            if signals_updated_at is not None:
+                return {
+                    "ok": True,
+                    "running": False,
+                    "label": "Correcto",
+                    "ran_at": format_madrid_datetime(signals_updated_at),
+                    "error": "Estado inferido por avisos incorporados; aun no habia run_status guardado.",
+                }
             return {
                 "ok": False,
                 "running": False,
                 "pending": True,
-                "label": "Activo",
+                "label": "Sin ejecutar",
                 "ran_at": "",
                 "error": "Estrategia activa sin registro de ejecucion reciente.",
             }
@@ -1849,7 +2647,7 @@ def create_app():
             return {
                 "ok": True,
                 "running": False,
-                "label": "Activo",
+                "label": "Correcto",
                 "ran_at": ran_at,
                 "error": "",
             }
@@ -2203,8 +3001,8 @@ def create_app():
         rows = g.db.execute(
             text(
                 """
-                SELECT line
-                FROM strategy_signals
+                    SELECT line, created_at
+                    FROM strategy_signals
                 WHERE txt_name = :txt_name
                   AND signal_date = :signal_date
                 ORDER BY created_at DESC, id DESC
@@ -2214,21 +3012,39 @@ def create_app():
             {"txt_name": txt_name, "signal_date": today},
         ).mappings().fetchall()
         if rows:
-            return [
-                parse_signal_line(row["line"])
+            return deduplicate_signals([
+                parse_signal_line(row["line"], row.get("created_at"))
                 for row in rows
-            ]
+            ])
         if path is None:
             return []
 
         try:
-            return [
-                parse_signal_line(line.strip())
+            return deduplicate_signals([
+                parse_signal_line(line.strip(), path.stat().st_mtime)
                 for line in path.read_text(encoding="utf-8").splitlines()
                 if line.strip() and signal_line_is_today(line.strip())
-            ][:50]
+            ])[:50]
         except OSError:
             return []
+
+    def deduplicate_signals(signals):
+        unique = []
+        seen = set()
+        for signal in signals:
+            key = signal_identity(signal)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(signal)
+        return unique
+
+    def signal_identity(signal):
+        symbol = normalize_signal_symbol(signal.get("symbol", ""))
+        date_value = first_existing(signal.get("fields", {}), ["Fecha"]) or signal.get("notice_datetime", "")
+        if symbol:
+            return ("symbol", symbol, date_value)
+        return ("line", str(signal.get("line", "")).strip())
 
     def signal_line_is_today(line):
         date_value = signal_line_field(line, "Fecha")
@@ -2244,7 +3060,7 @@ def create_app():
                 return part.split(":", 1)[1].strip()
         return ""
 
-    def parse_signal_line(line):
+    def parse_signal_line(line, notice_time=None):
         parts = [part.strip() for part in line.split("|") if part.strip()]
         side = ""
         symbol = ""
@@ -2274,7 +3090,16 @@ def create_app():
             "side": side,
             "fields": fields,
             "common": common_signal_fields(side, fields),
+            "notice_datetime": format_notice_datetime(notice_time, fields),
         }
+
+    def format_notice_datetime(notice_time, fields):
+        if notice_time:
+            if isinstance(notice_time, (int, float)):
+                return datetime.fromtimestamp(notice_time, MADRID_TZ).strftime("%d/%m/%Y %H:%M")
+            return format_any_madrid_datetime(notice_time)
+        date_value = first_existing(fields, ["Fecha"])
+        return date_value or "No indicada"
 
     def common_signal_fields(side, fields):
         return {
@@ -2299,6 +3124,98 @@ def create_app():
 
     def normalize_signal_symbol(symbol):
         return str(symbol).strip().upper().replace(" ", "")
+
+    def simulated_operation_for_signal(strategy, signal):
+        txt_name = strategy.get("signals_txt_name", "")
+        symbol = normalize_signal_symbol(signal.get("symbol", ""))
+        if not txt_name or not symbol:
+            return None
+        operation = simulated_operation_from_database(txt_name, symbol)
+        if operation:
+            return operation
+        return simulated_operation_from_file(txt_name, symbol)
+
+    def simulated_operation_from_database(txt_name, symbol):
+        try:
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT strategy_name, txt_name, symbol, direction, status,
+                           signal_date, opened_at, closed_at, entry_price,
+                           target_price, stop_loss, shares, current_price,
+                           investment_value, profit_usd, profit_pct,
+                           close_reason, updated_at
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND UPPER(symbol) = :symbol
+                    ORDER BY
+                      CASE WHEN status = 'OPEN' THEN 0 ELSE 1 END,
+                      updated_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"txt_name": txt_name, "symbol": symbol},
+            ).mappings().fetchone()
+        except Exception:
+            return None
+        if not row:
+            return None
+        return format_simulated_operation(dict(row))
+
+    def simulated_operation_from_file(txt_name, symbol):
+        path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
+        try:
+            if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
+                return None
+            operations = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        matches = [
+            operation
+            for operation in operations
+            if operation.get("txt_name") == txt_name
+            and normalize_signal_symbol(operation.get("symbol", "")) == symbol
+        ]
+        if not matches:
+            return None
+        open_matches = [item for item in matches if item.get("status") == "OPEN"]
+        selected = open_matches or matches
+        selected.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
+        return format_simulated_operation(selected[0])
+
+    def format_simulated_operation(operation):
+        profit_pct = parse_display_float(operation.get("profit_pct"))
+        status = operation.get("status", "")
+        return {
+            **operation,
+            "opened_at_display": format_any_madrid_datetime(operation.get("opened_at")),
+            "closed_at_display": format_any_madrid_datetime(operation.get("closed_at")),
+            "updated_at_display": format_any_madrid_datetime(operation.get("updated_at")),
+            "entry_price_display": f"{parse_display_float(operation.get('entry_price')):.2f} USD",
+            "target_price_display": f"{parse_display_float(operation.get('target_price')):.2f} USD",
+            "stop_loss_display": f"{parse_display_float(operation.get('stop_loss')):.2f} USD",
+            "shares_display": f"{parse_display_float(operation.get('shares')):.4f}",
+            "current_price_display": f"{parse_display_float(operation.get('current_price')):.2f} USD",
+            "investment_value_display": format_money_usd(operation.get("investment_value")),
+            "profit_usd_display": format_money_usd(operation.get("profit_usd")),
+            "profit_pct_display": f"{profit_pct:.2f}%",
+            "profit_class": "text-success" if profit_pct >= 0 else "text-danger",
+            "status_label": "Abierta" if status == "OPEN" else "Cerrada",
+        }
+
+    def format_any_madrid_datetime(value):
+        if not value:
+            return "No indicada"
+        if isinstance(value, datetime):
+            dt_value = value
+        else:
+            try:
+                dt_value = datetime.fromisoformat(str(value))
+            except ValueError:
+                return str(value)
+        if dt_value.tzinfo is None:
+            dt_value = dt_value.replace(tzinfo=UTC)
+        return dt_value.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
 
     def build_signal_diagnostic(strategy, signal):
         fields = signal.get("fields", {})
@@ -2422,9 +3339,12 @@ Devuelve 4 bloques cortos:
 
     def strategy_signals_updated_at(txt_name):
         updated_at = strategy_signals_updated_at_datetime(txt_name)
-        if updated_at is None:
+        return format_madrid_datetime(updated_at)
+
+    def format_madrid_datetime(value):
+        if value is None:
             return ""
-        return updated_at.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
+        return value.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
 
     def strategy_signals_updated_at_datetime(txt_name):
         path = strategy_signals_path(txt_name)
@@ -2521,6 +3441,7 @@ def init_db():
                     run_at TIMESTAMP,
                     run_txt_updated INTEGER NOT NULL DEFAULT 0,
                     run_returncode INTEGER,
+                    include_in_totalizer INTEGER NOT NULL DEFAULT 0,
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -2529,6 +3450,7 @@ def init_db():
         )
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
+        ensure_simulated_operations_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "python_file")
@@ -2545,6 +3467,7 @@ def init_db():
         add_strategy_column(connection, "run_at", "TIMESTAMP")
         add_strategy_column(connection, "run_txt_updated", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "run_returncode", "INTEGER")
+        add_strategy_column(connection, "include_in_totalizer", "INTEGER NOT NULL DEFAULT 0")
         ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
@@ -2830,6 +3753,37 @@ def ensure_strategy_signals_table(connection):
     )
 
 
+def ensure_simulated_operations_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS simulated_operations (
+                operation_key TEXT PRIMARY KEY,
+                strategy_name TEXT NOT NULL,
+                txt_name TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                status TEXT NOT NULL,
+                signal_date TEXT NOT NULL DEFAULT '',
+                signal_line TEXT NOT NULL DEFAULT '',
+                opened_at TIMESTAMP,
+                closed_at TIMESTAMP,
+                entry_price FLOAT NOT NULL DEFAULT 0,
+                target_price FLOAT NOT NULL DEFAULT 0,
+                stop_loss FLOAT NOT NULL DEFAULT 0,
+                shares FLOAT NOT NULL DEFAULT 0,
+                current_price FLOAT NOT NULL DEFAULT 0,
+                investment_value FLOAT NOT NULL DEFAULT 0,
+                profit_usd FLOAT NOT NULL DEFAULT 0,
+                profit_pct FLOAT NOT NULL DEFAULT 0,
+                close_reason TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP
+            )
+            """
+        )
+    )
+
+
 def automation_schedule_column_exists(connection, column_name):
     if engine.dialect.name == "postgresql":
         result = connection.execute(
@@ -2899,7 +3853,8 @@ def asset_snapshot_column_exists(connection, column_name):
 
 init_db()
 app = create_app()
-start_scheduler_thread()
+if os.environ.get("ENABLE_WEB_SCHEDULER", "0") == "1":
+    start_scheduler_thread()
 
 
 if __name__ == "__main__":

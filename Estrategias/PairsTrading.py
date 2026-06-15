@@ -23,9 +23,10 @@ from txt_output import write_results_to_txt
 from datetime import datetime, timedelta, UTC
 
 import pandas as pd
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
+from alpaca_request import get_stock_bars_data
 from alpaca.data.timeframe import TimeFrame
 
 
@@ -115,12 +116,13 @@ def get_daily_bars(client, symbols):
     request = StockBarsRequest(
         symbol_or_symbols=symbols,
         timeframe=TimeFrame.Day,
+        adjustment=Adjustment.RAW,
         start=datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS),
         end=datetime.now(UTC),
         feed=DataFeed.IEX,
     )
 
-    bars = client.get_stock_bars(request).data
+    bars = get_stock_bars_data(client, request)
 
     data = {}
 
@@ -248,15 +250,24 @@ def analyze_pair(symbol_a, symbol_b, df_a, df_b):
     # Señal: vender A, comprar B.
     if zscore >= ENTRY_ZSCORE:
         action = f"SHORT {symbol_a} / LONG {symbol_b}"
-        direction = "spread_alto"
+        direction = "SHORT"
+        target_zscore = EXIT_ZSCORE
+        stop_zscore = ENTRY_ZSCORE + 1.0
     # Si zscore bajo:
     # A está barato respecto a B.
     # Señal: comprar A, vender B.
     elif zscore <= -ENTRY_ZSCORE:
         action = f"LONG {symbol_a} / SHORT {symbol_b}"
-        direction = "spread_bajo"
+        direction = "LONG"
+        target_zscore = -EXIT_ZSCORE
+        stop_zscore = -(ENTRY_ZSCORE + 1.0)
     else:
         return None
+
+    target_spread = spread_mean + target_zscore * spread_std
+    stop_spread = spread_mean + stop_zscore * spread_std
+    target_price_a = target_spread + hedge_ratio * price_b
+    stop_price_a = stop_spread + hedge_ratio * price_b
 
     # Score:
     # cuanto más extremo el zscore y mayor correlación, más interesante.
@@ -276,6 +287,10 @@ def analyze_pair(symbol_a, symbol_b, df_a, df_b):
         "direction": direction,
         "action": action,
         "exit_zscore": EXIT_ZSCORE,
+        "target_price_a": target_price_a,
+        "stop_price_a": stop_price_a,
+        "target_zscore": target_zscore,
+        "stop_zscore": stop_zscore,
         "avg_dollar_volume_a": avg_dollar_volume_a,
         "avg_dollar_volume_b": avg_dollar_volume_b,
         "score": score,
@@ -330,15 +345,17 @@ def format_signal(signal):
     """
     return (
         f"{signal['symbol_a']}/{signal['symbol_b']} | "
-        f"Direccion: {signal['action']} | "
+        f"Direccion: {signal['direction']} | "
+        f"Operativa par: {signal['action']} | "
         f"Precio actual: {signal['price_a']:.2f}/{signal['price_b']:.2f} | "
         f"Apertura: {signal['price_a']:.2f}/{signal['price_b']:.2f} | "
-        f"Cierre: ZScore cerca de +/-{signal['exit_zscore']} | "
-        f"Stop Loss: ZScore extremo pendiente de regla | "
-        f"{signal['action']} | "
+        f"Cierre: {signal['target_price_a']:.2f} | "
+        f"Stop Loss: {signal['stop_price_a']:.2f} | "
         f"ZScore: {signal['zscore']:.2f} | "
         f"Corr: {signal['correlation']:.2f} | "
         f"Hedge: {signal['hedge_ratio']:.2f} | "
+        f"ZScore objetivo: {signal['target_zscore']:.2f} | "
+        f"ZScore stop: {signal['stop_zscore']:.2f} | "
         f"Salida teorica: ZScore cerca de ±{signal['exit_zscore']} | "
         f"Score: {signal['score']:.2f}"
     )

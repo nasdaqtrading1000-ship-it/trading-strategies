@@ -18,9 +18,10 @@ from txt_output import write_lines_to_txt
 from datetime import datetime, timedelta, UTC
 
 import pandas as pd
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
+from alpaca_request import get_stock_bars_data
 from alpaca.data.timeframe import TimeFrame
 
 
@@ -129,12 +130,13 @@ def get_daily_bars(client, symbols):
     request = StockBarsRequest(
         symbol_or_symbols=symbols,
         timeframe=TimeFrame.Day,
+        adjustment=Adjustment.RAW,
         start=datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS),
         end=datetime.now(UTC),
         feed=DataFeed.IEX,
     )
 
-    bars = client.get_stock_bars(request).data
+    bars = get_stock_bars_data(client, request)
     data = {}
 
     for symbol, symbol_bars in bars.items():

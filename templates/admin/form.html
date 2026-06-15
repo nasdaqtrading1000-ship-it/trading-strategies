@@ -82,6 +82,13 @@
           <label class="form-check-label" for="is_active">Estrategia activa</label>
         </div>
       </div>
+      <div class="col-12">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="include_in_totalizer" name="include_in_totalizer" {% if strategy and strategy.include_in_totalizer %}checked{% endif %}>
+          <label class="form-check-label" for="include_in_totalizer">Incluir estrategia en totalizador</label>
+        </div>
+        <div class="form-text">El totalizador suma la rentabilidad historica de las estrategias marcadas.</div>
+      </div>
       <div class="col-12 d-flex justify-content-end gap-2 pt-3">
         <a class="btn btn-outline-light" href="{{ url_for('admin_dashboard') }}">Cancelar</a>
         <button class="btn btn-info fw-semibold" type="submit">Guardar</button>

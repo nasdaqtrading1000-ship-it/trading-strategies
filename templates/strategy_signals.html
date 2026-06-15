@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Avisos {{ strategy.name }}{% endblock %}
+
+{% block content %}
+<section class="container-fluid strategy-signals-page py-4 py-md-5">
+  <div class="container-xl">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+      <div>
+        <p class="eyebrow mb-2">Avisos actuales</p>
+        <h1 class="h2 mb-2">{{ strategy.name }}</h1>
+        <p class="text-secondary mb-0">{{ signals|length }} avisos activos · Riesgo {{ strategy.risk_level }}</p>
+      </div>
+      <div class="d-flex gap-2 align-items-start">
+        <a class="btn btn-outline-light" href="{{ url_for('index') }}#estrategias">Volver</a>
+        {% if strategy.has_telegram and strategy.telegram_url %}
+          <a class="btn btn-info fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">Acceder al canal</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="signals-workspace">
+      <aside class="signals-sidebar">
+        <div class="signals-sidebar-head">
+          <strong>Listado</strong>
+          <span>{{ signals|length }}</span>
+        </div>
+        {% if signals %}
+          <ul class="signals-list signals-list-page">
+            {% for signal in signals %}
+              {% set is_selected = signal.symbol and signal.symbol|upper == selected_symbol %}
+              <li>
+                {% if signal.symbol %}
+                  <div class="signal-mini-card {% if is_selected %}active{% endif %}">
+                    <span class="signal-head">
+                      <span class="signal-title-tools">
+                        <a class="signal-symbol-link" href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=signal.symbol) }}">
+                          <span class="signal-symbol">{{ signal.symbol }}</span>
+                        </a>
+                        <span class="signal-market-links">
+                          <a href="https://finance.yahoo.com/quote/{{ signal.symbol|urlencode }}" target="_blank" rel="noopener">Yahoo</a>
+                          <a href="https://www.tradingview.com/symbols/{{ signal.symbol|urlencode }}/" target="_blank" rel="noopener">TradingView</a>
+                        </span>
+                      </span>
+                      <span class="signal-performance {{ signal.operation_summary.profit_class }}">
+                        {{ signal.operation_summary.profit_pct_display }}
+                      </span>
+                    </span>
+                    <a class="signal-line-preview signal-line-link" href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=signal.symbol) }}">{{ signal.line }}</a>
+                  </div>
+                {% else %}
+                  <span class="signal-link">{{ signal.line }}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-secondary small mb-0">No hay avisos activos ahora mismo.</p>
+        {% endif %}
+      </aside>
+
+      <main class="signals-diagnostic">
+        {% if selected_signal %}
+          <div class="diagnostic-panel p-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+              <div>
+                <p class="eyebrow mb-2">Diagnostico de aviso</p>
+                <h2 class="h3 mb-2">{{ selected_signal.symbol }}</h2>
+                <p class="text-secondary mb-0">{{ strategy.name }} · Fecha datos {{ selected_signal.notice_datetime }}</p>
+              </div>
+              {% if selected_signal.side %}
+                <div class="diagnostic-side">{{ selected_signal.side }}</div>
+              {% endif %}
+            </div>
+
+            <div class="diagnostic-original mb-4">
+              <span class="text-secondary small d-block mb-2">Aviso original</span>
+              <p class="mb-0">{{ selected_signal.line }}</p>
+            </div>
+
+            <div class="row g-4">
+              <div class="col-lg-5">
+                <div class="diagnostic-box h-100">
+                  <h3 class="h5 mb-3">Datos del aviso</h3>
+                  {% if selected_signal.fields %}
+                    <dl class="diagnostic-fields">
+                      {% for key, value in selected_signal.fields.items() %}
+                        <div>
+                          {% set help_text = technical_term_help(key) %}
+                          <dt>
+                            {{ key }}
+                            {% if help_text %}
+                              <button class="term-help" type="button" data-bs-toggle="tooltip" title="{{ help_text }}">?</button>
+                            {% endif %}
+                          </dt>
+                          <dd>{{ value }}</dd>
+                        </div>
+                      {% endfor %}
+                    </dl>
+                  {% else %}
+                    <p class="text-secondary mb-0">No hay campos estructurados para este aviso.</p>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-lg-7">
+                <div class="diagnostic-box h-100">
+                  <h3 class="h5 mb-3">Lectura automatica</h3>
+                  <p class="text-secondary">{{ diagnostic.focus }}</p>
+                  <ul class="diagnostic-points">
+                    {% for point in diagnostic.points %}
+                      <li>{{ point }}</li>
+                    {% endfor %}
+                  </ul>
+                  <div class="alert alert-warning mb-0">{{ diagnostic.warning }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="diagnostic-box mt-4">
+              <h3 class="h5 mb-3">Operacion ejecutada</h3>
+              {% if operation %}
+                <div class="diagnostic-summary-grid">
+                  <div><span>Estado</span><strong>{{ operation.status_label }}</strong></div>
+                  <div><span>Fecha datos aviso</span><strong>{{ selected_signal.notice_datetime or operation.signal_date or "No indicada" }}</strong></div>
+                  <div><span>Ejecutada</span><strong>{{ operation.opened_at_display }}</strong></div>
+                  <div><span>Direccion</span><strong>{{ operation.direction }}</strong></div>
+                  <div><span>Entrada</span><strong>{{ operation.entry_price_display }}</strong></div>
+                  <div><span>Acciones</span><strong>{{ operation.shares_display }}</strong></div>
+                  <div><span>Precio actual</span><strong>{{ operation.current_price_display }}</strong></div>
+                  <div><span>Valor inversion</span><strong>{{ operation.investment_value_display }}</strong></div>
+                  <div><span>Beneficio / perdida</span><strong class="{{ operation.profit_class }}">{{ operation.profit_usd_display }}</strong></div>
+                  <div><span>Rentabilidad</span><strong class="{{ operation.profit_class }}">{{ operation.profit_pct_display }}</strong></div>
+                  <div><span>Cierre objetivo</span><strong>{{ operation.target_price_display }}</strong></div>
+                  <div><span>Stop loss</span><strong>{{ operation.stop_loss_display }}</strong></div>
+                  <div><span>Ultima revision</span><strong>{{ operation.updated_at_display }}</strong></div>
+                  <div><span>Cierre real</span><strong>{{ operation.closed_at_display }}</strong></div>
+                  <div><span>Motivo cierre</span><strong>{{ operation.close_reason or "Operacion abierta" }}</strong></div>
+                </div>
+              {% else %}
+                <div class="diagnostic-summary-grid">
+                  <div><span>Estado</span><strong>Pendiente de ejecucion</strong></div>
+                  <div><span>Fecha datos aviso</span><strong>{{ selected_signal.notice_datetime or selected_signal.fields.Fecha or "No indicada" }}</strong></div>
+                  <div><span>Ticker</span><strong>{{ selected_signal.symbol }}</strong></div>
+                  <div><span>Direccion</span><strong>{{ selected_signal.common.direccion or "No indicada" }}</strong></div>
+                  <div><span>Entrada prevista</span><strong>{{ selected_signal.common.apertura or "No indicada" }}</strong></div>
+                  <div><span>Cierre objetivo</span><strong>{{ selected_signal.common.cierre or "No indicado" }}</strong></div>
+                  <div><span>Stop loss</span><strong>{{ selected_signal.common.stop or "No indicado" }}</strong></div>
+                </div>
+                <p class="text-secondary small mb-0 mt-3">Aviso detectado, pendiente de revision para abrir la operacion si procede.</p>
+              {% endif %}
+            </div>
+
+            <div class="diagnostic-box mt-4">
+              <h3 class="h5 mb-3">Operativa comun</h3>
+              <div class="diagnostic-summary-grid">
+                <div><span>Ticker</span><strong>{{ selected_signal.symbol }}</strong></div>
+                <div><span>Direccion <button class="term-help" type="button" data-bs-toggle="tooltip" title="LONG busca subida del precio. SHORT busca caida del precio.">?</button></span><strong>{{ selected_signal.common.direccion or "No indicada" }}</strong></div>
+                <div><span>Precio actual <button class="term-help" type="button" data-bs-toggle="tooltip" title="Ultimo precio usado por la estrategia cuando genero el aviso.">?</button></span><strong>{{ selected_signal.common.precio_actual or "No indicado" }}</strong></div>
+                <div><span>Apertura / entrada <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio de referencia para abrir o vigilar la operacion.">?</button></span><strong>{{ selected_signal.common.apertura or "No indicada" }}</strong></div>
+                <div><span>Cierre / objetivo <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio objetivo o zona donde la estrategia podria cerrar con beneficio.">?</button></span><strong>{{ selected_signal.common.cierre or "No indicado" }}</strong></div>
+                <div><span>Stop loss <button class="term-help" type="button" data-bs-toggle="tooltip" title="Nivel de salida defensiva si la operacion va en contra. Sirve para limitar perdida.">?</button></span><strong>{{ selected_signal.common.stop or "No indicado" }}</strong></div>
+                <div><span>Estrategia</span><strong>{{ strategy.name }}</strong></div>
+                <div><span>Campos devueltos</span><strong>{{ selected_signal.fields|length }}</strong></div>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap mt-4">
+              <a class="btn btn-outline-info" href="https://finance.yahoo.com/quote/{{ selected_signal.symbol }}" target="_blank" rel="noopener">Ver en Yahoo Finance</a>
+              <a class="btn btn-outline-light" href="https://www.tradingview.com/symbols/{{ selected_signal.symbol }}/" target="_blank" rel="noopener">Ver en TradingView</a>
+            </div>
+          </div>
+        {% else %}
+          <div class="diagnostic-panel p-4 p-md-5 text-center">
+            <h2 class="h4">No hay avisos activos</h2>
+            <p class="text-secondary mb-0">Cuando la estrategia genere avisos nuevos apareceran aqui.</p>
+          </div>
+        {% endif %}
+      </main>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
+    new bootstrap.Tooltip(element);
+  });
+</script>
+{% endblock %}

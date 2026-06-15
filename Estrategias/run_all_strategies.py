@@ -1,6 +1,8 @@
 """
 Ejecuta todas las estrategias de esta carpeta.
 
+Ultima actualizacion del runner: 2026-06-15 09:44:27 Europe/Madrid.
+
 Cada estrategia se encarga de escribir su propio TXT dentro de salidas_txt/.
 Este script solo las lanza una a una y muestra un resumen final.
 """
@@ -21,14 +23,14 @@ STATUS_FILE = BASE_DIR / "strategy_run_status.json"
 OUTPUT_DIR = BASE_DIR / "salidas_txt"
 LOG_DIR = BASE_DIR / "logs"
 SELECTION_FILE = BASE_DIR / "estrategias_a_ejecutar.txt"
-PROJECT_DIR = BASE_DIR.parent
-MARKET_UPDATE_SCRIPT = PROJECT_DIR / "run_local_market_update.py"
+CONFIG_FILE = BASE_DIR / "runner_config.txt"
+TICKER_GENERATOR_SCRIPT = BASE_DIR / "generate_tickers.py"
+SIMULATE_OPERATIONS_SCRIPT = BASE_DIR / "simulate_operations.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 DEFAULT_START_TIME = "15:30"
 DEFAULT_END_TIME = "22:00"
 DEFAULT_INTERVAL_MINUTES = 60
-MARKET_UPDATE_INTERVAL_MINUTES = int(os.environ.get("LOCAL_MARKET_UPDATE_INTERVAL_MINUTES", "240"))
-LOOP_SLEEP_SECONDS = int(os.environ.get("LOCAL_TRADING_LOOP_SLEEP_SECONDS", "30"))
+DEFAULT_LOOP_SLEEP_SECONDS = 30
 
 
 STRATEGIES = [
@@ -74,17 +76,14 @@ def run_strategy(strategy):
     print(f"\n=== Ejecutando {filename} ===")
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_path = LOG_DIR / f"{safe_log_name(strategy['name'])}.log"
-    with log_path.open("w", encoding="utf-8", errors="replace") as log_file:
-        log_file.write(f"=== Ejecutando {filename} ===\n")
-        log_file.flush()
-        completed = subprocess.run(
-            [sys.executable, str(path)],
-            cwd=BASE_DIR,
-            text=True,
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-        )
+    log_path = daily_log_path()
+    completed = run_command_with_tee(
+        [sys.executable, str(path)],
+        cwd=BASE_DIR,
+        log_path=log_path,
+        title=f"Estrategia: {strategy['name']} | Archivo: {filename}",
+        output_prefix=strategy["name"],
+    )
 
     txt_updated = output_txt_updated(txt_path, previous_mtime)
     errors = []
@@ -122,9 +121,74 @@ def run_strategy_safely(strategy):
         }
 
 
-def safe_log_name(value):
-    cleaned = "".join(char if char.isalnum() else "_" for char in str(value))
-    return cleaned.strip("_") or "strategy"
+def daily_log_path():
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    return LOG_DIR / f"trading_log_{datetime.now(MADRID_TZ).strftime('%Y-%m-%d')}.txt"
+
+
+def run_command_with_tee(command, cwd, log_path, title="", output_prefix=""):
+    """
+    Ejecuta un comando mostrando su salida en pantalla y anadiendola al TXT diario.
+    """
+    started_at = datetime.now(MADRID_TZ)
+    header = [
+        "=" * 90,
+        title or "Ejecucion",
+        f"Inicio: {started_at.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+        f"Comando: {' '.join(str(part) for part in command)}",
+        f"Carpeta: {cwd}",
+        "=" * 90,
+        "",
+    ]
+
+    files = [log_path.open("a", encoding="utf-8", errors="replace")]
+
+    try:
+        for line in header:
+            write_tee_line(line, files)
+
+        process = subprocess.Popen(
+            command,
+            cwd=str(cwd),
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1,
+        )
+
+        assert process.stdout is not None
+        for line in process.stdout:
+            text = line.rstrip("\n")
+            if output_prefix and text:
+                text = f"{output_prefix} | {text}"
+            write_tee_line(text, files)
+
+        returncode = process.wait()
+        finished_at = datetime.now(MADRID_TZ)
+        footer = [
+            "",
+            "=" * 90,
+            f"Fin: {finished_at.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+            f"Duracion: {finished_at - started_at}",
+            f"Codigo de salida: {returncode}",
+            f"Log guardado en: {log_path}",
+            "=" * 90,
+        ]
+        for line in footer:
+            write_tee_line(line, files)
+
+        return subprocess.CompletedProcess(command, returncode)
+    finally:
+        for file in files:
+            file.close()
+
+
+def write_tee_line(line, files):
+    print(line, flush=True)
+    for file in files:
+        file.write(f"{line}\n")
+        file.flush()
 
 
 def read_tail(path, max_chars=1200):
@@ -160,6 +224,27 @@ def write_status_file(results, started_at, finished_at):
                 "ran_at": result["ran_at"],
             }
             for result in results
+        },
+    }
+    STATUS_FILE.write_text(json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def write_running_status_file(strategy, started_at):
+    status = {
+        "started_at": started_at.isoformat(),
+        "finished_at": "",
+        "strategies": {
+            strategy["name"]: {
+                "file": strategy["file"],
+                "txt": strategy["txt"],
+                "running": True,
+                "ok": False,
+                "txt_updated": False,
+                "returncode": None,
+                "error": "",
+                "log": "",
+                "ran_at": "",
+            }
         },
     }
     STATUS_FILE.write_text(json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -238,8 +323,8 @@ def parse_selection_line(line):
     name = parts[0]
     return {
         "key": normalize_key(name),
-        "start": parts[1] if len(parts) > 1 and parts[1] else DEFAULT_START_TIME,
-        "end": parts[2] if len(parts) > 2 and parts[2] else DEFAULT_END_TIME,
+        "start": normalize_time_value(parts[1] if len(parts) > 1 and parts[1] else DEFAULT_START_TIME, DEFAULT_START_TIME),
+        "end": normalize_time_value(parts[2] if len(parts) > 2 and parts[2] else DEFAULT_END_TIME, DEFAULT_END_TIME),
         "interval": parse_int(parts[3], DEFAULT_INTERVAL_MINUTES) if len(parts) > 3 else DEFAULT_INTERVAL_MINUTES,
     }
 
@@ -264,14 +349,82 @@ def parse_int(value, default):
     return max(1, parsed)
 
 
+def load_runner_config():
+    config = {
+        "modo": "once",
+        "dias": "1,2,3,4,5",
+        "hora_global_inicio": DEFAULT_START_TIME,
+        "hora_global_fin": DEFAULT_END_TIME,
+        "ignorar_horarios": "False",
+        "generar_tickers": "si",
+        "espera_segundos": str(DEFAULT_LOOP_SLEEP_SECONDS),
+    }
+    if CONFIG_FILE.exists() and CONFIG_FILE.is_file():
+        for raw_line in CONFIG_FILE.read_text(encoding="utf-8").splitlines():
+            line = raw_line.split("#", 1)[0].strip()
+            if not line or "=" not in line:
+                continue
+            key, value = [part.strip() for part in line.split("=", 1)]
+            if key:
+                config[normalize_config_key(key)] = value
+    config["hora_global_inicio"] = normalize_time_value(config.get("hora_global_inicio"), DEFAULT_START_TIME)
+    config["hora_global_fin"] = normalize_time_value(config.get("hora_global_fin"), DEFAULT_END_TIME)
+    return config
+
+
+def normalize_config_key(value):
+    return str(value).strip().lower()
+
+
+def config_bool(config, key, default=True):
+    value = str(config.get(key, "")).strip().lower()
+    if not value:
+        return default
+    return value in {"1", "si", "sí", "s", "true", "yes", "on"}
+
+
+def config_int(config, key, default):
+    return parse_int(config.get(key), default)
+
+
+def normalize_time_value(value, default):
+    raw = str(value or "").strip()
+    if not raw:
+        raw = default
+    try:
+        hour, minute = [int(part.strip()) for part in raw.split(":", 1)]
+    except (TypeError, ValueError):
+        hour, minute = [int(part) for part in default.split(":", 1)]
+    hour = min(max(hour, 0), 23)
+    minute = min(max(minute, 0), 59)
+    return f"{hour:02d}:{minute:02d}"
+
+
+def config_days(config):
+    days = set()
+    for part in str(config.get("dias", "1,2,3,4,5")).split(","):
+        try:
+            day = int(part.strip())
+        except ValueError:
+            continue
+        if 1 <= day <= 7:
+            days.add(day)
+    return days or {1, 2, 3, 4, 5}
+
+
 def normalize_key(value):
     return "".join(char.lower() for char in str(value) if char.isalnum())
 
 
-def run_selected_once(strategies=None):
+def run_selected_once(strategies=None, prepare_tickers=True, config=None):
     started_at = datetime.now(UTC)
     print(f"Inicio ejecucion: {started_at.isoformat()}")
 
+    config = config or load_runner_config()
+    if prepare_tickers and config_bool(config, "generar_tickers", True):
+        run_ticker_generation()
+
+    print("Generador revisado. Leyendo estrategias seleccionadas...", flush=True)
     strategies = strategies or selected_strategies()
     print(f"Estrategias seleccionadas: {len(strategies)}")
     for strategy in strategies:
@@ -279,6 +432,8 @@ def run_selected_once(strategies=None):
 
     results = []
     for strategy in strategies:
+        write_running_status_file(strategy, started_at)
+        sync_to_database()
         result = run_strategy_safely(strategy)
         results.append(result)
         write_status_file(results, started_at, datetime.now(UTC))
@@ -286,6 +441,7 @@ def run_selected_once(strategies=None):
 
     finished_at = datetime.now(UTC)
     write_status_file(results, started_at, finished_at)
+    run_simulated_operations()
     sync_to_database()
 
     ok_count = sum(1 for result in results if result["ok"])
@@ -304,46 +460,144 @@ def run_selected_once(strategies=None):
     return 0 if fail_count == 0 else 1
 
 
-def run_loop():
+def run_loop(config=None):
+    config = config or load_runner_config()
     schedules = selected_strategy_schedules()
     if not schedules:
         print("No hay estrategias configuradas para ejecutar.")
         return 1
 
+    start_time = config.get("hora_global_inicio", DEFAULT_START_TIME)
+    end_time = config.get("hora_global_fin", DEFAULT_END_TIME)
+    ignore_hours = config_bool(config, "ignorar_horarios", False)
+    allowed_days = config_days(config)
+    loop_sleep_seconds = config_int(config, "espera_segundos", DEFAULT_LOOP_SLEEP_SECONDS)
+
     print("Modo automatico local iniciado.")
+    print(f"Configuracion: {CONFIG_FILE}")
+    print(f"Ventana global: dias {sorted(allowed_days)}, {start_time} - {end_time} hora Madrid.")
+    print(f"Ignorar horarios: {ignore_hours}")
     for strategy in schedules:
         print(f"- {strategy['name']} | {strategy['start']} - {strategy['end']} | cada {strategy['interval']} min")
 
-    last_strategy_runs = {}
-    last_market_update = None
-    run_market_update()
-    last_market_update = datetime.now(MADRID_TZ)
+    if not ignore_hours:
+        wait_code = wait_until_global_market_window(start_time, end_time, allowed_days, loop_sleep_seconds)
+        if wait_code is not None:
+            return wait_code
 
+    last_strategy_runs = {}
+    last_idle_message_at = None
+    if config_bool(config, "generar_tickers", True):
+        run_ticker_generation()
+
+    print("Generador revisado. Entrando en bucle de estrategias...", flush=True)
     while True:
         now = datetime.now(MADRID_TZ)
-        if last_market_update is None or now - last_market_update >= timedelta(minutes=MARKET_UPDATE_INTERVAL_MINUTES):
-            run_market_update()
-            last_market_update = datetime.now(MADRID_TZ)
+        if not ignore_hours and not is_allowed_day(now, allowed_days):
+            print("Fin de ejecucion: ya no es dia laborable. Saliendo con codigo 0.")
+            return 0
+        if not ignore_hours and now > time_for_today(now, end_time):
+            print(f"Fin de ejecucion: pasada la hora limite {end_time}. Saliendo con codigo 0.")
+            return 0
 
-        due = due_strategies(schedules, now, last_strategy_runs)
+        due = due_strategies(schedules, now, last_strategy_runs, ignore_hours=ignore_hours)
+        if not due and should_print_idle_message(now, last_idle_message_at):
+            next_due = next_strategy_due_text(schedules, now, last_strategy_runs, ignore_hours=ignore_hours)
+            print(f"Sin estrategias pendientes ahora. {next_due}")
+            last_idle_message_at = now
+
         for strategy in due:
-            result_code = run_selected_once([strategy])
+            result_code = run_selected_once([strategy], prepare_tickers=False, config=config)
             last_strategy_runs[strategy["name"]] = datetime.now(MADRID_TZ)
             if result_code != 0:
                 print(f"{strategy['name']} termino con aviso/error, se continua con la siguiente.")
 
-        time.sleep(LOOP_SLEEP_SECONDS)
+        if due:
+            next_due = next_strategy_due_text(schedules, datetime.now(MADRID_TZ), last_strategy_runs, ignore_hours=ignore_hours)
+            print(f"Pasada terminada. {next_due}", flush=True)
+
+        time.sleep(loop_sleep_seconds)
 
 
-def due_strategies(schedules, now, last_strategy_runs):
+def wait_until_global_market_window(start_value, end_value, allowed_days, loop_sleep_seconds):
+    now = datetime.now(MADRID_TZ)
+    if not is_allowed_day(now, allowed_days):
+        print("Hoy no es dia de mercado para el runner local. Saliendo con codigo 0.")
+        return 0
+
+    start = time_for_today(now, start_value)
+    end = time_for_today(now, end_value)
+    if now > end:
+        print(f"Hora actual posterior a {end_value}. Saliendo con codigo 0.")
+        return 0
+
+    while now < start:
+        seconds = max(1, int((start - now).total_seconds()))
+        sleep_for = min(seconds, loop_sleep_seconds)
+        print(f"Esperando a la apertura global {start_value}. Faltan {seconds} segundos.")
+        time.sleep(sleep_for)
+        now = datetime.now(MADRID_TZ)
+
+    return None
+
+
+def is_allowed_day(value, allowed_days):
+    return value.isoweekday() in allowed_days
+
+
+def due_strategies(schedules, now, last_strategy_runs, ignore_hours=False):
     due = []
     for strategy in schedules:
-        if not within_time_window(now, strategy["start"], strategy["end"]):
+        if not ignore_hours and not within_time_window(now, strategy["start"], strategy["end"]):
             continue
         last_run = last_strategy_runs.get(strategy["name"])
         if last_run is None or now - last_run >= timedelta(minutes=strategy["interval"]):
             due.append(strategy)
     return due
+
+
+def should_print_idle_message(now, last_idle_message_at):
+    if last_idle_message_at is None:
+        return True
+    return now - last_idle_message_at >= timedelta(minutes=5)
+
+
+def next_strategy_due_text(schedules, now, last_strategy_runs, ignore_hours=False):
+    next_times = []
+    for strategy in schedules:
+        next_time = next_due_time_for_strategy(strategy, now, last_strategy_runs, ignore_hours=ignore_hours)
+        if next_time is not None:
+            next_times.append((next_time, strategy["name"]))
+    if not next_times:
+        return "No hay proxima ejecucion dentro de la ventana configurada."
+
+    next_time, strategy_name = min(next_times, key=lambda item: item[0])
+    return f"Proxima: {strategy_name} a las {next_time.strftime('%H:%M:%S')}."
+
+
+def next_due_time_for_strategy(strategy, now, last_strategy_runs, ignore_hours=False):
+    if ignore_hours:
+        last_run = last_strategy_runs.get(strategy["name"])
+        if last_run is None:
+            return now
+        return max(now, last_run + timedelta(minutes=strategy["interval"]))
+
+    start = time_for_today(now, strategy["start"])
+    end = time_for_today(now, strategy["end"])
+    if end < start:
+        end += timedelta(days=1)
+    if now < start:
+        return start
+    if now > end:
+        return None
+
+    last_run = last_strategy_runs.get(strategy["name"])
+    if last_run is None:
+        return now
+    next_time = last_run + timedelta(minutes=strategy["interval"])
+    if next_time <= end:
+        return max(now, next_time)
+    return None
 
 
 def within_time_window(now, start_value, end_value):
@@ -355,33 +609,41 @@ def within_time_window(now, start_value, end_value):
 
 
 def time_for_today(now, value):
-    try:
-        hour, minute = [int(part) for part in str(value).split(":", 1)]
-    except (TypeError, ValueError):
-        hour, minute = 15, 30
+    normalized = normalize_time_value(value, DEFAULT_START_TIME)
+    hour, minute = [int(part) for part in normalized.split(":", 1)]
     return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
-def run_market_update():
-    if os.environ.get("LOCAL_SKIP_MARKET_UPDATE") == "1":
-        print("Actualizacion de mercado omitida por LOCAL_SKIP_MARKET_UPDATE=1.")
+def run_ticker_generation():
+    if os.environ.get("LOCAL_SKIP_TICKER_GENERATION") == "1":
+        print("Generador de tickers omitido por LOCAL_SKIP_TICKER_GENERATION=1.")
         return
-    if not MARKET_UPDATE_SCRIPT.exists():
-        print("Actualizacion de mercado omitida: no existe run_local_market_update.py")
+    if not TICKER_GENERATOR_SCRIPT.exists():
+        print("Generador de tickers omitido: no existe generate_tickers.py")
         return
 
-    print("\n=== Actualizando activos y mercado desde local ===")
-    completed = subprocess.run(
-        [sys.executable, str(MARKET_UPDATE_SCRIPT), "--all"],
-        cwd=str(PROJECT_DIR),
-        text=True,
+    print("\n=== Generando tickers filtrados desde Alpaca ===")
+    command = [sys.executable, str(TICKER_GENERATOR_SCRIPT)]
+    extra_args = os.environ.get("LOCAL_TICKER_GENERATOR_ARGS", "").strip()
+    if extra_args:
+        command.extend(extra_args.split())
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    completed = run_command_with_tee(
+        command,
+        cwd=BASE_DIR,
+        log_path=daily_log_path(),
+        title="Generador de tickers filtrados",
     )
     if completed.returncode != 0:
-        print(f"Actualizacion de mercado con aviso/error. Codigo {completed.returncode}. Se continua.")
+        print(f"Generador de tickers con aviso/error. Codigo {completed.returncode}. Se continua con el tickers.txt existente.")
+    else:
+        print("Generador de tickers terminado correctamente.")
 
 
 def sync_to_database():
     if os.environ.get("TRADING_SKIP_DB_SYNC") == "1":
+        print("Sincronizacion PostgreSQL omitida por TRADING_SKIP_DB_SYNC=1.")
         return
 
     sync_script = BASE_DIR.parent / "sync_signals_to_db.py"
@@ -389,22 +651,54 @@ def sync_to_database():
         print("Sincronizacion PostgreSQL omitida: no existe sync_signals_to_db.py")
         return
 
-    completed = subprocess.run(
+    print("\n=== Sincronizando datos con PostgreSQL ===")
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    completed = run_command_with_tee(
         [sys.executable, str(sync_script)],
-        cwd=str(BASE_DIR.parent),
-        text=True,
+        cwd=BASE_DIR.parent,
+        log_path=daily_log_path(),
+        title="Sincronizacion PostgreSQL",
     )
     if completed.returncode != 0:
         print(f"Sincronizacion PostgreSQL con avisos: codigo {completed.returncode}", file=sys.stderr)
+    else:
+        print("Sincronizacion PostgreSQL terminada correctamente.")
+
+
+def run_simulated_operations():
+    if os.environ.get("TRADING_SKIP_SIMULATION") == "1":
+        print("Revision de operaciones omitida por TRADING_SKIP_SIMULATION=1.")
+        return
+    if not SIMULATE_OPERATIONS_SCRIPT.exists():
+        print("Revision de operaciones omitida: no existe simulate_operations.py")
+        return
+
+    print("\n=== Revisando operaciones ===")
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    completed = run_command_with_tee(
+        [sys.executable, str(SIMULATE_OPERATIONS_SCRIPT)],
+        cwd=BASE_DIR,
+        log_path=daily_log_path(),
+        title="Revision de operaciones",
+    )
+    if completed.returncode != 0:
+        print(f"Revision de operaciones con avisos: codigo {completed.returncode}", file=sys.stderr)
+    else:
+        print("Revision de operaciones terminada correctamente.")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Ejecuta estrategias locales y sincroniza PostgreSQL.")
-    parser.add_argument("--loop", action="store_true", help="Modo automatico: respeta horarios e intervalos del TXT.")
+    parser.add_argument("--loop", action="store_true", help="Fuerza modo automatico.")
+    parser.add_argument("--once", action="store_true", help="Fuerza una sola ejecucion.")
     args = parser.parse_args()
-    if args.loop:
-        return run_loop()
-    return run_selected_once()
+    config = load_runner_config()
+    mode = str(config.get("modo", "once")).strip().lower()
+    if args.once:
+        return run_selected_once(config=config)
+    if args.loop or mode == "loop":
+        return run_loop(config=config)
+    return run_selected_once(config=config)
 
 
 if __name__ == "__main__":

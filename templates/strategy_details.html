@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Como funciona {{ strategy.name }}{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="strategy-detail-panel p-4 p-md-5">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+      <div>
+        <p class="eyebrow mb-2">Funcionamiento de estrategia</p>
+        <h1 class="h2 mb-2">{{ strategy.name }}</h1>
+        <p class="text-secondary mb-0">{{ explanation.summary }}</p>
+      </div>
+      <div class="d-flex gap-2 align-items-start">
+        <a class="btn btn-outline-info" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Ver avisos</a>
+        <button class="btn btn-outline-light" type="button" onclick="window.close()">Cerrar</button>
+      </div>
+    </div>
+
+    <div class="strategy-detail-grid">
+      <article class="strategy-detail-box">
+        <h2 class="h5">Universo que analiza</h2>
+        <p>{{ explanation.universe }}</p>
+      </article>
+
+      <article class="strategy-detail-box">
+        <h2 class="h5">Datos e indicadores que utiliza</h2>
+        <ul>
+          {% for item in explanation.data %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="strategy-detail-box strategy-detail-box-wide">
+        <h2 class="h5">Filtros principales</h2>
+        <ul class="strategy-detail-list">
+          {% for item in explanation.filters %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="strategy-detail-box strategy-detail-box-wide">
+        <h2 class="h5">Como usarla manualmente</h2>
+        {% if explanation.manual %}
+          {% for paragraph in explanation.manual %}
+            <p>{{ paragraph }}</p>
+          {% endfor %}
+        {% else %}
+          <p>Abre la grafica del activo, revisa los indicadores indicados en esta ficha y comprueba que se cumplen los filtros principales antes de tomar cualquier decision. El aviso debe entenderse como una propuesta tecnica que necesita revision visual y gestion de riesgo.</p>
+        {% endif %}
+      </article>
+
+      <article class="strategy-detail-box">
+        <h2 class="h5">Como ordena los candidatos</h2>
+        <p>{{ explanation.score }}</p>
+      </article>
+
+      <article class="strategy-detail-box">
+        <h2 class="h5">Salida, stop y riesgo</h2>
+        <p>{{ explanation.risk }}</p>
+      </article>
+    </div>
+
+    <div class="alert alert-warning mt-4 mb-0">
+      Esta ficha describe la logica del codigo actual. No es asesoramiento financiero y puede cambiar si se modifican los parametros de la estrategia.
+    </div>
+  </div>
+</section>
+{% endblock %}

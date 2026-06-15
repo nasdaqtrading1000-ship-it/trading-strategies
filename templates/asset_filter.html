@@ -179,10 +179,10 @@
                   <td>{{ asset.market }}</td>
                   <td>{{ asset.sector }}</td>
                   <td>{{ "%.2f"|format(asset.price) }} USD</td>
-                  <td>{{ "%.1f"|format(asset.money_volume_selected / 1000000000) }} B USD</td>
-                  <td>{{ "%.1f"|format(asset.day_money_volume_selected / 1000000000) }} B USD</td>
+                  <td>{{ asset.money_volume_selected|money_usd }}</td>
+                  <td>{{ asset.day_money_volume_selected|money_usd }}</td>
                   <td>{{ "%.2f"|format(asset.day_to_month_volume_ratio) }}x</td>
-                  <td>{{ "%.1f"|format(asset.week_money_volume_selected / 1000000000) }} B USD</td>
+                  <td>{{ asset.week_money_volume_selected|money_usd }}</td>
                 </tr>
               {% else %}
                 <tr>

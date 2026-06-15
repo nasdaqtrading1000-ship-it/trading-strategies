@@ -8,6 +8,7 @@ __pycache__/
 Estrategias/.env
 Estrategias/historico_txt/
 Estrategias/logs/
+Estrategias/operaciones_simuladas/
 Estrategias/salidas_txt/*.txt
 !Estrategias/salidas_txt/.gitkeep
 Estrategias/sent_signals.json

@@ -12,7 +12,7 @@
         <p class="lead text-secondary mb-4">Compara cada estrategia, revisa su enfoque y accede al canal correspondiente desde un unico panel profesional.</p>
         <div class="d-flex gap-2 flex-wrap">
           <a class="btn btn-info btn-lg fw-semibold" href="#estrategias">Ver estrategias</a>
-          <a class="btn btn-outline-info btn-lg fw-semibold" href="{{ url_for('asset_filter') }}">Filtrado de activos</a>
+          <a class="btn btn-outline-info btn-lg fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
           <a class="btn btn-outline-light btn-lg" href="#riesgo">Aviso de riesgo</a>
         </div>
       </div>
@@ -64,6 +64,44 @@
   </div>
 </section>
 
+<section class="container pt-4">
+  <div class="strategy-card p-4">
+    <div class="section-heading mb-3">
+      <div>
+        <p class="eyebrow mb-2">Universo filtrado</p>
+        <h2 class="h4 fw-bold mb-0">20 activos mayor volumen monetario</h2>
+        <p class="text-secondary small mb-0 mt-2">
+          Ultima actualizacion:
+          <strong>{{ top_money_volume_updated_at or "Sin actualizar" }}</strong>
+        </p>
+      </div>
+      <p class="text-secondary mb-0">Base usada por las estrategias fundamentales.</p>
+    </div>
+    {% if top_money_volume_assets %}
+      <div class="row g-2">
+        {% for asset in top_money_volume_assets %}
+          <div class="col-sm-6 col-lg-4 col-xl-3">
+            <div class="d-flex gap-2 align-items-start border border-secondary-subtle rounded-2 p-2 h-100">
+              <span class="text-info fw-semibold small">{{ asset.rank }}.</span>
+              <div class="min-w-0">
+                <strong class="d-block">{{ asset.symbol }}</strong>
+                <span class="text-secondary small">{{ asset.name }}</span>
+                {% if asset.source == "tickers" %}
+                  <span class="d-block text-warning small">Desde tickers.txt</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info border-0 mb-0">
+        Aun no hay activos cargados. Ejecuta primero el generador de tickers o la actualizacion local de mercado.
+      </div>
+    {% endif %}
+  </div>
+</section>
+
 <section id="estrategias" class="container py-5">
   <div class="section-heading mb-4">
     <div>
@@ -74,12 +112,42 @@
   </div>
 
   {% if strategies %}
+    <div class="totalizer-box mb-3">
+      <div>
+        <span class="text-secondary small d-block">Totalizador</span>
+        <strong>{{ totalizer.display }}</strong>
+      </div>
+      <p class="mb-0 text-secondary">
+        {% if totalizer.count %}
+          Sumatoria de {{ totalizer.count }} estrategias seleccionadas.
+        {% else %}
+          Selecciona estrategias desde admin para incluirlas.
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="strategy-return-summary mb-4">
+      {% for strategy in strategies %}
+        <a class="strategy-return-item" href="#strategy-{{ strategy.id }}">
+          <span title="{{ strategy.name }}">{{ strategy.short_name }}</span>
+          <strong class="{{ strategy.return_badge_class }}" title="{{ strategy.historical_return_public }}">{{ strategy.return_badge }}</strong>
+        </a>
+      {% endfor %}
+    </div>
+
     <div class="row g-4">
       {% for strategy in strategies %}
         <div class="col-md-6 col-xl-4">
-          <article class="strategy-card h-100 p-4">
+          <article class="strategy-card h-100 p-4" id="strategy-{{ strategy.id }}">
             <div class="d-flex justify-content-between gap-3 align-items-start mb-3">
-              <h2 class="h4 mb-0">{{ strategy.name }}</h2>
+              <div class="strategy-card-title">
+                <span class="strategy-short-badge">{{ strategy.short_name }}</span>
+                <h2 class="h4 mb-0">
+                  <a class="strategy-title-button" href="{{ url_for('strategy_details', strategy_id=strategy.id) }}" target="_blank" rel="noopener">
+                    {{ strategy.name }}
+                  </a>
+                </h2>
+              </div>
               <span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
             </div>
             <p class="text-secondary">{{ strategy.description }}</p>
@@ -94,10 +162,10 @@
               </div>
               <div>
                 <dt>Rentabilidad historica</dt>
-                <dd>{{ strategy.historical_return }}</dd>
+                <dd>{{ strategy.historical_return_public }}</dd>
               </div>
               <div>
-                <dt>Ultima actualizacion de avisos</dt>
+                <dt>Ultima incorporacion de tickets</dt>
                 <dd>{{ strategy.signals_updated_at or "Sin actualizar" }}</dd>
               </div>
               <div>
@@ -115,38 +183,14 @@
             </dl>
             <div class="strategy-actions">
               {% if strategy.signals_txt_name %}
-                <button class="btn btn-outline-info w-100 fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#signals-{{ strategy.id }}" aria-expanded="false" aria-controls="signals-{{ strategy.id }}">
+                <a class="btn btn-outline-info w-100 fw-semibold" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">
                   Ver avisos actuales{% if strategy.signals_count %} ({{ strategy.signals_count }}){% endif %}
-                </button>
+                </a>
               {% endif %}
               {% if strategy.has_telegram and strategy.telegram_url %}
                 <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
                   Acceder al canal
                 </a>
-              {% endif %}
-              {% if strategy.signals_txt_name %}
-                <div class="collapse signals-collapse" id="signals-{{ strategy.id }}">
-                  <div class="signals-panel">
-                    {% if strategy.signals %}
-                      <ul class="signals-list">
-                        {% for signal in strategy.signals %}
-                          <li>
-                            {% if signal.symbol %}
-                              <a class="signal-link" href="{{ url_for('strategy_diagnostic', strategy_id=strategy.id, symbol=signal.symbol) }}" target="_blank" rel="noopener">
-                                <span class="signal-symbol">{{ signal.symbol }}</span>
-                                <span>{{ signal.line }}</span>
-                              </a>
-                            {% else %}
-                              {{ signal.line }}
-                            {% endif %}
-                          </li>
-                        {% endfor %}
-                      </ul>
-                    {% else %}
-                      <p class="text-secondary small mb-0">No hay avisos activos ahora mismo.</p>
-                    {% endif %}
-                  </div>
-                </div>
               {% endif %}
             </div>
           </article>
@@ -174,15 +218,8 @@
 
 {% block scripts %}
 <script>
-  document.querySelectorAll(".signals-collapse").forEach((panel) => {
-    const card = panel.closest(".strategy-card");
-    panel.addEventListener("show.bs.collapse", () => card && card.classList.add("signals-open"));
-    panel.addEventListener("hidden.bs.collapse", () => card && card.classList.remove("signals-open"));
-  });
-
   setInterval(() => {
-    const openSignals = document.querySelector(".signals-collapse.show");
-    if (document.hidden || openSignals) return;
+    if (document.hidden) return;
     sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY || 0));
     window.location.reload();
   }, 60000);

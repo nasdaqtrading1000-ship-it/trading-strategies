@@ -8,13 +8,14 @@ Necesita DATABASE_URL en .env apuntando a la base PostgreSQL de Render.
 No sube archivos por Git y no reinicia la web.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import json
 import os
 from pathlib import Path
 import re
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from config_env import load_local_env
 from db import engine
@@ -24,6 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent
 SIGNALS_DIR = BASE_DIR / "Estrategias" / "salidas_txt"
 STATUS_FILE = BASE_DIR / "Estrategias" / "strategy_run_status.json"
 SELECTION_FILE = BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"
+TOP_MONEY_VOLUME_FILE = BASE_DIR / "Estrategias" / "top_money_volume_assets.txt"
 TXT_RE = re.compile(r"^[^\\/]+\.txt$", re.IGNORECASE)
 
 STRATEGIES = [
@@ -54,6 +56,7 @@ def main():
 
     ensure_strategy_signals_table()
     ensure_strategy_status_columns()
+    ensure_top_money_volume_table()
     pruned = prune_old_signals()
     if pruned:
         print(f"Senales antiguas limpiadas de PostgreSQL: {pruned}")
@@ -80,6 +83,8 @@ def main():
 
     print("")
     print(f"Sincronizacion terminada: {total_files} TXT, {total_lines} lineas, {inserted} nuevas.")
+    top_count = sync_top_money_volume_assets()
+    print(f"Top volumen monetario actualizado en PostgreSQL: {top_count}")
     status_count = sync_strategy_status()
     print(f"Estados de estrategias actualizados en PostgreSQL: {status_count}")
     return 0
@@ -206,6 +211,83 @@ def ensure_strategy_status_columns():
             )
 
 
+def ensure_top_money_volume_table():
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS top_money_volume_assets (
+                    asset_rank INTEGER PRIMARY KEY,
+                    symbol TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    market TEXT NOT NULL DEFAULT '',
+                    price NUMERIC NOT NULL DEFAULT 0,
+                    money_volume NUMERIC NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+
+
+def sync_top_money_volume_assets():
+    rows = read_top_money_volume_assets()
+    if not rows:
+        return 0
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with engine.begin() as connection:
+        connection.execute(text("DELETE FROM top_money_volume_assets"))
+        for row in rows:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO top_money_volume_assets
+                    (asset_rank, symbol, name, market, price, money_volume, updated_at)
+                    VALUES
+                    (:asset_rank, :symbol, :name, :market, :price, :money_volume, :updated_at)
+                    """
+                ),
+                {
+                    **row,
+                    "updated_at": now,
+                },
+            )
+    return len(rows)
+
+
+def read_top_money_volume_assets():
+    if not TOP_MONEY_VOLUME_FILE.exists() or not TOP_MONEY_VOLUME_FILE.is_file():
+        return []
+
+    rows = []
+    for raw_line in TOP_MONEY_VOLUME_FILE.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = [part.strip() for part in line.split("|")]
+        if len(parts) < 6:
+            continue
+        rows.append(
+            {
+                "asset_rank": parse_int(parts[0], len(rows) + 1),
+                "symbol": parts[1].upper(),
+                "name": parts[2],
+                "market": parts[3],
+                "price": parse_float(parts[4]),
+                "money_volume": parse_float(parts[5]),
+            }
+        )
+    return rows
+
+
+def parse_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def prune_old_signals():
     try:
         retention_days = int(os.environ.get("TRADING_SIGNAL_RETENTION_DAYS", "30"))
@@ -247,16 +329,41 @@ def strategy_column_exists(connection, column_name):
 
 
 def sync_file(path):
-    lines = [
+    lines = list(dict.fromkeys(
         line.strip()
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
-    ]
+    ))
     if not lines:
         return 0, 0
 
     inserted = 0
+    lines_by_date = {}
+    for line in lines:
+        signal_date = signal_date_from_line(line)
+        if signal_date:
+            lines_by_date.setdefault(signal_date, set()).add(line)
+
     with engine.begin() as connection:
+        for signal_date, current_lines in lines_by_date.items():
+            existing_rows = connection.execute(
+                text(
+                    """
+                    SELECT id, line
+                    FROM strategy_signals
+                    WHERE txt_name = :txt_name
+                      AND signal_date = :signal_date
+                    """
+                ),
+                {"txt_name": path.name, "signal_date": signal_date},
+            ).mappings().fetchall()
+            for row in existing_rows:
+                if row["line"] not in current_lines:
+                    connection.execute(
+                        text("DELETE FROM strategy_signals WHERE id = :id"),
+                        {"id": row["id"]},
+                    )
+
         for line in lines:
             signal_date = signal_date_from_line(line)
             if not signal_date:
@@ -287,7 +394,7 @@ def sync_file(path):
                     "txt_name": path.name,
                     "signal_date": signal_date,
                     "line": line,
-                    "created_at": datetime.utcnow(),
+                    "created_at": datetime.now(UTC).replace(tzinfo=None),
                 },
             )
             inserted += 1
@@ -310,12 +417,32 @@ def sync_strategy_status():
     updated = 0
     with engine.begin() as connection:
         for name, item in strategies.items():
-            status = "OK" if item.get("ok") else "ERROR"
+            if item.get("running"):
+                status = "RUNNING"
+            else:
+                status = "OK" if item.get("ok") else "ERROR"
             error = item.get("error", "")
-            message = "" if item.get("ok") else (error or "La estrategia termino con error.")
-            result = connection.execute(
-                text(
+            if status == "RUNNING":
+                message = "En ejecucion"
+                statement = """
+                    UPDATE strategies
+                    SET run_status = :run_status,
+                        run_message = :run_message,
+                        run_returncode = :run_returncode
+                    WHERE name = :name
+                       OR python_file = :python_file
+                       OR signals_txt_name = :txt_name
                     """
+                params = {
+                    "name": name,
+                    "python_file": item.get("file", ""),
+                    "txt_name": item.get("txt", ""),
+                    "run_status": status,
+                    "run_message": message,
+                    "run_returncode": item.get("returncode"),
+                }
+            elif status == "OK":
+                statement = """
                     UPDATE strategies
                     SET run_status = :run_status,
                         run_message = :run_message,
@@ -326,18 +453,38 @@ def sync_strategy_status():
                        OR python_file = :python_file
                        OR signals_txt_name = :txt_name
                     """
-                ),
-                {
+                params = {
+                    "name": name,
+                    "python_file": item.get("file", ""),
+                    "txt_name": item.get("txt", ""),
+                    "run_status": status,
+                    "run_message": "",
+                    "run_at": parse_status_datetime(item.get("ran_at", "")),
+                    "run_txt_updated": 1 if item.get("txt_updated") else 0,
+                    "run_returncode": item.get("returncode"),
+                }
+            else:
+                message = error or "La estrategia termino con error."
+                statement = """
+                    UPDATE strategies
+                    SET run_status = :run_status,
+                        run_message = :run_message,
+                        run_txt_updated = 0,
+                        run_returncode = :run_returncode
+                    WHERE name = :name
+                       OR python_file = :python_file
+                       OR signals_txt_name = :txt_name
+                    """
+                params = {
                     "name": name,
                     "python_file": item.get("file", ""),
                     "txt_name": item.get("txt", ""),
                     "run_status": status,
                     "run_message": message[:1000],
-                    "run_at": parse_status_datetime(item.get("ran_at", "")),
-                    "run_txt_updated": 1 if item.get("txt_updated") else 0,
                     "run_returncode": item.get("returncode"),
-                },
-            )
+                }
+
+            result = connection.execute(text(statement), params)
             updated += result.rowcount or 0
     return updated
 
@@ -370,4 +517,8 @@ def normalize_key(value):
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except SQLAlchemyError as error:
+        print(f"No se pudo conectar o sincronizar PostgreSQL: {error}")
+        raise SystemExit(1)

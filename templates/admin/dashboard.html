@@ -195,7 +195,7 @@
               </td>
               <td><span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span></td>
               <td>{{ strategy.signal_frequency }}</td>
-              <td>{{ strategy.historical_return }}</td>
+              <td>{{ strategy.historical_return_public or strategy.historical_return }}</td>
               <td>
                 {% if strategy.is_active %}
                   <span class="badge text-bg-success">Activa</span>
@@ -206,6 +206,9 @@
                   <span class="badge text-bg-info d-block mt-2">
                     Auto {{ strategy.schedule_start_time }}-{{ strategy.schedule_end_time }} / {{ strategy.schedule_interval_minutes }}m
                   </span>
+                {% endif %}
+                {% if strategy.include_in_totalizer %}
+                  <span class="badge text-bg-primary d-block mt-2">Totalizador</span>
                 {% endif %}
                 {% if strategy.schedule_last_status %}
                   <span class="badge {% if strategy.schedule_last_status == 'OK' %}text-bg-success{% elif strategy.schedule_last_status == 'RUNNING' %}text-bg-warning{% else %}text-bg-danger{% endif %} d-block mt-2">
@@ -254,7 +257,7 @@
         <div class="col-md-3"><span class="text-secondary small d-block">Universo base</span><strong>{{ update.base_universe or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Tickers estrategias</span><strong>{{ update.strategy_tickers or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Anadidos desde estrategias</span><strong>{{ update.added_strategy_tickers or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Metricas Alpaca</span><strong>{{ update.metrics or 0 }}</strong></div>
+        <div class="col-md-3"><span class="text-secondary small d-block">Metricas de mercado</span><strong>{{ update.metrics or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Guardados</span><strong>{{ update.saved_rows or 0 }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Modo</span><strong>{{ update.update_mode or "tanda" }}</strong></div>
         <div class="col-md-3"><span class="text-secondary small d-block">Limite</span><strong>{{ update.max_symbols }}</strong></div>

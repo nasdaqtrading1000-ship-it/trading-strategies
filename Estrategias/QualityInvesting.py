@@ -24,14 +24,17 @@ from fmp_client import fmp_get_json
 from datetime import datetime, timedelta, UTC
 
 import pandas as pd
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
+from alpaca_request import get_stock_bars_data
 from alpaca.data.timeframe import TimeFrame
+from analysis_debug import log_strategy_summary, log_symbol_decision
 
 
 # Archivo de tickers.
 TICKERS_FILE = "tickers.txt"
+CONFIG_FILE = "runner_config.txt"
 
 # Histórico de precio.
 LOOKBACK_DAYS = 180
@@ -69,18 +72,38 @@ ALPACA_SECRET_KEY = os.environ["ALPACA_SECRET_KEY"]
 FMP_API_KEY = os.environ["FMP_API_KEY"]
 
 
+def read_config_int(key, default):
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+            for raw_line in file:
+                line = raw_line.split("#", 1)[0].strip()
+                if not line or "=" not in line:
+                    continue
+                name, value = [part.strip() for part in line.split("=", 1)]
+                if name.upper() == key.upper():
+                    return max(1, int(value))
+    except (OSError, ValueError):
+        return default
+    return default
+
+
 def load_tickers(path):
     """
-    Lee tickers desde archivo de texto.
+    Lee tickers desde archivo de texto respetando el orden por volumen.
     """
+    ticker_limit = read_config_int("FMP_TICKER_LIMIT", 20)
+    tickers = []
+    seen = set()
     with open(path, "r", encoding="utf-8") as file:
-        return sorted(
-            {
-                line.strip().upper()
-                for line in file
-                if line.strip() and not line.strip().startswith("#")
-            }
-        )
+        for line in file:
+            symbol = line.strip().upper()
+            if not symbol or symbol.startswith("#") or symbol in seen:
+                continue
+            seen.add(symbol)
+            tickers.append(symbol)
+            if len(tickers) >= ticker_limit:
+                break
+    return tickers
 
 
 def get_daily_bars(client, symbols):
@@ -95,12 +118,13 @@ def get_daily_bars(client, symbols):
     request = StockBarsRequest(
         symbol_or_symbols=symbols,
         timeframe=TimeFrame.Day,
+        adjustment=Adjustment.RAW,
         start=datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS),
         end=datetime.now(UTC),
         feed=DataFeed.IEX,
     )
 
-    bars = client.get_stock_bars(request).data
+    bars = get_stock_bars_data(client, request)
     data = {}
 
     for symbol, symbol_bars in bars.items():
@@ -465,23 +489,32 @@ def find_quality_candidates():
     price_data = get_daily_bars(client, symbols)
 
     candidates = []
+    with_data_count = 0
+    accepted_count = 0
 
     for symbol in symbols:
         df = price_data.get(symbol)
 
         if df is None or df.empty:
+            log_symbol_decision("Quality Investing", symbol, "SIN DATOS", "Alpaca no devolvio velas")
             continue
 
+        with_data_count += 1
         try:
             fundamentals = get_fundamentals(symbol)
         except Exception as error:
             print(f"No se pudieron obtener fundamentales de {symbol}: {error}")
+            log_symbol_decision("Quality Investing", symbol, "ERROR FMP", str(error))
             continue
 
         result = analyze_symbol(symbol, df, fundamentals)
 
         if result:
+            accepted_count += 1
+            log_symbol_decision("Quality Investing", symbol, "OK", format_candidate(result))
             candidates.append(result)
+        else:
+            log_symbol_decision("Quality Investing", symbol, "DESCARTADO", "No cumple calidad, margen, deuda, liquidez o tendencia")
 
     candidates = sorted(
         candidates,
@@ -489,7 +522,9 @@ def find_quality_candidates():
         reverse=True,
     )
 
-    return candidates[:TOP_N]
+    selected = candidates[:TOP_N]
+    log_strategy_summary("Quality Investing", len(symbols), with_data_count, accepted_count, len(selected))
+    return selected
 
 
 def format_candidate(candidate):

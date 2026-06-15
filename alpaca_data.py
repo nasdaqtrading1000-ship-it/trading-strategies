@@ -19,10 +19,11 @@ def get_daily_asset_metrics(symbols, lookback_days=90, batch_size=100):
         return {}, "csv", diagnostics
 
     try:
-        from alpaca.data.enums import DataFeed
+        from alpaca.data.enums import Adjustment, DataFeed
         from alpaca.data.historical import StockHistoricalDataClient
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame
+        from Estrategias.alpaca_request import get_stock_bars_data
     except ImportError:
         diagnostics["last_error"] = "No esta instalado alpaca-py."
         return {}, "csv", diagnostics
@@ -38,20 +39,21 @@ def get_daily_asset_metrics(symbols, lookback_days=90, batch_size=100):
         request = StockBarsRequest(
             symbol_or_symbols=batch,
             timeframe=TimeFrame.Day,
+            adjustment=Adjustment.RAW,
             start=datetime.now(UTC) - timedelta(days=lookback_days),
             end=datetime.now(UTC),
             feed=DataFeed.IEX,
         )
 
         try:
-            bars = client.get_stock_bars(request)
+            bars_data = get_stock_bars_data(client, request)
         except Exception as exc:
             diagnostics["failed_batches"] += 1
             diagnostics["last_error"] = str(exc)
             print(f"Alpaca batch omitido ({len(batch)} simbolos): {exc}")
             continue
 
-        for symbol, symbol_bars in bars.data.items():
+        for symbol, symbol_bars in bars_data.items():
             metric = _bars_to_metrics(symbol_bars)
             if metric:
                 metrics[symbol] = metric

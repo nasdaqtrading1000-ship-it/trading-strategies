@@ -1,17 +1,17 @@
-﻿"""
+"""
 Estrategia Opening Range Breakout.
 
 Objetivo:
-- Detectar rupturas del rango inicial de la sesiÃ³n.
+- Detectar rupturas del rango inicial de la sesión.
 - Usar los primeros minutos del mercado como zona clave.
-- Enviar seÃ±al cuando el precio rompe ese rango con volumen.
+- Enviar señal cuando el precio rompe ese rango con volumen.
 
 Este script NO compra ni vende.
-Solo analiza y muestra seÃ±ales.
+Solo analiza y muestra señales.
 
 Horario USA:
 - Mercado abre a las 09:30 Nueva York.
-- El opening range tÃ­pico puede ser de 5, 15 o 30 minutos.
+- El opening range típico puede ser de 5, 15 o 30 minutos.
 """
 
 import os
@@ -22,10 +22,12 @@ from datetime import datetime, timedelta, time, UTC
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from alpaca.data.enums import DataFeed
+from alpaca.data.enums import Adjustment, DataFeed
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
+from alpaca_request import get_stock_bars_data
 from alpaca.data.timeframe import TimeFrame
+from analysis_debug import log_strategy_summary, log_symbol_decision
 
 
 # Archivo de tickers.
@@ -41,22 +43,22 @@ MARKET_CLOSE = time(16, 0)
 # Minutos que forman el opening range.
 OPENING_RANGE_MINUTES = 15
 
-# Descargamos barras intradÃ­a del dÃ­a actual.
+# Descargamos barras intradía del día actual.
 LOOKBACK_DAYS = 3
 
-# ConfirmaciÃ³n de volumen.
+# Confirmación de volumen.
 # La vela de ruptura debe tener volumen al menos X veces
-# la media de volumen de las velas previas del dÃ­a.
+# la media de volumen de las velas previas del día.
 MIN_VOLUME_MULTIPLIER = 1.5
 
-# Margen mÃ­nimo por encima/debajo del rango.
+# Margen mínimo por encima/debajo del rango.
 # 0.05 = 0.05%.
 MIN_BREAKOUT_PCT = 0.05
 
-# Evita activos demasiado ilÃ­quidos intradÃ­a.
+# Evita activos demasiado ilíquidos intradía.
 MIN_OPENING_RANGE_DOLLAR_VOLUME = 1_000_000
 
-# MÃ¡ximo de seÃ±ales.
+# Máximo de señales.
 TOP_N = 20
 
 # Alpaca.
@@ -115,7 +117,7 @@ def get_intraday_bars(client, symbols):
     """
     Descarga barras de 1 minuto desde Alpaca.
 
-    Usamos TimeFrame.Minute porque esta estrategia es intradÃ­a.
+    Usamos TimeFrame.Minute porque esta estrategia es intradía.
     """
     start = datetime.now(UTC) - timedelta(days=LOOKBACK_DAYS)
     end = datetime.now(UTC)
@@ -123,12 +125,13 @@ def get_intraday_bars(client, symbols):
     request = StockBarsRequest(
         symbol_or_symbols=symbols,
         timeframe=TimeFrame.Minute,
+        adjustment=Adjustment.RAW,
         start=start,
         end=end,
         feed=DataFeed.IEX,
     )
 
-    bars = client.get_stock_bars(request).data
+    bars = get_stock_bars_data(client, request)
     data = {}
 
     for symbol, symbol_bars in bars.items():
@@ -161,13 +164,13 @@ def only_today_regular_session(df):
     """
     market_open, _range_end, market_close = get_market_times_for_today()
 
-    # Convertimos Ã­ndice UTC a NY para comparar horarios.
+    # Convertimos índice UTC a NY para comparar horarios.
     data = df.copy()
     data["ny_time"] = data.index.tz_convert(NY_TZ)
 
 
     # En pandas no se puede usar 'and' con Series,
-    # asÃ­ que lo hacemos correctamente:
+    # así que lo hacemos correctamente:
     mask = (
         (data["ny_time"] >= market_open)
         & (data["ny_time"] <= market_close)
@@ -183,7 +186,7 @@ def analyze_symbol(symbol, df):
     Condiciones:
     - Hay barras suficientes de hoy.
     - Ya ha terminado el opening range.
-    - El precio rompe mÃ¡ximo o mÃ­nimo del rango.
+    - El precio rompe máximo o mínimo del rango.
     - La ruptura se confirma con volumen.
     - El rango inicial tuvo volumen monetario suficiente.
     """
@@ -247,8 +250,8 @@ def analyze_symbol(symbol, df):
     if not volume_ok:
         return None
 
-    # SeÃ±al LONG:
-    # precio rompe por encima del mÃ¡ximo del opening range.
+    # Señal LONG:
+    # precio rompe por encima del máximo del opening range.
     if long_breakout_pct >= MIN_BREAKOUT_PCT:
         side = "LONG"
         breakout_pct = long_breakout_pct
@@ -265,8 +268,8 @@ def analyze_symbol(symbol, df):
         take_profit_1 = price + risk_per_share * 1.5
         take_profit_2 = price + risk_per_share * 2.5
 
-    # SeÃ±al SHORT:
-    # precio rompe por debajo del mÃ­nimo del opening range.
+    # Señal SHORT:
+    # precio rompe por debajo del mínimo del opening range.
     elif short_breakout_pct >= MIN_BREAKOUT_PCT:
         side = "SHORT"
         breakout_pct = short_breakout_pct
@@ -312,7 +315,7 @@ def analyze_symbol(symbol, df):
 
 def find_opening_range_breakouts():
     """
-    FunciÃ³n principal.
+    Función principal.
 
     1. Lee tickers.
     2. Descarga velas de 1 minuto.
@@ -330,17 +333,25 @@ def find_opening_range_breakouts():
     data = get_intraday_bars(client, symbols)
 
     signals = []
+    with_data_count = 0
+    accepted_count = 0
 
     for symbol in symbols:
         df = data.get(symbol)
 
         if df is None or df.empty:
+            log_symbol_decision("Opening Range BreaKout", symbol, "SIN DATOS", "Alpaca no devolvio velas intradia")
             continue
 
+        with_data_count += 1
         result = analyze_symbol(symbol, df)
 
         if result:
+            accepted_count += 1
+            log_symbol_decision("Opening Range BreaKout", symbol, "OK", format_signal(result))
             signals.append(result)
+        else:
+            log_symbol_decision("Opening Range BreaKout", symbol, "DESCARTADO", "No rompe rango inicial con volumen o tendencia suficiente")
 
     signals = sorted(
         signals,
@@ -348,12 +359,14 @@ def find_opening_range_breakouts():
         reverse=True,
     )
 
-    return signals[:TOP_N]
+    selected = signals[:TOP_N]
+    log_strategy_summary("Opening Range BreaKout", len(symbols), with_data_count, accepted_count, len(selected))
+    return selected
 
 
 def format_signal(signal):
     """
-    Formatea una seÃ±al para imprimir o enviar por Telegram.
+    Formatea una señal para imprimir o enviar por Telegram.
     """
     return (
         f"{signal['side']} | {signal['symbol']} | "
@@ -372,15 +385,15 @@ if __name__ == "__main__":
     if not market_is_open():
         output_path, output_count = write_results_to_txt("OpeningRangeBreaKout", [], format_signal)
         print(f"TXT actualizado: {output_path} ({output_count})")
-        print("Mercado cerrado. Esta estrategia se usa durante la sesiÃ³n regular.")
+        print("Mercado cerrado. Esta estrategia se usa durante la sesión regular.")
     else:
         results = find_opening_range_breakouts()
         output_path, output_count = write_results_to_txt("OpeningRangeBreaKout", results, format_signal)
         print(f"TXT actualizado: {output_path} ({output_count})")
 
         if not results:
-            print("No hay seÃ±ales Opening Range Breakout con los filtros actuales.")
+            print("No hay señales Opening Range Breakout con los filtros actuales.")
         else:
-            print("SeÃ±ales Opening Range Breakout:")
+            print("Señales Opening Range Breakout:")
             for signal in results:
                 print(format_signal(signal))

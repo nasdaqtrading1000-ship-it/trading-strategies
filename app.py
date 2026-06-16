@@ -1160,14 +1160,49 @@ def format_money_usd(value):
     return f"{amount:.0f} USD"
 
 
+def format_signed_money_usd(value):
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+    sign = "+" if amount >= 0 else "-"
+    return f"{sign}{format_money_usd(abs(amount))}"
+
+
 def parse_return_percent(value):
-    match = re.search(r"[-+]?\d+(?:[.,]\d+)?", str(value or ""))
+    match = re.search(r"([-+]?\d+(?:[.,]\d+)?)\s*%", str(value or ""))
     if not match:
         return 0.0
     try:
-        return float(match.group(0).replace(",", "."))
+        return float(match.group(1).replace(",", "."))
     except ValueError:
         return 0.0
+
+
+def parse_profit_usd(value):
+    text_value = str(value or "")
+    match = re.search(r"([-+]?\d+(?:[.,]\d+)?)\s*USD", text_value, re.IGNORECASE)
+    if not match:
+        return 0.0
+    try:
+        return float(match.group(1).replace(",", "."))
+    except ValueError:
+        return 0.0
+
+
+def has_profit_usd(value):
+    return bool(re.search(r"[-+]?\d+(?:[.,]\d+)?\s*USD", str(value or ""), re.IGNORECASE))
+
+
+def parse_strategy_capital_usd(value):
+    text_value = str(value or "")
+    match = re.search(r"capital(?:\s+(?:inicial|actual))?\s+([-+]?\d+(?:[.,]\d+)?)\s*USD", text_value, re.IGNORECASE)
+    if not match:
+        return 50_000.0
+    try:
+        return float(match.group(1).replace(",", "."))
+    except ValueError:
+        return 50_000.0
 
 
 STRATEGY_SHORT_NAMES = {
@@ -1210,6 +1245,9 @@ def strategy_return_badge(value):
         return "SOS"
     if ops_match and int(ops_match.group(1)) <= 0:
         return "SOS"
+    if has_profit_usd(text_value):
+        profit_usd = parse_profit_usd(text_value)
+        return f"{profit_usd:+.0f} USD"
     percent_match = re.search(r"[-+]?\d+(?:[.,]\d+)?\s*%", text_value)
     if percent_match:
         return percent_match.group(0).replace(",", ".").replace(" ", "")
@@ -1230,12 +1268,18 @@ def build_totalizer(strategies):
         for strategy in strategies
         if int(strategy.get("include_in_totalizer") or 0) == 1
     ]
-    total = sum(parse_return_percent(strategy.get("historical_return")) for strategy in selected)
+    total_usd = sum(parse_profit_usd(strategy.get("historical_return")) for strategy in selected)
+    total_capital = sum(parse_strategy_capital_usd(strategy.get("historical_return")) for strategy in selected)
+    total_pct = (total_usd / total_capital * 100) if total_capital else 0.0
     return {
         "strategies": selected,
         "count": len(selected),
-        "total": total,
-        "display": f"{total:+.2f}%",
+        "total": total_usd,
+        "capital": total_capital,
+        "capital_display": format_money_usd(total_capital),
+        "total_pct": total_pct,
+        "display": format_signed_money_usd(total_usd),
+        "pct_display": f"{total_pct:+.2f}%",
     }
 
 
@@ -1820,7 +1864,7 @@ def create_app():
             abort(404)
 
         diagnostic = build_signal_diagnostic(strategy, signal)
-        operation = simulated_operation_for_signal(strategy, signal)
+        operation = signal.get("open_operation") or simulated_operation_for_signal(strategy, signal)
         return render_template(
             "strategy_diagnostic.html",
             strategy=strategy,
@@ -1853,7 +1897,7 @@ def create_app():
         operation = None
         if selected_signal is not None:
             diagnostic = build_signal_diagnostic(strategy, selected_signal)
-            operation = simulated_operation_for_signal(strategy, selected_signal)
+            operation = selected_signal.get("open_operation") or simulated_operation_for_signal(strategy, selected_signal)
 
         return render_template(
             "strategy_signals.html",
@@ -2569,19 +2613,33 @@ def create_app():
 
     def attach_simulated_operations_to_signals(strategy, signals):
         for signal in signals:
-            operation = simulated_operation_for_signal(strategy, signal)
+            operation = signal.get("open_operation") or simulated_operation_for_signal(strategy, signal)
             if operation:
                 signal["operation_summary"] = {
                     "status_label": operation["status_label"],
                     "profit_pct_display": operation["profit_pct_display"],
                     "profit_class": operation["profit_class"],
                 }
+                signal["is_new"] = operation_is_new_today(operation)
             else:
                 signal["operation_summary"] = {
                     "status_label": "Pendiente",
                     "profit_pct_display": "Pendiente",
                     "profit_class": "text-warning",
                 }
+                signal["is_new"] = True
+
+    def operation_is_new_today(operation):
+        value = operation.get("opened_at")
+        if not value:
+            return False
+        try:
+            opened_at = value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+        except ValueError:
+            return False
+        if opened_at.tzinfo is None:
+            opened_at = opened_at.replace(tzinfo=UTC)
+        return opened_at.astimezone(MADRID_TZ).date() == datetime.now(MADRID_TZ).date()
 
     def strategy_run_status(strategy, txt_name):
         db_status = (strategy.get("run_status") or "").strip()
@@ -3012,21 +3070,70 @@ def create_app():
             {"txt_name": txt_name, "signal_date": today},
         ).mappings().fetchall()
         if rows:
-            return deduplicate_signals([
+            return merge_open_operations_with_signals(txt_name, deduplicate_signals([
                 parse_signal_line(row["line"], row.get("created_at"))
                 for row in rows
-            ])
+            ]))
         if path is None:
-            return []
+            return merge_open_operations_with_signals(txt_name, [])
 
         try:
-            return deduplicate_signals([
+            return merge_open_operations_with_signals(txt_name, deduplicate_signals([
                 parse_signal_line(line.strip(), path.stat().st_mtime)
                 for line in path.read_text(encoding="utf-8").splitlines()
                 if line.strip() and signal_line_is_today(line.strip())
-            ])[:50]
+            ])[:50])
         except OSError:
+            return merge_open_operations_with_signals(txt_name, [])
+
+    def merge_open_operations_with_signals(txt_name, signals):
+        merged = list(signals)
+        seen = {signal_identity(signal) for signal in merged}
+        for operation in open_operations_for_txt(txt_name):
+            line = operation.get("signal_line") or operation_line_as_signal(operation)
+            signal = parse_signal_line(line, operation.get("opened_at"))
+            signal["from_open_operation"] = True
+            signal["open_operation"] = format_simulated_operation(dict(operation))
+            key = signal_identity(signal)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(signal)
+        return merged
+
+    def open_operations_for_txt(txt_name):
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT strategy_name, txt_name, symbol, direction, status,
+                           signal_date, signal_line, opened_at, closed_at,
+                           entry_price, target_price, stop_loss, shares,
+                           current_price, investment_value, profit_usd,
+                           profit_pct, close_reason, updated_at
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'OPEN'
+                    ORDER BY opened_at DESC
+                    LIMIT 100
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).mappings().fetchall()
+            return [dict(row) for row in rows]
+        except Exception:
             return []
+
+    def operation_line_as_signal(operation):
+        return (
+            f"{operation.get('symbol', '')} | "
+            f"Direccion: {operation.get('direction', '')} | "
+            f"Precio actual: {operation.get('current_price', 0)} | "
+            f"Apertura: {operation.get('entry_price', 0)} | "
+            f"Cierre: {operation.get('target_price', 0)} | "
+            f"Stop Loss: {operation.get('stop_loss', 0)} | "
+            f"Fecha: {operation.get('signal_date', '')}"
+        )
 
     def deduplicate_signals(signals):
         unique = []
@@ -3089,9 +3196,25 @@ def create_app():
             "symbol": symbol,
             "side": side,
             "fields": fields,
+            "detail_fields": detail_signal_fields(fields),
             "common": common_signal_fields(side, fields),
             "notice_datetime": format_notice_datetime(notice_time, fields),
         }
+
+    def detail_signal_fields(fields):
+        skip_names = {
+            "fecha", "direccion", "dirección", "side", "tipo",
+            "precio actual", "precio", "price", "current price",
+            "apertura", "entrada", "precio entrada", "entry",
+            "salida", "cierre", "tp1", "objetivo", "take profit", "target",
+            "stop", "stop loss", "sl",
+        }
+        detail = {}
+        for key, value in fields.items():
+            if str(key).strip().lower() in skip_names:
+                continue
+            detail[key] = value
+        return detail
 
     def format_notice_datetime(notice_time, fields):
         if notice_time:

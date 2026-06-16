@@ -832,6 +832,22 @@ html {
   background: rgba(13, 202, 240, 0.12);
 }
 
+.signal-mini-card.signal-new {
+  border-color: rgba(255, 216, 107, 0.55);
+  background: rgba(255, 216, 107, 0.08);
+}
+
+.signal-new-badge {
+  border: 1px solid rgba(255, 216, 107, 0.65);
+  border-radius: 999px;
+  color: #ffd86b;
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.18rem 0.34rem;
+  text-transform: uppercase;
+}
+
 .signal-title-tools {
   align-items: center;
   display: flex;

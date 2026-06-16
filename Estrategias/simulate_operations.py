@@ -84,6 +84,7 @@ def main():
     OPERATIONS_DIR.mkdir(parents=True, exist_ok=True)
     now = datetime.now(MADRID_TZ)
     capital_per_trade = float(os.environ.get("TRADING_SIM_TRADE_USD", "1000"))
+    strategy_capital = float(os.environ.get("TRADING_STRATEGY_CAPITAL_USD", "50000"))
 
     operations = load_operations()
     indexed = {operation["operation_key"]: operation for operation in operations}
@@ -142,7 +143,7 @@ def main():
 
     save_operations(operations)
     write_operation_txts(operations)
-    performance_rows = calculate_strategy_performance(operations)
+    performance_rows = calculate_strategy_performance(operations, strategy_capital)
     write_strategy_performance_txt(performance_rows)
     sync_operations_to_database(operations, performance_rows)
 
@@ -416,7 +417,7 @@ def write_operation_txts(operations):
     ALL_TXT.write_text("\n".join(all_lines) + ("\n" if all_lines else ""), encoding="utf-8")
 
 
-def calculate_strategy_performance(operations):
+def calculate_strategy_performance(operations, strategy_capital):
     rows = []
     now = datetime.now(MADRID_TZ).isoformat()
     for strategy in STRATEGIES:
@@ -430,13 +431,15 @@ def calculate_strategy_performance(operations):
         closed_ops = sum(1 for operation in strategy_operations if operation.get("status") == "CLOSED")
         wins = sum(1 for operation in strategy_operations if float(operation.get("profit_usd") or 0) > 0)
         losses = sum(1 for operation in strategy_operations if float(operation.get("profit_usd") or 0) < 0)
-        invested = sum(float(operation.get("entry_price") or 0) * float(operation.get("shares") or 0) for operation in strategy_operations)
         profit_usd = sum(float(operation.get("profit_usd") or 0) for operation in strategy_operations)
-        return_pct = (profit_usd / invested * 100) if invested else 0.0
+        current_capital = strategy_capital + profit_usd
+        return_pct = (profit_usd / strategy_capital * 100) if strategy_capital else 0.0
         if total_ops:
             label = (
-                f"{return_pct:+.2f}% "
-                f"({total_ops} ops, {open_ops} abiertas, {closed_ops} cerradas)"
+                f"{profit_usd:+.2f} USD "
+                f"({return_pct:+.2f}%, capital inicial {strategy_capital:.0f} USD, "
+                f"capital actual {current_capital:.2f} USD, "
+                f"{total_ops} ops, {open_ops} abiertas, {closed_ops} cerradas)"
             )
         else:
             label = "Sin operaciones"
@@ -447,7 +450,7 @@ def calculate_strategy_performance(operations):
                 "historical_return": label,
                 "return_pct": return_pct,
                 "profit_usd": profit_usd,
-                "invested": invested,
+                "invested": strategy_capital,
                 "total_ops": total_ops,
                 "open_ops": open_ops,
                 "closed_ops": closed_ops,

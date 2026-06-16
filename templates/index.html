@@ -119,7 +119,8 @@
       </div>
       <p class="mb-0 text-secondary">
         {% if totalizer.count %}
-          Sumatoria de {{ totalizer.count }} estrategias seleccionadas.
+          Beneficio / perdida acumulado de {{ totalizer.count }} estrategias seleccionadas.
+          <span class="d-block small">Capital total: {{ totalizer.capital_display }} · Rentabilidad conjunta: {{ totalizer.pct_display }}</span>
         {% else %}
           Selecciona estrategias desde admin para incluirlas.
         {% endif %}

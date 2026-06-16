@@ -16,18 +16,13 @@
       {% endif %}
     </div>
 
-    <div class="diagnostic-original mb-4">
-      <span class="text-secondary small d-block mb-2">Aviso original</span>
-      <p class="mb-0">{{ signal.line }}</p>
-    </div>
-
     <div class="row g-4">
       <div class="col-lg-5">
         <div class="diagnostic-box h-100">
-          <h2 class="h5 mb-3">Datos del aviso</h2>
-          {% if signal.fields %}
+          <h2 class="h5 mb-3">Datos especificos de la estrategia</h2>
+          {% if signal.detail_fields %}
             <dl class="diagnostic-fields">
-              {% for key, value in signal.fields.items() %}
+              {% for key, value in signal.detail_fields.items() %}
                 <div>
                   {% set help_text = technical_term_help(key) %}
                   <dt>
@@ -41,7 +36,7 @@
               {% endfor %}
             </dl>
           {% else %}
-            <p class="text-secondary mb-0">No hay campos estructurados para este aviso.</p>
+            <p class="text-secondary mb-0">No hay campos especificos adicionales para este aviso.</p>
           {% endif %}
         </div>
       </div>
@@ -157,44 +152,6 @@
         </div>
         <p class="text-secondary small mb-0 mt-3">Aviso detectado, pendiente de revision para abrir la operacion si procede.</p>
       {% endif %}
-    </div>
-
-    <div class="diagnostic-box mt-4">
-      <h2 class="h5 mb-3">Operativa comun</h2>
-      <div class="diagnostic-summary-grid">
-        <div>
-          <span>Ticker</span>
-          <strong>{{ signal.symbol }}</strong>
-        </div>
-        <div>
-          <span>Direccion <button class="term-help" type="button" data-bs-toggle="tooltip" title="LONG busca subida del precio. SHORT busca caida del precio.">?</button></span>
-          <strong>{{ signal.common.direccion or "No indicada" }}</strong>
-        </div>
-        <div>
-          <span>Precio actual <button class="term-help" type="button" data-bs-toggle="tooltip" title="Ultimo precio usado por la estrategia cuando genero el aviso.">?</button></span>
-          <strong>{{ signal.common.precio_actual or "No indicado" }}</strong>
-        </div>
-        <div>
-          <span>Apertura / entrada <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio de referencia para abrir o vigilar la operacion.">?</button></span>
-          <strong>{{ signal.common.apertura or "No indicada" }}</strong>
-        </div>
-        <div>
-          <span>Cierre / objetivo <button class="term-help" type="button" data-bs-toggle="tooltip" title="Precio objetivo o zona donde la estrategia podria cerrar con beneficio.">?</button></span>
-          <strong>{{ signal.common.cierre or "No indicado" }}</strong>
-        </div>
-        <div>
-          <span>Stop loss <button class="term-help" type="button" data-bs-toggle="tooltip" title="Nivel de salida defensiva si la operacion va en contra. Sirve para limitar perdida.">?</button></span>
-          <strong>{{ signal.common.stop or "No indicado" }}</strong>
-        </div>
-        <div>
-          <span>Estrategia</span>
-          <strong>{{ strategy.name }}</strong>
-        </div>
-        <div>
-          <span>Campos devueltos</span>
-          <strong>{{ signal.fields|length }}</strong>
-        </div>
-      </div>
     </div>
 
     <div class="d-flex gap-2 flex-wrap mt-4">

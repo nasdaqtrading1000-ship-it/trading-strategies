@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import hashlib
 import subprocess
 import sys
 import threading
@@ -639,7 +640,7 @@ def persist_single_strategy_status(strategy, running=False, result=None, now=Non
             "id": strategy_id,
             "run_status": "RUNNING",
             "run_message": "En ejecucion",
-            "run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+            "run_at": now.astimezone(UTC).replace(tzinfo=None),
             "run_txt_updated": 0,
             "run_returncode": None,
         }
@@ -649,7 +650,7 @@ def persist_single_strategy_status(strategy, running=False, result=None, now=Non
             "id": strategy_id,
             "run_status": "OK" if result.get("ok") else "ERROR",
             "run_message": result.get("message", "")[:1000],
-            "run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+            "run_at": now.astimezone(UTC).replace(tzinfo=None),
             "run_txt_updated": 1 if result.get("txt_updated") else 0,
             "run_returncode": result.get("returncode"),
         }
@@ -755,7 +756,7 @@ def mark_strategies_as_running_file(strategy_names=None):
                     """
                 ),
                 {
-                    "run_at": datetime.now(MADRID_TZ).replace(tzinfo=None),
+                    "run_at": datetime.now(UTC).replace(tzinfo=None),
                     "name": name,
                 },
             )
@@ -939,7 +940,7 @@ def record_schedule_result(task_name, run_key, result, now=None):
             ),
             {
                 "last_run_key": run_key,
-                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "last_run_at": now.astimezone(UTC).replace(tzinfo=None),
                 "last_status": "OK" if result["ok"] else "ERROR",
                 "last_message": result["message"][:1000],
                 "task_name": task_name,
@@ -963,7 +964,7 @@ def record_schedule_running(task_name, run_key, now=None):
             ),
             {
                 "last_run_key": run_key,
-                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "last_run_at": now.astimezone(UTC).replace(tzinfo=None),
                 "task_name": task_name,
             },
         )
@@ -1009,7 +1010,7 @@ def record_strategy_schedule_running(strategy_id, run_key, now=None):
             ),
             {
                 "run_key": run_key,
-                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "last_run_at": now.astimezone(UTC).replace(tzinfo=None),
                 "id": strategy_id,
             },
         )
@@ -1031,7 +1032,7 @@ def record_strategy_schedule_result(strategy_id, run_key, result, now=None):
             ),
             {
                 "run_key": run_key,
-                "last_run_at": now.astimezone(MADRID_TZ).replace(tzinfo=None),
+                "last_run_at": now.astimezone(UTC).replace(tzinfo=None),
                 "status": "OK" if result.get("ok") else "ERROR",
                 "message": result.get("message", "")[:1000],
                 "id": strategy_id,
@@ -1169,6 +1170,14 @@ def format_signed_money_usd(value):
     return f"{sign}{format_money_usd(abs(amount))}"
 
 
+def profit_color_class(value):
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+    return "text-success" if amount >= 0 else "text-danger"
+
+
 def parse_return_percent(value):
     match = re.search(r"([-+]?\d+(?:[.,]\d+)?)\s*%", str(value or ""))
     if not match:
@@ -1203,6 +1212,74 @@ def parse_strategy_capital_usd(value):
         return float(match.group(1).replace(",", "."))
     except ValueError:
         return 50_000.0
+
+
+def parse_current_capital_usd(value):
+    text_value = str(value or "")
+    match = re.search(r"capital\s+actual\s+([-+]?\d+(?:[.,]\d+)?)\s*USD", text_value, re.IGNORECASE)
+    if not match:
+        capital = parse_strategy_capital_usd(value)
+        return capital + parse_profit_usd(value)
+    try:
+        return float(match.group(1).replace(",", "."))
+    except ValueError:
+        capital = parse_strategy_capital_usd(value)
+        return capital + parse_profit_usd(value)
+
+
+def parse_operations_summary(value):
+    text_value = str(value or "")
+    match = re.search(r"(\d+)\s+ops,\s+(\d+)\s+abiertas,\s+(\d+)\s+cerradas", text_value, re.IGNORECASE)
+    if not match:
+        return ""
+    return f"{match.group(1)} ops · {match.group(2)} abiertas · {match.group(3)} cerradas"
+
+
+def format_duration_seconds(seconds):
+    try:
+        seconds = int(seconds)
+    except (TypeError, ValueError):
+        seconds = 0
+    if seconds <= 0:
+        return "Sin cierres todavia"
+    minutes = round(seconds / 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    hours = seconds / 3600
+    if hours < 24:
+        return f"{hours:.1f} h"
+    days = seconds / 86400
+    if days < 30:
+        return f"{days:.1f} dias"
+    return f"{days / 30:.1f} meses"
+
+
+def build_return_metrics(value):
+    text_value = str(value or "").strip()
+    if not text_value or "sin operaciones" in text_value.lower():
+        return {
+            "has_data": False,
+            "result": "SOS",
+            "percent": "Sin datos",
+            "capital": "Sin datos",
+            "operations": "Sin operaciones",
+            "result_class": "return-sos",
+            "percent_class": "return-sos",
+            "raw": clean_public_return_text(text_value),
+        }
+    profit_usd = parse_profit_usd(text_value)
+    return_pct = parse_return_percent(text_value)
+    current_capital = parse_current_capital_usd(text_value)
+    return {
+        "has_data": True,
+        "result": format_signed_money_usd(profit_usd),
+        "percent": f"{return_pct:+.2f}%",
+        "capital": format_money_usd(current_capital),
+        "operations": parse_operations_summary(text_value) or "Operaciones registradas",
+        "result_class": profit_color_class(profit_usd),
+        "percent_class": profit_color_class(return_pct),
+        "raw": clean_public_return_text(text_value),
+    }
 
 
 STRATEGY_SHORT_NAMES = {
@@ -1254,6 +1331,20 @@ def strategy_return_badge(value):
     return "SOS"
 
 
+def strategy_return_badge_class(value):
+    text_value = str(value or "").strip()
+    if not text_value or "sin operaciones" in text_value.lower():
+        return "return-sos"
+    ops_match = re.search(r"\((\d+)\s+ops", text_value, re.IGNORECASE)
+    if ops_match and int(ops_match.group(1)) <= 0:
+        return "return-sos"
+    if has_profit_usd(text_value):
+        return profit_color_class(parse_profit_usd(text_value))
+    if re.search(r"[-+]?\d+(?:[.,]\d+)?\s*%", text_value):
+        return profit_color_class(parse_return_percent(text_value))
+    return "return-sos"
+
+
 def clean_public_return_text(value):
     text_value = str(value or "").strip()
     if not text_value:
@@ -1280,6 +1371,8 @@ def build_totalizer(strategies):
         "total_pct": total_pct,
         "display": format_signed_money_usd(total_usd),
         "pct_display": f"{total_pct:+.2f}%",
+        "result_class": profit_color_class(total_usd),
+        "pct_class": profit_color_class(total_pct),
     }
 
 
@@ -1852,11 +1945,16 @@ def create_app():
         strategy = get_strategy_or_404(strategy_id)
         signals = read_strategy_signals(strategy["signals_txt_name"])
         normalized_symbol = normalize_signal_symbol(symbol)
+        selected_key = request.args.get("key", "")
         signal = next(
             (
                 item
                 for item in signals
-                if normalize_signal_symbol(item.get("symbol", "")) == normalized_symbol
+                if (
+                    item.get("signal_key") == selected_key
+                    if selected_key
+                    else normalize_signal_symbol(item.get("symbol", "")) == normalized_symbol
+                )
             ),
             None,
         )
@@ -1880,7 +1978,17 @@ def create_app():
         attach_simulated_operations_to_signals(strategy, signals)
 
         selected_symbol = normalize_signal_symbol(request.args.get("symbol", ""))
+        selected_key = request.args.get("key", "")
         selected_signal = None
+        if selected_key:
+            selected_signal = next(
+                (
+                    item
+                    for item in signals
+                    if item.get("signal_key") == selected_key
+                ),
+                None,
+            )
         if selected_symbol:
             selected_signal = next(
                 (
@@ -1889,7 +1997,7 @@ def create_app():
                     if normalize_signal_symbol(item.get("symbol", "")) == selected_symbol
                 ),
                 None,
-            )
+            ) if selected_signal is None else selected_signal
         if selected_signal is None and signals:
             selected_signal = signals[0]
 
@@ -1907,6 +2015,42 @@ def create_app():
             selected_symbol=normalize_signal_symbol(selected_signal.get("symbol", "")) if selected_signal else "",
             diagnostic=diagnostic,
             operation=operation,
+            selected_key=selected_signal.get("signal_key", "") if selected_signal else "",
+        )
+
+    @app.route("/estrategia/<int:strategy_id>/historial")
+    def strategy_closed_operations(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        operations = closed_operations_for_strategy(strategy.get("signals_txt_name", ""))
+        total_profit = sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
+        total_invested = sum(parse_display_float(operation.get("investment_value")) for operation in operations)
+        total_pct = (total_profit / total_invested * 100) if total_invested else 0.0
+        average_pct = (
+            sum(parse_display_float(operation.get("profit_pct")) for operation in operations) / len(operations)
+            if operations
+            else 0.0
+        )
+        winning_count = sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) > 0)
+        losing_count = sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) < 0)
+        flat_count = max(0, len(operations) - winning_count - losing_count)
+        history_totalizer = {
+            "count": len(operations),
+            "profit_display": format_signed_money_usd(total_profit),
+            "profit_class": profit_color_class(total_profit),
+            "invested_display": format_money_usd(total_invested),
+            "pct_display": f"{total_pct:+.2f}%",
+            "pct_class": profit_color_class(total_pct),
+            "average_pct_display": f"{average_pct:+.2f}%",
+            "average_pct_class": profit_color_class(average_pct),
+            "winning_count": winning_count,
+            "losing_count": losing_count,
+            "flat_count": flat_count,
+        }
+        return render_template(
+            "strategy_closed_operations.html",
+            strategy=strategy,
+            operations=operations,
+            history_totalizer=history_totalizer,
         )
 
     @app.route("/estrategia/<int:strategy_id>/funcionamiento")
@@ -2602,14 +2746,128 @@ def create_app():
         signals_updated_at = strategy_signals_updated_at_datetime(txt_name)
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
+        strategy["closed_operations_count"] = closed_operations_count(txt_name)
+        strategy["average_close_duration"] = average_close_duration(txt_name)
+        strategy["success_rate"] = closed_operations_success_rate(txt_name)
         strategy["_signals_updated_at_datetime"] = signals_updated_at
         strategy["signals_updated_at"] = format_madrid_datetime(signals_updated_at)
         strategy["run_status"] = strategy_run_status(strategy, txt_name)
         strategy["short_name"] = strategy_short_name(strategy.get("name"))
         strategy["historical_return_public"] = clean_public_return_text(strategy.get("historical_return"))
+        strategy["return_metrics"] = build_return_metrics(strategy.get("historical_return"))
         strategy["return_badge"] = strategy_return_badge(strategy.get("historical_return"))
-        strategy["return_badge_class"] = "return-sos" if strategy["return_badge"] == "SOS" else ""
+        strategy["return_badge_class"] = strategy_return_badge_class(strategy.get("historical_return"))
         return strategy
+
+    def closed_operations_count(txt_name):
+        if not txt_name:
+            return 0
+        try:
+            return g.db.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'CLOSED'
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).scalar_one()
+        except Exception:
+            return 0
+
+    def average_close_duration(txt_name):
+        if not txt_name:
+            return "Sin cierres todavia"
+        durations = closed_operation_durations(txt_name)
+        if not durations:
+            return "Sin cierres todavia"
+        return format_duration_seconds(sum(durations) / len(durations))
+
+    def closed_operations_success_rate(txt_name):
+        if not txt_name:
+            return "Sin cierres todavia"
+        profits = closed_operation_profits(txt_name)
+        if not profits:
+            return "Sin cierres todavia"
+        winners = sum(1 for profit in profits if profit > 0)
+        return f"{(winners / len(profits) * 100):.1f}%"
+
+    def closed_operation_profits(txt_name):
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT profit_usd
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'CLOSED'
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).mappings().fetchall()
+            return [parse_display_float(row.get("profit_usd")) for row in rows]
+        except Exception:
+            return closed_operation_profits_from_file(txt_name)
+
+    def closed_operation_profits_from_file(txt_name):
+        path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
+        try:
+            if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
+                return []
+            operations = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        return [
+            parse_display_float(operation.get("profit_usd"))
+            for operation in operations
+            if operation.get("txt_name") == txt_name
+            and operation.get("status") == "CLOSED"
+        ]
+
+    def closed_operation_durations(txt_name):
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT opened_at, closed_at
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'CLOSED'
+                      AND opened_at IS NOT NULL
+                      AND closed_at IS NOT NULL
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).mappings().fetchall()
+            durations = []
+            for row in rows:
+                opened_at = parse_utc_database_datetime(row.get("opened_at"))
+                closed_at = parse_utc_database_datetime(row.get("closed_at"))
+                if opened_at and closed_at and closed_at >= opened_at:
+                    durations.append((closed_at - opened_at).total_seconds())
+            return durations
+        except Exception:
+            return closed_operation_durations_from_file(txt_name)
+
+    def closed_operation_durations_from_file(txt_name):
+        path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
+        try:
+            if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
+                return []
+            operations = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        durations = []
+        for operation in operations:
+            if operation.get("txt_name") != txt_name or operation.get("status") != "CLOSED":
+                continue
+            opened_at = parse_utc_database_datetime(operation.get("opened_at"))
+            closed_at = parse_utc_database_datetime(operation.get("closed_at"))
+            if opened_at and closed_at and closed_at >= opened_at:
+                durations.append((closed_at - opened_at).total_seconds())
+        return durations
 
     def attach_simulated_operations_to_signals(strategy, signals):
         for signal in signals:
@@ -2620,14 +2878,14 @@ def create_app():
                     "profit_pct_display": operation["profit_pct_display"],
                     "profit_class": operation["profit_class"],
                 }
-                signal["is_new"] = operation_is_new_today(operation)
+                signal["is_new"] = signal.get("is_today_signal", False)
             else:
                 signal["operation_summary"] = {
                     "status_label": "Pendiente",
                     "profit_pct_display": "Pendiente",
                     "profit_class": "text-warning",
                 }
-                signal["is_new"] = True
+                signal["is_new"] = signal.get("is_today_signal", False)
 
     def operation_is_new_today(operation):
         value = operation.get("opened_at")
@@ -3017,7 +3275,7 @@ def create_app():
             if parsed is None:
                 return None
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=MADRID_TZ)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed.astimezone(UTC)
 
     def parse_schedule_int(value, default, minimum, maximum):
@@ -3088,18 +3346,41 @@ def create_app():
 
     def merge_open_operations_with_signals(txt_name, signals):
         merged = list(signals)
+        for signal in merged:
+            signal["signal_key"] = build_signal_operation_key(txt_name, signal)
         seen = {signal_identity(signal) for signal in merged}
         for operation in open_operations_for_txt(txt_name):
             line = operation.get("signal_line") or operation_line_as_signal(operation)
             signal = parse_signal_line(line, operation.get("opened_at"))
             signal["from_open_operation"] = True
             signal["open_operation"] = format_simulated_operation(dict(operation))
+            signal["signal_key"] = operation.get("operation_key") or build_signal_operation_key(txt_name, signal)
             key = signal_identity(signal)
             if key in seen:
                 continue
             seen.add(key)
             merged.append(signal)
+        add_duplicate_signal_labels(merged)
         return merged
+
+    def add_duplicate_signal_labels(signals):
+        totals = {}
+        counters = {}
+        for signal in signals:
+            symbol = normalize_signal_symbol(signal.get("symbol", ""))
+            if symbol:
+                totals[symbol] = totals.get(symbol, 0) + 1
+        for signal in signals:
+            symbol = normalize_signal_symbol(signal.get("symbol", ""))
+            if not symbol:
+                signal["display_symbol"] = signal.get("symbol", "")
+                continue
+            counters[symbol] = counters.get(symbol, 0) + 1
+            signal["display_symbol"] = (
+                f"{signal.get('symbol', symbol)} #{counters[symbol]}"
+                if totals.get(symbol, 0) > 1
+                else signal.get("symbol", symbol)
+            )
 
     def open_operations_for_txt(txt_name):
         try:
@@ -3150,7 +3431,8 @@ def create_app():
         symbol = normalize_signal_symbol(signal.get("symbol", ""))
         date_value = first_existing(signal.get("fields", {}), ["Fecha"]) or signal.get("notice_datetime", "")
         if symbol:
-            return ("symbol", symbol, date_value)
+            line_hash = hashlib.sha1(str(signal.get("line", "")).strip().encode("utf-8")).hexdigest()[:12]
+            return ("symbol", symbol, date_value, line_hash)
         return ("line", str(signal.get("line", "")).strip())
 
     def signal_line_is_today(line):
@@ -3199,6 +3481,8 @@ def create_app():
             "detail_fields": detail_signal_fields(fields),
             "common": common_signal_fields(side, fields),
             "notice_datetime": format_notice_datetime(notice_time, fields),
+            "notice_short_datetime": format_notice_short_datetime(notice_time, fields),
+            "is_today_signal": signal_is_from_today(notice_time, fields),
         }
 
     def detail_signal_fields(fields):
@@ -3223,6 +3507,44 @@ def create_app():
             return format_any_madrid_datetime(notice_time)
         date_value = first_existing(fields, ["Fecha"])
         return date_value or "No indicada"
+
+    def format_notice_short_datetime(notice_time, fields):
+        date_value = first_existing(fields, ["Fecha"])
+        if not notice_time and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(date_value or "").strip()):
+            try:
+                parsed_date = datetime.fromisoformat(str(date_value).strip()).date()
+                return parsed_date.strftime("%d/%m/%y")
+            except ValueError:
+                pass
+        parsed = parse_notice_datetime(notice_time, fields)
+        if parsed:
+            return parsed.astimezone(MADRID_TZ).strftime("%H:%M %d/%m/%y")
+        return date_value or "Sin fecha"
+
+    def signal_is_from_today(notice_time, fields):
+        parsed = parse_notice_datetime(notice_time, fields)
+        if parsed:
+            return parsed.astimezone(MADRID_TZ).date() == datetime.now(MADRID_TZ).date()
+        date_value = first_existing(fields, ["Fecha"])
+        return date_value == datetime.now(MADRID_TZ).date().isoformat()
+
+    def parse_notice_datetime(notice_time, fields):
+        if notice_time:
+            if isinstance(notice_time, (int, float)):
+                return datetime.fromtimestamp(notice_time, MADRID_TZ)
+            parsed = parse_status_datetime(notice_time)
+            if parsed:
+                return parsed
+        date_value = first_existing(fields, ["Fecha"])
+        if not date_value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(str(date_value))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=MADRID_TZ)
+        return parsed
 
     def common_signal_fields(side, fields):
         return {
@@ -3253,14 +3575,74 @@ def create_app():
         symbol = normalize_signal_symbol(signal.get("symbol", ""))
         if not txt_name or not symbol:
             return None
-        operation = simulated_operation_from_database(txt_name, symbol)
+        operation_key = build_signal_operation_key(txt_name, signal)
+        legacy_key = build_legacy_signal_operation_key(txt_name, signal)
+        signal_date = signal_line_field(signal.get("line", ""), "Fecha")
+        signal_line = signal.get("line", "")
+        operation = simulated_operation_from_database(txt_name, symbol, operation_key, legacy_key, signal_date, signal_line)
         if operation:
             return operation
-        return simulated_operation_from_file(txt_name, symbol)
+        return simulated_operation_from_file(
+            txt_name,
+            symbol,
+            operation_key,
+            legacy_key,
+            signal_date,
+            signal_line,
+        )
 
-    def simulated_operation_from_database(txt_name, symbol):
+    def simulated_operation_from_database(txt_name, symbol, operation_key="", legacy_key="", signal_date="", signal_line=""):
         try:
             row = g.db.execute(
+                text(
+                    """
+                    SELECT strategy_name, txt_name, symbol, direction, status,
+                           operation_key, signal_date, signal_line, opened_at, closed_at, entry_price,
+                           target_price, stop_loss, shares, current_price,
+                           investment_value, profit_usd, profit_pct,
+                           close_reason, updated_at
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND (
+                        operation_key = :operation_key
+                        OR operation_key = :legacy_key
+                        OR (
+                          UPPER(symbol) = :symbol
+                          AND signal_date = :signal_date
+                        )
+                      )
+                    ORDER BY
+                      CASE
+                        WHEN operation_key = :operation_key THEN 0
+                        WHEN operation_key = :legacy_key THEN 1
+                        WHEN signal_line = :signal_line THEN 2
+                        ELSE 3
+                      END,
+                      CASE WHEN status = 'OPEN' THEN 0 ELSE 1 END,
+                      updated_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "txt_name": txt_name,
+                    "symbol": symbol,
+                    "operation_key": operation_key,
+                    "legacy_key": legacy_key,
+                    "signal_date": signal_date,
+                    "signal_line": signal_line,
+                },
+            ).mappings().fetchone()
+        except Exception:
+            return None
+        if not row:
+            return None
+        return format_simulated_operation(dict(row))
+
+    def closed_operations_for_strategy(txt_name):
+        if not txt_name:
+            return []
+        try:
+            rows = g.db.execute(
                 text(
                     """
                     SELECT strategy_name, txt_name, symbol, direction, status,
@@ -3270,22 +3652,35 @@ def create_app():
                            close_reason, updated_at
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
-                      AND UPPER(symbol) = :symbol
-                    ORDER BY
-                      CASE WHEN status = 'OPEN' THEN 0 ELSE 1 END,
-                      updated_at DESC
-                    LIMIT 1
+                      AND status = 'CLOSED'
+                    ORDER BY closed_at DESC, updated_at DESC
+                    LIMIT 500
                     """
                 ),
-                {"txt_name": txt_name, "symbol": symbol},
-            ).mappings().fetchone()
+                {"txt_name": txt_name},
+            ).mappings().fetchall()
+            return [format_simulated_operation(dict(row)) for row in rows]
         except Exception:
-            return None
-        if not row:
-            return None
-        return format_simulated_operation(dict(row))
+            return closed_operations_from_file(txt_name)
 
-    def simulated_operation_from_file(txt_name, symbol):
+    def closed_operations_from_file(txt_name):
+        path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
+        try:
+            if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
+                return []
+            operations = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        rows = [
+            operation
+            for operation in operations
+            if operation.get("txt_name") == txt_name
+            and operation.get("status") == "CLOSED"
+        ]
+        rows.sort(key=lambda item: str(item.get("closed_at") or item.get("updated_at") or ""), reverse=True)
+        return [format_simulated_operation(dict(row)) for row in rows[:500]]
+
+    def simulated_operation_from_file(txt_name, symbol, operation_key="", legacy_key="", signal_date="", signal_line=""):
         path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
         try:
             if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
@@ -3293,18 +3688,57 @@ def create_app():
             operations = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return None
-        matches = [
-            operation
-            for operation in operations
-            if operation.get("txt_name") == txt_name
-            and normalize_signal_symbol(operation.get("symbol", "")) == symbol
-        ]
+        matches = []
+        for operation in operations:
+            if operation.get("txt_name") != txt_name:
+                continue
+            if normalize_signal_symbol(operation.get("symbol", "")) != symbol:
+                continue
+            op_key = operation.get("operation_key", "")
+            if op_key in {operation_key, legacy_key}:
+                matches.append(operation)
+                continue
+            if signal_line and operation.get("signal_line") == signal_line:
+                matches.append(operation)
+                continue
+            if signal_date and operation.get("signal_date") == signal_date:
+                matches.append(operation)
         if not matches:
             return None
         open_matches = [item for item in matches if item.get("status") == "OPEN"]
         selected = open_matches or matches
         selected.sort(key=lambda item: str(item.get("updated_at", "")), reverse=True)
         return format_simulated_operation(selected[0])
+
+    def build_signal_operation_key(txt_name, signal):
+        line_hash = hashlib.sha1(str(signal.get("line", "")).strip().encode("utf-8")).hexdigest()[:12]
+        return "|".join(
+            [
+                txt_name,
+                normalize_signal_symbol(signal.get("symbol", "")),
+                normalize_operation_side(signal.get("side") or signal.get("common", {}).get("direccion") or "LONG"),
+                signal_line_field(signal.get("line", ""), "Fecha") or "sin_fecha",
+                line_hash,
+            ]
+        )
+
+    def build_legacy_signal_operation_key(txt_name, signal):
+        return "|".join(
+            [
+                txt_name,
+                normalize_signal_symbol(signal.get("symbol", "")),
+                normalize_operation_side(signal.get("side") or signal.get("common", {}).get("direccion") or "LONG"),
+                signal_line_field(signal.get("line", ""), "Fecha") or "sin_fecha",
+            ]
+        )
+
+    def normalize_operation_side(value):
+        normalized = str(value or "").strip().upper()
+        if normalized in {"BUY", "COMPRA"}:
+            return "LONG"
+        if normalized in {"SELL", "VENTA"}:
+            return "SHORT"
+        return normalized or "LONG"
 
     def format_simulated_operation(operation):
         profit_pct = parse_display_float(operation.get("profit_pct"))
@@ -3319,8 +3753,9 @@ def create_app():
             "stop_loss_display": f"{parse_display_float(operation.get('stop_loss')):.2f} USD",
             "shares_display": f"{parse_display_float(operation.get('shares')):.4f}",
             "current_price_display": f"{parse_display_float(operation.get('current_price')):.2f} USD",
+            "exit_price_display": f"{parse_display_float(operation.get('current_price')):.2f} USD",
             "investment_value_display": format_money_usd(operation.get("investment_value")),
-            "profit_usd_display": format_money_usd(operation.get("profit_usd")),
+            "profit_usd_display": format_signed_money_usd(operation.get("profit_usd")),
             "profit_pct_display": f"{profit_pct:.2f}%",
             "profit_class": "text-success" if profit_pct >= 0 else "text-danger",
             "status_label": "Abierta" if status == "OPEN" else "Cerrada",

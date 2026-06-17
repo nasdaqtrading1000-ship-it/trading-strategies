@@ -28,18 +28,17 @@
         {% if signals %}
           <ul class="signals-list signals-list-page">
             {% for signal in signals %}
-              {% set is_selected = signal.symbol and signal.symbol|upper == selected_symbol %}
+              {% set is_selected = signal.signal_key and signal.signal_key == selected_key %}
               <li>
                 {% if signal.symbol %}
                   <div class="signal-mini-card {% if is_selected %}active{% endif %} {% if signal.is_new %}signal-new{% endif %}">
+                    <a class="signal-card-hitbox" href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=signal.symbol, key=signal.signal_key) }}" aria-label="Ver diagnostico de {{ signal.display_symbol or signal.symbol }}"></a>
                     <span class="signal-head">
                       <span class="signal-title-tools">
-                        <a class="signal-symbol-link" href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=signal.symbol) }}">
-                          <span class="signal-symbol">{{ signal.symbol }}</span>
-                        </a>
-                        {% if signal.is_new %}
-                          <span class="signal-new-badge">Nuevo</span>
-                        {% endif %}
+                        <span class="signal-symbol-link">
+                          <span class="signal-symbol">{{ signal.display_symbol or signal.symbol }}</span>
+                        </span>
+                        <span class="signal-date-chip">{{ signal.notice_short_datetime }}</span>
                         <span class="signal-market-links">
                           <a href="https://finance.yahoo.com/quote/{{ signal.symbol|urlencode }}" target="_blank" rel="noopener">Yahoo</a>
                           <a href="https://www.tradingview.com/symbols/{{ signal.symbol|urlencode }}/" target="_blank" rel="noopener">TradingView</a>
@@ -49,11 +48,11 @@
                         {{ signal.operation_summary.profit_pct_display }}
                       </span>
                     </span>
-                    <a class="signal-line-preview signal-line-link" href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=signal.symbol) }}">
+                    <span class="signal-line-preview signal-line-link">
                       {{ signal.common.direccion or signal.side or "Aviso" }}
                       {% if signal.common.apertura %} · Entrada {{ signal.common.apertura }}{% endif %}
                       {% if signal.common.cierre %} · Objetivo {{ signal.common.cierre }}{% endif %}
-                    </a>
+                    </span>
                   </div>
                 {% else %}
                   <span class="signal-link">{{ signal.line }}</span>
@@ -72,7 +71,7 @@
             <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
               <div>
                 <p class="eyebrow mb-2">Diagnostico de aviso</p>
-                <h2 class="h3 mb-2">{{ selected_signal.symbol }}</h2>
+                <h2 class="h3 mb-2">{{ selected_signal.display_symbol or selected_signal.symbol }}</h2>
                 <p class="text-secondary mb-0">{{ strategy.name }} · Fecha datos {{ selected_signal.notice_datetime }}</p>
               </div>
               {% if selected_signal.side %}

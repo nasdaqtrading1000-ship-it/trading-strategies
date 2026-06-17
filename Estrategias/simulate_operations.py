@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -87,7 +88,7 @@ def main():
     strategy_capital = float(os.environ.get("TRADING_STRATEGY_CAPITAL_USD", "50000"))
 
     operations = load_operations()
-    indexed = {operation["operation_key"]: operation for operation in operations}
+    indexed = build_operation_index(operations)
     signals_by_strategy = read_all_signals()
     print_signal_summary(signals_by_strategy, indexed)
 
@@ -96,7 +97,8 @@ def main():
         txt_name = strategy["txt"]
         for signal in signals_by_strategy.get(txt_name, []):
             operation_key = build_operation_key(txt_name, signal)
-            existing = indexed.get(operation_key)
+            legacy_key = build_legacy_operation_key(txt_name, signal["symbol"], signal["side"], signal["signal_date"])
+            existing = indexed.get(operation_key) or indexed.get(legacy_key)
             if existing:
                 continue
             pending_signals.append((strategy, signal, operation_key))
@@ -186,8 +188,14 @@ def print_signal_summary(signals_by_strategy, indexed):
             build_operation_key(txt_name, signal)
             for signal in signals
         }
-        already_known = sum(1 for key in unique_signals if key in indexed)
-        pending = len(unique_signals) - already_known
+        known_unique = {
+            build_operation_key(txt_name, signal)
+            for signal in signals
+            if build_operation_key(txt_name, signal) in indexed
+            or build_legacy_operation_key(txt_name, signal["symbol"], signal["side"], signal["signal_date"]) in indexed
+        }
+        already_known = len(known_unique)
+        pending = max(0, len(unique_signals) - already_known)
         without_date = sum(1 for signal in signals if not signal["signal_date"])
         print(
             f"{strategy['name']} | TXT {txt_name} | "
@@ -195,6 +203,21 @@ def print_signal_summary(signals_by_strategy, indexed):
             f"ya_existian={already_known} | pendientes={pending} | sin_fecha={without_date}"
         )
     print("=== Fin resumen avisos ===\n")
+
+
+def build_operation_index(operations):
+    indexed = {}
+    for operation in operations:
+        if operation.get("operation_key"):
+            indexed[operation["operation_key"]] = operation
+        legacy_key = build_legacy_operation_key(
+            operation.get("txt_name", ""),
+            operation.get("symbol", ""),
+            operation.get("direction", ""),
+            operation.get("signal_date", ""),
+        )
+        indexed.setdefault(legacy_key, operation)
+    return indexed
 
 
 def parse_signal_line(line):
@@ -620,12 +643,25 @@ def save_operations(operations):
 
 
 def build_operation_key(txt_name, signal):
+    line_hash = hashlib.sha1(str(signal.get("line", "")).strip().encode("utf-8")).hexdigest()[:12]
     return "|".join(
         [
             txt_name,
             signal["symbol"],
             normalize_side(signal["side"]),
             signal["signal_date"] or "sin_fecha",
+            line_hash,
+        ]
+    )
+
+
+def build_legacy_operation_key(txt_name, symbol, side, signal_date):
+    return "|".join(
+        [
+            txt_name,
+            str(symbol or "").strip().upper(),
+            normalize_side(side),
+            signal_date or "sin_fecha",
         ]
     )
 

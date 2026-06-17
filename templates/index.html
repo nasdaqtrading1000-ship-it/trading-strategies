@@ -10,17 +10,17 @@
         <p class="eyebrow mb-3">Estrategias activas para Telegram</p>
         <h1 class="display-5 fw-bold mb-3">Senales organizadas por riesgo, frecuencia y estilo operativo.</h1>
         <p class="lead text-secondary mb-4">Compara cada estrategia, revisa su enfoque y accede al canal correspondiente desde un unico panel profesional.</p>
-        <div class="d-flex gap-2 flex-wrap">
-          <a class="btn btn-info btn-lg fw-semibold" href="#estrategias">Ver estrategias</a>
-          <a class="btn btn-outline-info btn-lg fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
-          <a class="btn btn-outline-light btn-lg" href="#riesgo">Aviso de riesgo</a>
+        <div class="hero-actions d-flex gap-2 flex-wrap">
+          <a class="btn btn-info fw-semibold" href="#estrategias">Ver estrategias</a>
+          <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
+          <a class="btn btn-outline-light" href="#riesgo">Aviso de riesgo</a>
         </div>
       </div>
       <div class="col-lg-4">
-        <div class="stats-panel p-4">
+        <div class="stats-panel stats-panel-compact">
           <span class="d-block text-secondary small">Canales disponibles</span>
-          <strong class="display-6">{{ strategies|length }}</strong>
-          <div class="hero-metrics mt-4">
+          <strong>{{ strategies|length }}</strong>
+          <div class="hero-metrics">
             <div>
               <span>Bajo</span>
               <strong>{{ strategies|selectattr("risk_level", "equalto", "Bajo")|list|length }}</strong>
@@ -40,16 +40,16 @@
   </div>
 </section>
 
-<section class="container pt-5">
-  <div class="community-banner p-4 p-md-5">
-    <div class="row align-items-center gy-4">
+<section class="container pt-3">
+  <div class="community-banner community-banner-compact">
+    <div class="row align-items-center gy-3">
       <div class="col-lg-8">
-        <p class="eyebrow mb-2">Proyecto en construccion</p>
-        <h2 class="h3 fw-bold mb-3">Colabora y unete a la comunidad desde el inicio.</h2>
-        <p class="text-secondary mb-0">Estamos preparando nuevas herramientas, filtros de activos, automatizaciones y canales especializados. Los primeros miembros podran tener privilegios futuros dentro de la comunidad.</p>
+        <p class="eyebrow mb-1">Proyecto en construccion</p>
+        <h2 class="h5 fw-bold mb-2">Colabora y unete a la comunidad desde el inicio.</h2>
+        <p class="text-secondary small mb-0">Estamos preparando nuevas herramientas, filtros de activos, automatizaciones y canales especializados.</p>
       </div>
       <div class="col-lg-4">
-        <div class="d-grid gap-2">
+        <div class="community-actions">
           {% if community_url %}
             <a class="btn btn-info fw-semibold" href="{{ community_url }}" target="_blank" rel="noopener">Unirme a la comunidad</a>
           {% endif %}
@@ -65,27 +65,28 @@
 </section>
 
 <section class="container pt-4">
-  <div class="strategy-card p-4">
-    <div class="section-heading mb-3">
+  <div class="strategy-card top-assets-card">
+    <div class="section-heading mb-2">
       <div>
-        <p class="eyebrow mb-2">Universo filtrado</p>
-        <h2 class="h4 fw-bold mb-0">20 activos mayor volumen monetario</h2>
-        <p class="text-secondary small mb-0 mt-2">
+        <p class="eyebrow mb-1">Universo filtrado</p>
+        <h2 class="h6 fw-bold mb-0">20 activos mayor volumen monetario</h2>
+        <p class="text-secondary small mb-0 mt-1">
           Ultima actualizacion:
           <strong>{{ top_money_volume_updated_at or "Sin actualizar" }}</strong>
         </p>
       </div>
-      <p class="text-secondary mb-0">Base usada por las estrategias fundamentales.</p>
+      <p class="text-secondary small mb-0">Base usada por las estrategias fundamentales.</p>
     </div>
     {% if top_money_volume_assets %}
-      <div class="row g-2">
+      <div class="row g-1">
         {% for asset in top_money_volume_assets %}
           <div class="col-sm-6 col-lg-4 col-xl-3">
-            <div class="d-flex gap-2 align-items-start border border-secondary-subtle rounded-2 p-2 h-100">
+            <div class="top-asset-item d-flex gap-2 align-items-start border border-secondary-subtle rounded-2 h-100">
               <span class="text-info fw-semibold small">{{ asset.rank }}.</span>
               <div class="min-w-0">
                 <strong class="d-block">{{ asset.symbol }}</strong>
                 <span class="text-secondary small">{{ asset.name }}</span>
+                <span class="top-asset-volume">Volumen monetario {{ asset.money_volume|money_usd }}</span>
                 {% if asset.source == "tickers" %}
                   <span class="d-block text-warning small">Desde tickers.txt</span>
                 {% endif %}
@@ -115,12 +116,12 @@
     <div class="totalizer-box mb-3">
       <div>
         <span class="text-secondary small d-block">Totalizador</span>
-        <strong>{{ totalizer.display }}</strong>
+        <strong class="{{ totalizer.result_class }}">{{ totalizer.display }}</strong>
       </div>
       <p class="mb-0 text-secondary">
         {% if totalizer.count %}
           Beneficio / perdida acumulado de {{ totalizer.count }} estrategias seleccionadas.
-          <span class="d-block small">Capital total: {{ totalizer.capital_display }} · Rentabilidad conjunta: {{ totalizer.pct_display }}</span>
+          <span class="d-block small totalizer-return-line">Capital total: {{ totalizer.capital_display }} | Rentabilidad conjunta: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
         {% else %}
           Selecciona estrategias desde admin para incluirlas.
         {% endif %}
@@ -139,8 +140,8 @@
     <div class="row g-4">
       {% for strategy in strategies %}
         <div class="col-md-6 col-xl-4">
-          <article class="strategy-card h-100 p-4" id="strategy-{{ strategy.id }}">
-            <div class="d-flex justify-content-between gap-3 align-items-start mb-3">
+          <article class="strategy-card strategy-card-compact h-100" id="strategy-{{ strategy.id }}">
+            <div class="d-flex justify-content-between gap-2 align-items-start mb-2">
               <div class="strategy-card-title">
                 <span class="strategy-short-badge">{{ strategy.short_name }}</span>
                 <h2 class="h4 mb-0">
@@ -151,11 +152,15 @@
               </div>
               <span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
             </div>
-            <p class="text-secondary">{{ strategy.description }}</p>
+            <p class="text-secondary strategy-description">{{ strategy.description }}</p>
             <dl class="strategy-meta">
               <div>
                 <dt>Frecuencia</dt>
-                <dd>{{ strategy.signal_frequency }}</dd>
+                <dd class="strategy-frequency-cell">
+                  <span>{{ strategy.signal_frequency }}</span>
+                  <small>Cierre medio: {{ strategy.average_close_duration }}</small>
+                  <small>Aciertos: {{ strategy.success_rate }}</small>
+                </dd>
               </div>
               <div>
                 <dt>Horario</dt>
@@ -163,7 +168,19 @@
               </div>
               <div>
                 <dt>Rentabilidad historica</dt>
-                <dd>{{ strategy.historical_return_public }}</dd>
+                <dd class="strategy-return-cell">
+                  <span class="return-main {{ strategy.return_metrics.result_class }}" title="{{ strategy.return_metrics.raw }}">
+                    {{ strategy.return_metrics.result }}
+                  </span>
+                  <span class="return-sub {{ strategy.return_metrics.percent_class }}">{{ strategy.return_metrics.percent }}</span>
+                </dd>
+              </div>
+              <div class="strategy-return-breakdown">
+                <dt>Capital / operaciones</dt>
+                <dd>
+                  <span>{{ strategy.return_metrics.capital }}</span>
+                  <small>{{ strategy.return_metrics.operations }}</small>
+                </dd>
               </div>
               <div>
                 <dt>Ultima incorporacion de tickets</dt>
@@ -183,6 +200,9 @@
               </div>
             </dl>
             <div class="strategy-actions">
+              <a class="btn btn-outline-light w-100 fw-semibold" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}" target="_blank" rel="noopener">
+                Historial operaciones{% if strategy.closed_operations_count %} ({{ strategy.closed_operations_count }}){% endif %}
+              </a>
               {% if strategy.signals_txt_name %}
                 <a class="btn btn-outline-info w-100 fw-semibold" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">
                   Ver avisos actuales{% if strategy.signals_count %} ({{ strategy.signals_count }}){% endif %}

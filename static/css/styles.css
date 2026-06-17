@@ -33,6 +33,25 @@ html {
   max-width: 820px;
 }
 
+.hero-actions .btn {
+  --bs-btn-font-size: 0.88rem;
+  --bs-btn-padding-x: 0.72rem;
+  --bs-btn-padding-y: 0.42rem;
+}
+
+.stats-panel-compact {
+  margin-left: auto;
+  max-width: 280px;
+  padding: 1rem;
+}
+
+.stats-panel-compact > strong {
+  display: block;
+  font-size: 2rem;
+  line-height: 1;
+  margin-top: 0.2rem;
+}
+
 .eyebrow {
   color: var(--cyan);
   font-size: 0.82rem;
@@ -61,12 +80,13 @@ html {
 .hero-metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
 }
 
 .hero-metrics div {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 0.75rem;
+  padding-top: 0.55rem;
 }
 
 .hero-metrics span {
@@ -109,6 +129,30 @@ html {
   font-size: 1.35rem;
   line-height: 1.1;
   white-space: nowrap;
+}
+
+.totalizer-box strong.text-success,
+.strategy-return-item strong.text-success,
+.return-main.text-success,
+.return-sub.text-success {
+  color: #4ade80;
+}
+
+.totalizer-box strong.text-danger,
+.strategy-return-item strong.text-danger,
+.return-main.text-danger,
+.return-sub.text-danger {
+  color: #fb7185;
+}
+
+.totalizer-box p > span.small:not(.totalizer-return-line) {
+  display: none !important;
+}
+
+.totalizer-return-line strong {
+  display: inline;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .strategy-return-item {
@@ -157,6 +201,32 @@ html {
   position: relative;
   transition: transform 0.18s ease, border-color 0.18s ease;
   z-index: 1;
+}
+
+.strategy-card-compact {
+  padding: 1rem;
+}
+
+.strategy-card-compact .strategy-title-button {
+  font-size: 0.9rem;
+  min-height: 32px;
+  padding: 0.34rem 0.52rem;
+}
+
+.strategy-card-compact .strategy-short-badge {
+  font-size: 0.66rem;
+  padding: 0.24rem 0.38rem;
+}
+
+.strategy-card-compact .badge {
+  font-size: 0.68rem;
+  padding: 0.28rem 0.42rem;
+}
+
+.strategy-description {
+  font-size: 0.86rem;
+  line-height: 1.35;
+  margin-bottom: 0.4rem;
 }
 
 .strategy-title-link {
@@ -222,9 +292,15 @@ html {
 
 .strategy-actions {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.45rem;
   margin-top: auto;
   position: relative;
+}
+
+.strategy-card-compact .strategy-actions .btn {
+  --bs-btn-font-size: 0.84rem;
+  --bs-btn-padding-y: 0.38rem;
+  --bs-btn-padding-x: 0.55rem;
 }
 
 .signals-collapse {
@@ -466,6 +542,11 @@ html {
   margin: 1.5rem 0;
 }
 
+.strategy-card-compact .strategy-meta {
+  gap: 0.48rem;
+  margin: 0.75rem 0 0.85rem;
+}
+
 .strategy-meta div {
   display: flex;
   justify-content: space-between;
@@ -474,15 +555,86 @@ html {
   padding-top: 0.75rem;
 }
 
+.strategy-card-compact .strategy-meta div {
+  gap: 0.65rem;
+  padding-top: 0.45rem;
+}
+
 .strategy-meta dt {
   color: var(--muted);
   font-weight: 500;
+}
+
+.strategy-card-compact .strategy-meta dt {
+  font-size: 0.72rem;
 }
 
 .strategy-meta dd {
   margin: 0;
   text-align: right;
   font-weight: 600;
+}
+
+.strategy-card-compact .strategy-meta dd {
+  font-size: 0.78rem;
+}
+
+.strategy-return-cell,
+.strategy-frequency-cell,
+.strategy-return-breakdown dd {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.strategy-frequency-cell span {
+  color: var(--text-main);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.strategy-frequency-cell small {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.strategy-card-compact .strategy-frequency-cell small,
+.strategy-card-compact .return-sub,
+.strategy-card-compact .strategy-return-breakdown small {
+  font-size: 0.66rem;
+}
+
+.return-main {
+  font-size: 0.98rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.return-sub,
+.strategy-return-breakdown small {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.strategy-card-compact .return-main {
+  font-size: 0.88rem;
+}
+
+.strategy-return-breakdown span {
+  color: var(--text-main);
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.strategy-card-compact .strategy-return-breakdown span {
+  font-size: 0.78rem;
 }
 
 .status-pill {
@@ -569,6 +721,47 @@ html {
   background:
     linear-gradient(135deg, rgba(13, 202, 240, 0.12), rgba(16, 23, 34, 0.92)),
     rgba(16, 23, 34, 0.9);
+}
+
+.community-banner-compact {
+  padding: 1rem 1.15rem;
+}
+
+.community-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.community-actions .btn {
+  padding: 0.42rem 0.75rem;
+}
+
+.top-assets-card {
+  padding: 0.9rem 1rem;
+}
+
+.top-asset-item {
+  padding: 0.38rem 0.5rem;
+}
+
+.top-asset-item strong {
+  font-size: 0.86rem;
+  line-height: 1.1;
+}
+
+.top-asset-item span {
+  font-size: 0.72rem;
+  line-height: 1.15;
+}
+
+.top-asset-volume {
+  color: #7ddf96;
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  margin-top: 0.12rem;
 }
 
 .filter-panel {
@@ -766,6 +959,58 @@ html {
   column-gap: 2rem;
 }
 
+.history-totalizer {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.history-totalizer div {
+  background: rgba(14, 20, 28, 0.74);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 0.85rem 0.95rem;
+}
+
+.history-totalizer span {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 800;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.history-totalizer strong {
+  color: var(--text-main);
+  display: block;
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.history-totalizer strong.text-success {
+  color: #4ade80;
+}
+
+.history-totalizer strong.text-danger {
+  color: #fb7185;
+}
+
+.history-table {
+  min-width: 980px;
+}
+
+.history-table th {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.history-table td {
+  font-size: 0.9rem;
+}
+
 .signals-workspace {
   display: grid;
   grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
@@ -822,9 +1067,25 @@ html {
 .signal-mini-card {
   border: 1px solid transparent;
   border-radius: 8px;
+  cursor: pointer;
   display: grid;
   gap: 0.25rem;
   padding: 0.35rem;
+  position: relative;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.signal-mini-card:hover {
+  border-color: rgba(13, 202, 240, 0.42);
+  background: rgba(13, 202, 240, 0.08);
+  transform: translateY(-1px);
+}
+
+.signal-card-hitbox {
+  border-radius: 8px;
+  inset: 0;
+  position: absolute;
+  z-index: 1;
 }
 
 .signal-mini-card.active {
@@ -837,7 +1098,7 @@ html {
   background: rgba(255, 216, 107, 0.08);
 }
 
-.signal-new-badge {
+.signal-date-chip {
   border: 1px solid rgba(255, 216, 107, 0.65);
   border-radius: 999px;
   color: #ffd86b;
@@ -845,7 +1106,7 @@ html {
   font-weight: 900;
   line-height: 1;
   padding: 0.18rem 0.34rem;
-  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .signal-title-tools {
@@ -857,10 +1118,11 @@ html {
 }
 
 .signal-symbol-link {
+  color: inherit;
   text-decoration: none;
 }
 
-.signal-symbol-link:hover .signal-symbol {
+.signal-mini-card:hover .signal-symbol {
   color: #8ee8ff;
 }
 
@@ -869,6 +1131,8 @@ html {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+  position: relative;
+  z-index: 3;
 }
 
 .signal-market-links a {
@@ -892,7 +1156,7 @@ html {
   text-decoration: none;
 }
 
-.signal-line-link:hover {
+.signal-mini-card:hover .signal-line-link {
   color: #8ee8ff;
 }
 
@@ -970,6 +1234,15 @@ html {
 
   .btn {
     white-space: normal;
+  }
+
+  .stats-panel-compact {
+    margin-left: 0;
+    max-width: none;
+  }
+
+  .community-actions {
+    justify-content: flex-start;
   }
 
   .stats-panel,

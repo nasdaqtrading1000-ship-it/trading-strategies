@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Historial {{ strategy.name }}{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="strategy-detail-panel p-4 p-md-5">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+      <div>
+        <p class="eyebrow mb-2">Historial de operaciones cerradas</p>
+        <h1 class="h2 mb-2">{{ strategy.name }}</h1>
+        <p class="text-secondary mb-0">
+          {{ operations|length }} operaciones cerradas registradas para esta estrategia.
+        </p>
+      </div>
+      <div class="d-flex gap-2 align-items-start">
+        <a class="btn btn-outline-info" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Avisos actuales</a>
+        <a class="btn btn-outline-light" href="{{ url_for('index') }}#strategy-{{ strategy.id }}">Volver</a>
+      </div>
+    </div>
+
+    <div class="history-totalizer mb-4">
+      <div>
+        <span>Resultado acumulado</span>
+        <strong class="{{ history_totalizer.profit_class }}">{{ history_totalizer.profit_display }}</strong>
+      </div>
+      <div>
+        <span>Rentabilidad total</span>
+        <strong class="{{ history_totalizer.pct_class }}">{{ history_totalizer.pct_display }}</strong>
+      </div>
+      <div>
+        <span>Capital movido</span>
+        <strong>{{ history_totalizer.invested_display }}</strong>
+      </div>
+      <div>
+        <span>Media por operacion</span>
+        <strong class="{{ history_totalizer.average_pct_class }}">{{ history_totalizer.average_pct_display }}</strong>
+      </div>
+      <div>
+        <span>Balance</span>
+        <strong>{{ history_totalizer.winning_count }} verdes / {{ history_totalizer.losing_count }} rojas{% if history_totalizer.flat_count %} / {{ history_totalizer.flat_count }} neutras{% endif %}</strong>
+      </div>
+    </div>
+
+    {% if operations %}
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle history-table mb-0">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Direccion</th>
+              <th>Fecha apertura</th>
+              <th>Fecha cierre</th>
+              <th>Precio entrada</th>
+              <th>Precio salida</th>
+              <th>Rentabilidad</th>
+              <th>Resultado</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for operation in operations %}
+              <tr>
+                <td><strong class="text-info">{{ operation.symbol }}</strong></td>
+                <td>{{ operation.direction }}</td>
+                <td>{{ operation.opened_at_display }}</td>
+                <td>{{ operation.closed_at_display }}</td>
+                <td>{{ operation.entry_price_display }}</td>
+                <td>{{ operation.exit_price_display }}</td>
+                <td><strong class="{{ operation.profit_class }}">{{ operation.profit_pct_display }}</strong></td>
+                <td><strong class="{{ operation.profit_class }}">{{ operation.profit_usd_display }}</strong></td>
+                <td>{{ operation.close_reason or "Cerrada" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state text-center py-5">
+        <h2 class="h4">Sin operaciones cerradas</h2>
+        <p class="text-secondary mb-0">Cuando una operacion alcance objetivo o stop aparecera aqui.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

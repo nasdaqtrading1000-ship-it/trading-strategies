@@ -72,11 +72,96 @@ html {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
-.account-grid > div {
+.account-grid > div,
+.account-card {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 1rem;
+}
+
+.account-shell {
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 1120px;
+}
+
+.account-header,
+.account-section {
+  background: rgba(16, 23, 34, 0.9);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  padding: 1.25rem;
+}
+
+.account-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.account-access-pill {
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.55rem 0.75rem;
+  white-space: nowrap;
+}
+
+.account-access-ok {
+  background: rgba(25, 135, 84, 0.15);
+  border: 1px solid rgba(25, 135, 84, 0.45);
+  color: #7ddf96;
+}
+
+.account-access-pending {
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.38);
+  color: #ffd86b;
+}
+
+.account-grid-main {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.account-card strong {
+  display: block;
+  font-size: 1.15rem;
+}
+
+.account-status-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.account-status-list > div {
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-top: 0.65rem;
+}
+
+.account-status-list > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.account-status-list span {
+  color: var(--muted);
+}
+
+.account-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
 }
 
 .risk-acceptance-box {
@@ -1012,38 +1097,92 @@ html {
 }
 
 .strategies-table {
-  min-width: 1260px;
+  min-width: 1540px;
   table-layout: fixed;
 }
 
 .strategies-table th:nth-child(1),
 .strategies-table td:nth-child(1) {
-  width: 360px;
+  width: 410px;
 }
 
 .strategies-table th:nth-child(2),
 .strategies-table td:nth-child(2) {
-  width: 95px;
+  width: 120px;
 }
 
 .strategies-table th:nth-child(3),
 .strategies-table td:nth-child(3) {
-  width: 180px;
+  width: 190px;
 }
 
 .strategies-table th:nth-child(4),
 .strategies-table td:nth-child(4) {
-  width: 160px;
+  width: 190px;
 }
 
 .strategies-table th:nth-child(5),
 .strategies-table td:nth-child(5) {
-  width: 230px;
+  width: 335px;
 }
 
 .strategies-table th:nth-child(6),
 .strategies-table td:nth-child(6) {
-  width: 235px;
+  width: 295px;
+}
+
+.admin-inline-control {
+  color: var(--text-main);
+  font-size: 0.82rem;
+}
+
+.admin-inline-switch,
+.admin-inline-checks {
+  color: var(--text-muted);
+}
+
+.admin-inline-checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.6rem;
+}
+
+.admin-inline-checks .form-check,
+.admin-inline-switch {
+  min-height: auto;
+}
+
+.admin-inline-checks .form-check-input,
+.admin-inline-switch .form-check-input {
+  margin-top: 0.18rem;
+}
+
+.admin-dashboard-container .table-hover > tbody > tr:hover > * {
+  --bs-table-accent-bg: transparent;
+  background-color: transparent;
+  color: inherit;
+}
+
+.strategies-table,
+.strategies-table > tbody > tr,
+.strategies-table > tbody > tr > * {
+  --bs-table-hover-bg: transparent;
+  --bs-table-hover-color: var(--text-main);
+}
+
+.strategies-table > tbody > tr:hover,
+.strategies-table > tbody > tr:hover > *,
+.strategies-table > tbody > tr:hover td {
+  --bs-table-accent-bg: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.admin-user-create {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 0.85rem;
 }
 
 .form-control,
@@ -1394,6 +1533,24 @@ html {
   .stats-panel-compact {
     margin-left: 0;
     max-width: none;
+  }
+
+  .account-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .account-grid-main {
+    grid-template-columns: 1fr;
+  }
+
+  .account-actions {
+    justify-content: stretch;
+  }
+
+  .account-actions .btn,
+  .account-actions form {
+    width: 100%;
   }
 
   .community-actions {

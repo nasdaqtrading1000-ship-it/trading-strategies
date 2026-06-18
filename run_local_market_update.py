@@ -16,11 +16,17 @@ Necesita en .env:
 
 import argparse
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 from config_env import load_local_env
 from market_scanner import save_universe_assets, universe_count, snapshot_count
 from update_assets import build_assets_from_alpaca, write_assets
 from update_market_data import update_market_data
+
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def main():
@@ -50,6 +56,7 @@ def main():
     print("")
     print(f"Universo en DB: {universe_count()}")
     print(f"Snapshots mercado en DB: {snapshot_count()}")
+    mirror_postgres_to_sqlite()
     return 0
 
 
@@ -80,6 +87,21 @@ def warn_if_not_postgres():
         print("DATABASE_URL PostgreSQL detectada. La web de Render vera estos datos.")
         return
     print("AVISO: no hay DATABASE_URL PostgreSQL. Esto actualizara SQLite local, Render no vera los cambios.")
+
+
+def mirror_postgres_to_sqlite():
+    database_url = os.environ.get("DATABASE_URL", "")
+    if not database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
+        return
+    sync_script = BASE_DIR / "sync_postgres_to_sqlite.py"
+    if not sync_script.exists():
+        print("Copia SQLite omitida: no existe sync_postgres_to_sqlite.py")
+        return
+    print("")
+    print("Actualizando copia SQLite local desde PostgreSQL...")
+    result = subprocess.run([sys.executable, str(sync_script)], cwd=str(BASE_DIR), text=True)
+    if result.returncode != 0:
+        print(f"Copia SQLite termino con codigo {result.returncode}.")
 
 
 if __name__ == "__main__":

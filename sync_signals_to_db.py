@@ -13,6 +13,8 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
+import sys
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -87,7 +89,20 @@ def main():
     print(f"Top volumen monetario actualizado en PostgreSQL: {top_count}")
     status_count = sync_strategy_status()
     print(f"Estados de estrategias actualizados en PostgreSQL: {status_count}")
+    mirror_postgres_to_sqlite()
     return 0
+
+
+def mirror_postgres_to_sqlite():
+    if engine.dialect.name != "postgresql":
+        return
+    sync_script = BASE_DIR / "sync_postgres_to_sqlite.py"
+    if not sync_script.exists():
+        print("Copia SQLite omitida: no existe sync_postgres_to_sqlite.py")
+        return
+    result = subprocess.run([sys.executable, str(sync_script)], cwd=str(BASE_DIR), text=True)
+    if result.returncode != 0:
+        print(f"Copia SQLite termino con codigo {result.returncode}.")
 
 
 def sync_active_strategies_from_selection():

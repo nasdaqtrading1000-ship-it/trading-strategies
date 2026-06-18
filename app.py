@@ -2187,6 +2187,7 @@ def create_app():
             strategies.append(strategy)
         strategies.sort(
             key=lambda strategy: (
+                -int(strategy.get("public_visible") or 0),
                 -int(strategy.get("signals_count") or 0),
                 strategy.get("name", ""),
             )
@@ -2497,7 +2498,54 @@ def create_app():
         )
         g.db.commit()
         flash("Acceso de usuario actualizado.", "success")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+
+    @app.route("/admin/users/create", methods=["POST"])
+    @login_required
+    def admin_user_create():
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        has_access = 1 if request.form.get("has_access") == "on" else 0
+        payment_status = "active" if has_access else "manual_pending"
+
+        if not email or "@" not in email:
+            flash("Introduce un email valido para crear el usuario.", "danger")
+            return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+        if len(password) < 6:
+            flash("La contrasena provisional debe tener al menos 6 caracteres.", "danger")
+            return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+
+        existing = g.db.execute(
+            text("SELECT id FROM users WHERE lower(email) = lower(:email)"),
+            {"email": email},
+        ).mappings().fetchone()
+        if existing:
+            flash("Ese email ya existe como usuario.", "warning")
+            return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+
+        g.db.execute(
+            text(
+                """
+                INSERT INTO users
+                (email, password_hash, name, has_access, payment_status,
+                 age_confirmed, risk_accepted, accepted_terms_at)
+                VALUES (:email, :password_hash, :name, :has_access, :payment_status,
+                        1, 1, :accepted_terms_at)
+                """
+            ),
+            {
+                "email": email,
+                "password_hash": generate_password_hash(password),
+                "name": name,
+                "has_access": has_access,
+                "payment_status": payment_status,
+                "accepted_terms_at": datetime.now(UTC).replace(tzinfo=None),
+            },
+        )
+        g.db.commit()
+        flash("Usuario creado manualmente.", "success")
+        return redirect(url_for("admin_dashboard", _anchor="admin-users"))
 
     @app.route("/admin/market-data/update", methods=["POST"])
     @login_required
@@ -2632,12 +2680,12 @@ def create_app():
     def strategy_edit(strategy_id):
         strategy = get_strategy_or_404(strategy_id)
         if request.method == "POST":
-            return save_strategy(strategy_id)
+            return save_strategy_description(strategy_id)
 
         return render_template(
-            "admin/form.html",
+            "admin/description_form.html",
             strategy=strategy,
-            title="Modificar estrategia",
+            title="Descripcion de estrategia",
             action=url_for("strategy_edit", strategy_id=strategy_id),
         )
 
@@ -2666,6 +2714,81 @@ def create_app():
         g.db.commit()
         flash("Ejecucion local actualizada.", "success")
         return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/strategies/<int:strategy_id>/quick-update", methods=["POST"])
+    @login_required
+    def strategy_quick_update(strategy_id):
+        get_strategy_or_404(strategy_id)
+        name = request.form.get("name", "").strip()
+        risk_level = request.form.get("risk_level", "Medio")
+        signal_frequency = request.form.get("signal_frequency", "").strip()
+        historical_return = request.form.get("historical_return", "").strip()
+        telegram_url = request.form.get("telegram_url", "").strip()
+        has_telegram = 1 if request.form.get("has_telegram") == "on" else 0
+        signals_txt_name = request.form.get("signals_txt_name", "").strip()
+        python_file = request.form.get("python_file", "").strip()
+        include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
+        public_visible = 1 if request.form.get("public_visible") == "on" else 0
+        is_active = 1 if request.form.get("is_active") == "on" else 0
+        run_locally = 1 if request.form.get("run_locally") == "on" else 0
+
+        errors = []
+        if not name:
+            errors.append("El nombre es obligatorio.")
+        if risk_level not in {"Bajo", "Medio", "Alto"}:
+            errors.append("El nivel de riesgo no es valido.")
+        if has_telegram and not telegram_url.startswith(
+            ("https://t.me/", "http://t.me/", "https://telegram.me/")
+        ):
+            errors.append("Usa un enlace valido de Telegram o desmarca Tiene Telegram.")
+        if signals_txt_name and not valid_txt_name(signals_txt_name):
+            errors.append("El nombre del TXT debe ser un archivo .txt sin carpetas.")
+        if python_file and not valid_python_filename(python_file):
+            errors.append("El archivo Python debe ser un .py sin carpetas.")
+
+        if errors:
+            for error in errors:
+                flash(error, "danger")
+            return redirect(url_for("admin_dashboard", _anchor=f"strategy-{strategy_id}"))
+
+        g.db.execute(
+            text(
+                """
+                UPDATE strategies
+                SET name = :name,
+                    risk_level = :risk_level,
+                    signal_frequency = :signal_frequency,
+                    historical_return = :historical_return,
+                    telegram_url = :telegram_url,
+                    has_telegram = :has_telegram,
+                    signals_txt_name = :signals_txt_name,
+                    python_file = :python_file,
+                    include_in_totalizer = :include_in_totalizer,
+                    public_visible = :public_visible,
+                    is_active = :is_active,
+                    run_locally = :run_locally
+                WHERE id = :id
+                """
+            ),
+            {
+                "name": name,
+                "risk_level": risk_level,
+                "signal_frequency": signal_frequency,
+                "historical_return": historical_return,
+                "telegram_url": telegram_url,
+                "has_telegram": has_telegram,
+                "signals_txt_name": signals_txt_name,
+                "python_file": python_file,
+                "include_in_totalizer": include_in_totalizer,
+                "public_visible": public_visible,
+                "is_active": is_active,
+                "run_locally": run_locally,
+                "id": strategy_id,
+            },
+        )
+        g.db.commit()
+        flash("Estrategia actualizada desde el panel.", "success")
+        return redirect(url_for("admin_dashboard", _anchor=f"strategy-{strategy_id}"))
 
     @app.route("/admin/strategies/deactivate-all", methods=["POST"])
     @login_required
@@ -2907,6 +3030,16 @@ def create_app():
 
         g.db.commit()
         return redirect(url_for("admin_dashboard"))
+
+    def save_strategy_description(strategy_id):
+        description = request.form.get("description", "").strip()
+        g.db.execute(
+            text("UPDATE strategies SET description = :description WHERE id = :id"),
+            {"description": description, "id": strategy_id},
+        )
+        g.db.commit()
+        flash("Descripcion actualizada.", "success")
+        return redirect(url_for("admin_dashboard", _anchor=f"strategy-{strategy_id}"))
 
     def track_visitor():
         if request.endpoint == "static":

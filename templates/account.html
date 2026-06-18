@@ -4,35 +4,99 @@
 
 {% block content %}
 <section class="container py-5">
-  <div class="form-panel mx-auto p-4 p-md-5">
-    <p class="text-info fw-semibold mb-1">Mi cuenta</p>
-    <h1 class="h2 mb-4">{{ user.name or user.email }}</h1>
-
-    <div class="account-grid">
+  <div class="account-shell">
+    <div class="account-header">
       <div>
-        <span class="text-secondary small d-block">Email</span>
-        <strong>{{ user.email }}</strong>
+        <p class="text-info fw-semibold mb-1">Mi cuenta</p>
+        <h1 class="h2 mb-2">{{ user.name or "Usuario" }}</h1>
+        <p class="text-secondary mb-0">{{ user.email }}</p>
       </div>
-      <div>
-        <span class="text-secondary small d-block">Acceso</span>
+      <div class="account-access-pill {% if user.has_access %}account-access-ok{% else %}account-access-pending{% endif %}">
         {% if user.has_access %}
-          <strong class="text-success">Completo activo</strong>
+          Acceso completo
         {% else %}
-          <strong class="text-warning">Pendiente</strong>
+          Acceso pendiente
         {% endif %}
-      </div>
-      <div>
-        <span class="text-secondary small d-block">Estado pago</span>
-        <strong>{{ user.payment_status }}</strong>
-      </div>
-      <div>
-        <span class="text-secondary small d-block">Alta</span>
-        <strong>{{ user.created_at }}</strong>
       </div>
     </div>
 
-    <div class="alert alert-info border-0 mt-4 mb-0">
-      Modo prueba activo: todavia no se cobra. Cuando conectemos pagos, aqui se vera la suscripcion.
+    <div class="account-grid account-grid-main">
+      <article class="account-card">
+        <span class="text-secondary small d-block">Plan actual</span>
+        <strong>Modo prueba</strong>
+        <p class="text-secondary small mb-0 mt-2">Todavia no se cobra. Cuando conectemos pagos, aqui se vera tu suscripcion y renovacion.</p>
+      </article>
+
+      <article class="account-card">
+        <span class="text-secondary small d-block">Estado de pago</span>
+        <strong>{{ user.payment_status }}</strong>
+        <p class="text-secondary small mb-0 mt-2">Campo preparado para conectar Stripe u otro sistema de cobro.</p>
+      </article>
+
+      <article class="account-card">
+        <span class="text-secondary small d-block">Fecha de alta</span>
+        <strong>{{ user.created_at }}</strong>
+        <p class="text-secondary small mb-0 mt-2">Cuenta registrada en la plataforma.</p>
+      </article>
+    </div>
+
+    <div class="row g-4 mt-1">
+      <div class="col-lg-7">
+        <div class="account-section">
+          <h2 class="h5 mb-3">Acceso a estrategias</h2>
+          <div class="account-status-list">
+            <div>
+              <span>Ver estrategias privadas</span>
+              {% if user.has_access %}
+                <strong class="text-success">Activado</strong>
+              {% else %}
+                <strong class="text-warning">Pendiente</strong>
+              {% endif %}
+            </div>
+            <div>
+              <span>Canales de Telegram</span>
+              {% if user.has_access %}
+                <strong class="text-success">Disponible</strong>
+              {% else %}
+                <strong class="text-secondary">Bloqueado</strong>
+              {% endif %}
+            </div>
+            <div>
+              <span>Historial y avisos completos</span>
+              {% if user.has_access %}
+                <strong class="text-success">Disponible</strong>
+              {% else %}
+                <strong class="text-secondary">Bloqueado</strong>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="account-section">
+          <h2 class="h5 mb-3">Aviso de responsabilidad</h2>
+          <p class="text-secondary small mb-3">Al crear la cuenta aceptaste que el contenido es informativo, no asesoramiento financiero, y que toda decision de inversion es responsabilidad del usuario.</p>
+          <div class="account-status-list">
+            <div>
+              <span>Mayor de 18 anos</span>
+              <strong class="text-success">Confirmado</strong>
+            </div>
+            <div>
+              <span>Riesgo aceptado</span>
+              <strong class="text-success">Confirmado</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="account-actions">
+      <a class="btn btn-info fw-semibold" href="{{ url_for('index') }}">Ver estrategias</a>
+      <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
+      <form method="post" action="{{ url_for('user_logout') }}">
+        <button class="btn btn-outline-light" type="submit">Cerrar sesion</button>
+      </form>
     </div>
   </div>
 </section>

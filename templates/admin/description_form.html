@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<section class="container py-4 py-md-5">
+  <div class="form-panel mx-auto p-4 p-md-5">
+    <div class="d-flex justify-content-between gap-3 align-items-start mb-4">
+      <div>
+        <p class="text-info fw-semibold mb-1">Panel</p>
+        <h1 class="h2 mb-1">{{ title }}</h1>
+        <p class="text-secondary mb-0">{{ strategy.name }}</p>
+      </div>
+      <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_dashboard', _anchor='strategy-' ~ strategy.id) }}">Volver</a>
+    </div>
+
+    <form method="post" class="guarded-form">
+      <label class="form-label" for="description">Descripcion</label>
+      <textarea class="form-control" id="description" name="description" rows="10">{{ strategy.description or '' }}</textarea>
+      <div class="form-text">El resto de campos se cambia directamente desde la tabla del panel.</div>
+
+      <div class="d-flex justify-content-end gap-2 pt-3">
+        <a class="btn btn-outline-light" href="{{ url_for('admin_dashboard', _anchor='strategy-' ~ strategy.id) }}">Cancelar</a>
+        <button class="btn btn-info fw-semibold" type="submit">Guardar descripcion</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const guardedForm = document.querySelector(".guarded-form");
+  if (guardedForm) {
+    let changed = false;
+    guardedForm.addEventListener("input", () => {
+      changed = true;
+    });
+    guardedForm.addEventListener("change", () => {
+      changed = true;
+    });
+    guardedForm.addEventListener("submit", () => {
+      changed = false;
+    });
+    window.addEventListener("beforeunload", (event) => {
+      if (!changed) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+  }
+</script>
+{% endblock %}

@@ -23,7 +23,7 @@
             <a class="btn btn-info btn-sm fw-semibold" href="{{ url_for('user_register') }}">Crear cuenta</a>
           {% endif %}
           {% if session.get("admin_logged_in") %}
-            <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_dashboard') }}">Panel</a>
+            <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_dashboard') }}" target="_blank" rel="noopener">Panel</a>
             <form method="post" action="{{ url_for('logout') }}">
               <button class="btn btn-outline-danger btn-sm" type="submit">Salir</button>
             </form>

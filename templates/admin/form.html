@@ -56,25 +56,7 @@
       <div class="col-md-6">
         <label class="form-label" for="python_file">Archivo Python de la estrategia</label>
         <input class="form-control" id="python_file" name="python_file" value="{{ strategy.python_file if strategy else '' }}" placeholder="Gap and Go.py">
-        <div class="form-text">Solo el nombre del archivo dentro de la carpeta Estrategias.</div>
-      </div>
-      <div class="col-md-6 d-flex align-items-end">
-        <div class="form-check form-switch mb-2">
-          <input class="form-check-input" type="checkbox" role="switch" id="auto_execute" name="auto_execute" {% if strategy and strategy.auto_execute %}checked{% endif %}>
-          <label class="form-check-label" for="auto_execute">Ejecutar automaticamente esta estrategia</label>
-        </div>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" for="schedule_start_time">Hora inicial</label>
-        <input class="form-control" id="schedule_start_time" name="schedule_start_time" type="time" value="{{ strategy.schedule_start_time if strategy else '15:30' }}">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" for="schedule_end_time">Hora final</label>
-        <input class="form-control" id="schedule_end_time" name="schedule_end_time" type="time" value="{{ strategy.schedule_end_time if strategy else '21:30' }}">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label" for="schedule_interval_minutes">Cada cuantos minutos</label>
-        <input class="form-control" id="schedule_interval_minutes" name="schedule_interval_minutes" type="number" min="1" max="1440" value="{{ strategy.schedule_interval_minutes if strategy else 30 }}">
+        <div class="form-text">Solo vincula el archivo dentro de la carpeta Estrategias. La ejecucion y horarios se gestionan desde local.</div>
       </div>
       <div class="col-12">
         <div class="form-check form-switch">

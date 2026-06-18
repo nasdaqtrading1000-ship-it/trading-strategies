@@ -12,11 +12,8 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-light" href="{{ url_for('admin_system') }}">Sistema</a>
-      <form method="post" action="{{ url_for('strategies_deactivate_all') }}" onsubmit="return confirm('Desactivar todas las estrategias? No se ejecutara ninguna hasta que vuelvas a activarlas.');">
-        <button class="btn btn-outline-warning" type="submit">Desactivar todas</button>
-      </form>
-      <form method="post" action="{{ url_for('strategies_apply_recommended_schedules') }}" onsubmit="return confirm('Aplicar horarios recomendados a todas las estrategias?');">
-        <button class="btn btn-outline-info" type="submit">Aplicar horarios recomendados</button>
+      <form method="post" action="{{ url_for('strategies_deactivate_all') }}" onsubmit="return confirm('Ocultar/desactivar todas las estrategias de la web?');">
+        <button class="btn btn-outline-warning" type="submit">Ocultar todas en web</button>
       </form>
       <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_new') }}">Crear estrategia</a>
     </div>
@@ -25,100 +22,45 @@
   <div class="form-panel schedule-panel p-4 mb-4">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
       <div>
-        <h2 class="h5 mb-1">Programacion automatica</h2>
-        <p class="text-secondary small mb-0">Hora en Espana. Ejemplo: 15:30, 5 veces al dia, cada 60 minutos.</p>
-        <p class="text-secondary small mb-0">Ejecutar estrategias lanza un lote pequeno de estrategias activas para evitar sobrecargar Render.</p>
+        <h2 class="h5 mb-1">Estado de procesos</h2>
+        <p class="text-secondary small mb-0">Panel remoto solo informativo. CSV, mercado y estrategias se ejecutan desde el PC/local y escriben en PostgreSQL.</p>
       </div>
     </div>
-    <form method="post" action="{{ url_for('admin_schedules_update') }}">
-      <div class="table-responsive schedule-table-wrap">
-        <table class="table table-dark align-middle mb-0 schedule-table">
-          <thead>
+    <div class="table-responsive schedule-table-wrap">
+      <table class="table table-dark align-middle mb-0 schedule-table">
+        <thead>
+          <tr>
+            <th>Proceso</th>
+            <th>Ultima actualizacion</th>
+            <th>Estado</th>
+            <th>Mensaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for task_name, task_label in scheduler_tasks.items() %}
+            {% set schedule = schedules.get(task_name) %}
             <tr>
-              <th>Tarea</th>
-              <th>Activa</th>
-              <th>Hora inicial</th>
-              <th>Dias</th>
-              <th>Veces al dia</th>
-              <th>Cada cuantos minutos</th>
-              <th>Ultima ejecucion</th>
-              <th>Manual</th>
+              <td><strong>{{ task_label }}</strong></td>
+              <td>
+                {% if schedule and schedule.last_run_at %}
+                  <span class="text-secondary small">{{ schedule.last_run_at }}</span>
+                {% else %}
+                  <span class="text-secondary small">Sin datos</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if schedule and schedule.last_status %}
+                  <span class="badge {% if schedule.last_status == 'OK' %}text-bg-success{% elif schedule.last_status == 'RUNNING' %}text-bg-warning{% else %}text-bg-danger{% endif %}">{{ schedule.last_status }}</span>
+                {% else %}
+                  <span class="badge text-bg-secondary">Sin estado</span>
+                {% endif %}
+              </td>
+              <td class="text-secondary small">{{ schedule.last_message if schedule and schedule.last_message else "Sin mensaje" }}</td>
             </tr>
-          </thead>
-          <tbody>
-            {% for task_name, task_label in scheduler_tasks.items() %}
-              {% set schedule = schedules.get(task_name) %}
-              <tr>
-                <td>
-                  <strong>{{ task_label }}</strong>
-                  {% if schedule and schedule.last_message %}
-                    <span class="d-block text-secondary small">{{ schedule.last_message }}</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" name="{{ task_name }}_enabled" value="1" {% if schedule and schedule.is_enabled %}checked{% endif %}>
-                  </div>
-                </td>
-                <td>
-                  <input class="form-control form-control-sm" type="time" name="{{ task_name }}_start_time" value="{{ schedule.start_time if schedule else '15:30' }}">
-                </td>
-                <td>
-                  <div class="weekday-picker">
-                    {% set selected_weekdays = (schedule.weekdays if schedule else '1,2,3,4,5').split(',') %}
-                    {% for day_value, day_label in weekdays %}
-                      <label class="weekday-option">
-                        <input type="checkbox" name="{{ task_name }}_weekdays" value="{{ day_value }}" {% if day_value|string in selected_weekdays %}checked{% endif %}>
-                        <span>{{ day_label }}</span>
-                      </label>
-                    {% endfor %}
-                  </div>
-                </td>
-                <td>
-                  <input class="form-control form-control-sm" type="number" min="1" max="24" name="{{ task_name }}_runs_per_day" value="{{ schedule.runs_per_day if schedule else 1 }}">
-                </td>
-                <td>
-                  <input class="form-control form-control-sm" type="number" min="1" max="1440" name="{{ task_name }}_interval_minutes" value="{{ schedule.interval_minutes if schedule else 60 }}">
-                </td>
-                <td>
-                  {% if schedule and schedule.last_run_at %}
-                    <span class="badge {% if schedule.last_status == 'OK' %}text-bg-success{% elif schedule.last_status == 'RUNNING' %}text-bg-warning{% else %}text-bg-danger{% endif %}">{{ schedule.last_status }}</span>
-                    <span class="d-block text-secondary small">{{ schedule.last_run_at }}</span>
-                  {% else %}
-                    <span class="text-secondary small">Sin ejecuciones</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <button
-                    class="btn btn-outline-warning btn-sm"
-                    type="submit"
-                    formmethod="post"
-                    formaction="{{ url_for('admin_schedule_run_now', task_name=task_name) }}"
-                    onclick="return confirm('Ejecutar ahora {{ task_label }}? Puede tardar y consumir llamadas de API.');"
-                  >
-                    Ejecutar ahora
-                  </button>
-                  {% if schedule and schedule.last_status == 'RUNNING' %}
-                    <button
-                      class="btn btn-outline-danger btn-sm mt-2"
-                      type="submit"
-                      formmethod="post"
-                      formaction="{{ url_for('admin_schedule_clear_running', task_name=task_name) }}"
-                      onclick="return confirm('Limpiar RUNNING de {{ task_label }}? Usalo solo si sabes que ya no esta ejecutando.');"
-                    >
-                      Limpiar RUNNING
-                    </button>
-                  {% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="d-flex justify-content-end mt-3">
-        <button class="btn btn-info fw-semibold" type="submit">Guardar programacion</button>
-      </div>
-    </form>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <div class="form-panel failures-panel p-4 mb-4">
@@ -216,6 +158,10 @@
   </div>
 
   <div class="admin-table strategies-panel">
+    <div class="p-4 pb-0">
+      <h2 class="h5 mb-1">Estrategias</h2>
+      <p class="text-secondary small mb-0">Admin remoto controla la web. Admin local controla si el script puede ejecutarse desde tu PC.</p>
+    </div>
     <div class="table-responsive strategies-table-wrap">
       <table class="table table-dark table-hover align-middle mb-0 strategies-table">
         <thead>
@@ -250,14 +196,14 @@
               <td>{{ strategy.historical_return_public or strategy.historical_return }}</td>
               <td>
                 {% if strategy.is_active %}
-                  <span class="badge text-bg-success">Activa</span>
+                  <span class="badge text-bg-success">Web activa</span>
                 {% else %}
-                  <span class="badge text-bg-secondary">Inactiva</span>
+                  <span class="badge text-bg-secondary">Oculta web</span>
                 {% endif %}
-                {% if strategy.auto_execute %}
-                  <span class="badge text-bg-info d-block mt-2">
-                    Auto {{ strategy.schedule_start_time }}-{{ strategy.schedule_end_time }} / {{ strategy.schedule_interval_minutes }}m
-                  </span>
+                {% if strategy.run_locally %}
+                  <span class="badge text-bg-info d-block mt-2">Corre en local</span>
+                {% else %}
+                  <span class="badge text-bg-dark d-block mt-2">Pausada local</span>
                 {% endif %}
                 {% if strategy.include_in_totalizer %}
                   <span class="badge text-bg-primary d-block mt-2">Totalizador</span>
@@ -265,24 +211,29 @@
                 {% if strategy.public_visible %}
                   <span class="badge text-bg-info d-block mt-2">Visible publico</span>
                 {% endif %}
-                {% if strategy.schedule_last_status %}
-                  <span class="badge {% if strategy.schedule_last_status == 'OK' %}text-bg-success{% elif strategy.schedule_last_status == 'RUNNING' %}text-bg-warning{% else %}text-bg-danger{% endif %} d-block mt-2">
-                    {{ strategy.schedule_last_status }}
+                <span class="d-block text-secondary small mt-2">
+                  Ultima incorporacion TXT: {{ strategy.signals_updated_at or "Sin actualizar" }}
+                </span>
+                {% if strategy.run_status %}
+                  <span class="badge {% if strategy.run_status.ok %}text-bg-success{% elif strategy.run_status.running %}text-bg-warning{% elif strategy.run_status.pending %}text-bg-secondary{% else %}text-bg-danger{% endif %} d-block mt-2">
+                    Estado codigo: {{ strategy.run_status.label }}
                   </span>
-                  <span class="d-block text-secondary small">{{ strategy.schedule_last_message }}</span>
+                  {% if strategy.run_status.ran_at %}
+                    <span class="d-block text-secondary small">{{ strategy.run_status.ran_at }}</span>
+                  {% endif %}
                 {% endif %}
               </td>
               <td>
                 <div class="d-flex justify-content-end gap-2 flex-wrap">
                   <a class="btn btn-outline-light btn-sm" href="{{ url_for('strategy_edit', strategy_id=strategy.id) }}">Editar</a>
-                  <form method="post" action="{{ url_for('strategy_run_now', strategy_id=strategy.id) }}">
-                    <button class="btn btn-outline-info btn-sm" type="submit" {% if not strategy.is_active or not strategy.python_file %}disabled{% endif %}>
-                      Ejecutar
-                    </button>
-                  </form>
                   <form method="post" action="{{ url_for('strategy_toggle', strategy_id=strategy.id) }}">
                     <button class="btn btn-outline-warning btn-sm" type="submit">
-                      {% if strategy.is_active %}Desactivar{% else %}Activar{% endif %}
+                      {% if strategy.is_active %}Ocultar web{% else %}Mostrar web{% endif %}
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('strategy_toggle_local', strategy_id=strategy.id) }}">
+                    <button class="btn btn-outline-info btn-sm" type="submit">
+                      {% if strategy.run_locally %}Pausar local{% else %}Reactivar local{% endif %}
                     </button>
                   </form>
                   <form method="post" action="{{ url_for('strategy_delete', strategy_id=strategy.id) }}" onsubmit="return confirm('Eliminar esta estrategia?');">
@@ -301,30 +252,6 @@
     </div>
   </div>
 
-  {% if session.get("last_market_update") %}
-    {% set update = session.get("last_market_update") %}
-    <div class="form-panel mt-4 p-4">
-      <h2 class="h5 mb-3">Ultima actualizacion de mercado</h2>
-      <div class="row g-3">
-        <div class="col-md-3"><span class="text-secondary small d-block">Estado</span><strong>{% if update.ok %}OK{% else %}Error{% endif %}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Activos cargados</span><strong>{{ update.loaded_assets }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Universo total</span><strong>{{ update.total_universe or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Universo base</span><strong>{{ update.base_universe or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Tickers estrategias</span><strong>{{ update.strategy_tickers or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Anadidos desde estrategias</span><strong>{{ update.added_strategy_tickers or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Metricas de mercado</span><strong>{{ update.metrics or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Guardados</span><strong>{{ update.saved_rows or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Modo</span><strong>{{ update.update_mode or "tanda" }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Limite</span><strong>{{ update.max_symbols }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">CSV mercado</span><strong>{{ update.csv_rows or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Inicio tanda</span><strong>{{ update.batch_offset or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Siguiente tanda</span><strong>{{ update.next_batch_offset or 0 }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Lotes</span><strong>{{ update.batches }}</strong></div>
-        <div class="col-md-3"><span class="text-secondary small d-block">Lotes fallidos</span><strong>{{ update.failed_batches }}</strong></div>
-        <div class="col-md-6"><span class="text-secondary small d-block">Ultimo error</span><strong>{{ update.last_error or "Sin error" }}</strong></div>
-      </div>
-    </div>
-  {% endif %}
 </section>
 {% endblock %}
 

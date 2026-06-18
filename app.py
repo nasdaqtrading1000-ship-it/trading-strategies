@@ -720,7 +720,7 @@ def persist_single_strategy_status(strategy, running=False, result=None, now=Non
 def active_strategy_names_for_runner():
     with engine.connect() as connection:
         rows = connection.execute(
-            text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
+            text("SELECT name FROM strategies WHERE run_locally = 1 ORDER BY name")
         ).mappings().fetchall()
     return [row["name"] for row in rows]
 
@@ -729,7 +729,7 @@ def strategy_names_batch_for_runner():
     batch_size = strategy_runner_batch_size()
     with engine.connect() as connection:
         rows = connection.execute(
-            text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
+            text("SELECT name FROM strategies WHERE run_locally = 1 ORDER BY name")
         ).mappings().fetchall()
         names = [row["name"] for row in rows]
         total = len(names)
@@ -783,7 +783,7 @@ def mark_strategies_as_running_file(strategy_names=None):
     with engine.begin() as connection:
         if not names:
             rows = connection.execute(
-                text("SELECT name FROM strategies WHERE is_active = 1 ORDER BY name")
+                text("SELECT name FROM strategies WHERE run_locally = 1 ORDER BY name")
             ).mappings().fetchall()
             names = [row["name"] for row in rows]
         for name in names:
@@ -796,7 +796,7 @@ def mark_strategies_as_running_file(strategy_names=None):
                         run_at = :run_at,
                         run_txt_updated = 0,
                         run_returncode = NULL
-                    WHERE is_active = 1
+                    WHERE run_locally = 1
                       AND name = :name
                     """
                 ),
@@ -2434,12 +2434,15 @@ def create_app():
                    historical_return, telegram_url, has_telegram, signals_txt_name,
                    python_file, auto_execute, schedule_start_time, schedule_end_time,
                    schedule_interval_minutes, schedule_last_status, schedule_last_message,
-                   schedule_last_run_at, include_in_totalizer, public_visible, is_active, created_at
+                   schedule_last_run_at, run_status, run_message, run_at,
+                   run_txt_updated, run_returncode, include_in_totalizer,
+                   public_visible, run_locally, is_active, created_at
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
             )
         ).mappings().fetchall()
+        strategies = [strategy_with_signals(row) for row in strategies]
         users = g.db.execute(
             text(
                 """
@@ -2651,12 +2654,25 @@ def create_app():
         flash("Estado actualizado.", "success")
         return redirect(url_for("admin_dashboard"))
 
+    @app.route("/admin/strategies/<int:strategy_id>/toggle-local", methods=["POST"])
+    @login_required
+    def strategy_toggle_local(strategy_id):
+        strategy = get_strategy_or_404(strategy_id)
+        next_state = 0 if strategy["run_locally"] else 1
+        g.db.execute(
+            text("UPDATE strategies SET run_locally = :run_locally WHERE id = :id"),
+            {"run_locally": next_state, "id": strategy_id},
+        )
+        g.db.commit()
+        flash("Ejecucion local actualizada.", "success")
+        return redirect(url_for("admin_dashboard"))
+
     @app.route("/admin/strategies/deactivate-all", methods=["POST"])
     @login_required
     def strategies_deactivate_all():
         g.db.execute(text("UPDATE strategies SET is_active = 0 WHERE is_active = 1"))
         g.db.commit()
-        flash("Todas las estrategias han sido desactivadas.", "warning")
+        flash("Todas las estrategias han sido ocultadas/desactivadas en la web. La ejecucion local no cambia.", "warning")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/apply-recommended-schedules", methods=["POST"])
@@ -4329,6 +4345,7 @@ def init_db():
                     run_returncode INTEGER,
                     include_in_totalizer INTEGER NOT NULL DEFAULT 0,
                     public_visible INTEGER NOT NULL DEFAULT 0,
+                    run_locally INTEGER NOT NULL DEFAULT 1,
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -4360,6 +4377,7 @@ def init_db():
         add_strategy_column(connection, "run_returncode", "INTEGER")
         add_strategy_column(connection, "include_in_totalizer", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "public_visible", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "run_locally", "INTEGER NOT NULL DEFAULT 1")
         ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()

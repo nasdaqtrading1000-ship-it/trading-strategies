@@ -317,7 +317,7 @@ def active_strategy_names_from_database():
 
         with engine.connect() as connection:
             rows = connection.execute(
-                text("SELECT name FROM strategies WHERE is_active = 1")
+                text("SELECT name FROM strategies WHERE run_locally = 1")
             ).mappings().fetchall()
         return {row["name"] for row in rows}
     except Exception as error:

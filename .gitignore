@@ -5,6 +5,7 @@ __pycache__/
 *.pyd
 .Python
 .env
+Estrategias/
 Estrategias/.env
 Estrategias/historico_txt/
 Estrategias/logs/

@@ -89,6 +89,10 @@ DEFAULT_STRATEGY_FILES = {
     "Momentum Intradia": "MomentumIntradia.py",
     "Scalping The PullBacks": "ScalpingThePullBacKs.py",
     "Gap and Go": "Gap and Go.py",
+    "Follow The Money": "FollowTheMoney.py",
+    "Acumula Metales": "AcumulaMetales.py",
+    "Acumulacion": "Acumulacion.py",
+    "Reversion RSI 5": "ReversionRSI5.py",
 }
 DEFAULT_STRATEGY_SCHEDULES = {
     "Momentum": {"start": "22:10", "end": "22:25", "interval": 1440},
@@ -106,6 +110,10 @@ DEFAULT_STRATEGY_SCHEDULES = {
     "Momentum Intradia": {"start": "15:40", "end": "21:45", "interval": 15},
     "Scalping The PullBacks": {"start": "15:40", "end": "21:45", "interval": 10},
     "Gap and Go": {"start": "15:35", "end": "17:30", "interval": 10},
+    "Follow The Money": {"start": "15:30", "end": "22:00", "interval": 60},
+    "Acumula Metales": {"start": "15:30", "end": "22:00", "interval": 240},
+    "Acumulacion": {"start": "15:30", "end": "22:00", "interval": 240},
+    "Reversion RSI 5": {"start": "15:30", "end": "22:00", "interval": 10},
 }
 SIGNAL_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9./-]{0,14}$")
 SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
@@ -126,6 +134,7 @@ TECHNICAL_TERM_HELP = [
     ("rsi", "Indicador de fuerza relativa. Valores bajos suelen indicar sobreventa y altos sobrecompra."),
     ("vwap", "Precio medio ponderado por volumen durante la sesion."),
     ("sma", "Media movil simple. Resume el precio medio de las ultimas velas o dias."),
+    ("media 2h", "Media del precio de las ultimas dos horas. Sirve para medir cuanto se ha alejado el precio en intradia."),
     ("ema", "Media movil exponencial. Da mas peso a los precios recientes."),
     ("atr", "Rango medio real. Mide volatilidad y ayuda a colocar stops."),
     ("vol xmedia", "Volumen actual comparado con su volumen medio."),
@@ -160,6 +169,42 @@ DEFAULT_REAL_STRATEGIES = [
         "historical_return": "Pendiente de backtest",
         "telegram_url": "https://t.me/tu_canal_momentum",
         "signals_txt_name": "Momentum.txt",
+    },
+    {
+        "name": "Follow The Money",
+        "description": "Busca donde entra el dinero detectando activos con volumen monetario diario muy superior a sus medias de 1, 2 y 3 meses.",
+        "risk_level": "Alto",
+        "signal_frequency": "Intradia / cada hora",
+        "historical_return": "Pendiente de seguimiento",
+        "telegram_url": "https://t.me/tu_canal_follow_the_money",
+        "signals_txt_name": "Follow_The_Money.txt",
+    },
+    {
+        "name": "Acumula Metales",
+        "description": "Compra metales y activos ligados a metales cuando estan castigados: bajo SMA180 diaria, bajo SMA120 semanal y con RSI14 menor que 30.",
+        "risk_level": "Medio",
+        "signal_frequency": "Diaria / acumulacion",
+        "historical_return": "Pendiente de seguimiento",
+        "telegram_url": "https://t.me/tu_canal_acumula_metales",
+        "signals_txt_name": "Acumula_Metales.txt",
+    },
+    {
+        "name": "Acumulacion",
+        "description": "Busca compras de acumulacion en todo el universo filtrado cuando el activo esta bajo SMA180 diaria, bajo SMA120 semanal y con RSI14 menor que 30.",
+        "risk_level": "Medio",
+        "signal_frequency": "Diaria / acumulacion",
+        "historical_return": "Pendiente de seguimiento",
+        "telegram_url": "https://t.me/tu_canal_acumulacion",
+        "signals_txt_name": "Acumulacion.txt",
+    },
+    {
+        "name": "Reversion RSI 5",
+        "description": "Opera extremos intradia: cortos con RSI14 mayor de 80 y precio mas de 5% sobre la media de 2 horas; largos al reves. Cierra por beneficio conjunto del 5%.",
+        "risk_level": "Alto",
+        "signal_frequency": "Intradia / cada 10 minutos",
+        "historical_return": "Pendiente de seguimiento",
+        "telegram_url": "https://t.me/tu_canal_reversion_rsi_5",
+        "signals_txt_name": "Reversion_RSI_5.txt",
     },
     {
         "name": "Swing Trading",
@@ -1402,6 +1447,66 @@ STRATEGY_EXPLANATIONS = {
         "score": "Ordena por fuerza relativa, momentum y distancia positiva frente a SMA50.",
         "risk": "Stop entre soporte reciente de 20 dias y SMA50. Objetivos TP1 y TP2 por multiplos de riesgo.",
     },
+    "followthemoney": {
+        "summary": "Busca activos donde el dinero esta entrando con fuerza hoy frente a su comportamiento normal.",
+        "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "Volumen monetario del ultimo dia: cierre multiplicado por volumen.",
+            "Media de volumen monetario de 1 mes, excluyendo el ultimo dia.",
+            "Media de volumen monetario de 2 meses, excluyendo el ultimo dia.",
+            "Media de volumen monetario de 3 meses, excluyendo el ultimo dia.",
+            "Ratio del volumen monetario actual frente a cada media historica.",
+        ],
+        "filters": [
+            "Volumen monetario del ultimo dia >= 10 M USD.",
+            "Ratio frente a media de 1 mes >= 1.25x.",
+            "Debe tener suficientes datos para comparar contra 3 meses.",
+            "Devuelve solo los 10 activos con mayor score.",
+        ],
+        "score": "Ordena por expansion de volumen monetario frente a 1, 2 y 3 meses. Da mas peso al ratio de 1 mes y anade un pequeno ajuste por liquidez total.",
+        "risk": "Operacion LONG. Apertura en precio actual, cierre objetivo al +10% y stop loss al -10%.",
+    },
+    "acumulametales": {
+        "summary": "Busca oportunidades de acumulacion en metales cuando estan castigados y sobrevendidos.",
+        "universe": "Analiza una lista fija de ETFs y activos liquidos vinculados a oro, plata, cobre, platino, paladio, mineras y metales industriales. Puede personalizarse con TRADING_METALS_SYMBOLS.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA180 diaria.",
+            "SMA120 semanal calculada con cierres semanales.",
+            "RSI14 diario.",
+            "Distancia porcentual del precio a SMA180 diaria.",
+            "Distancia porcentual del precio a SMA120 semanal.",
+        ],
+        "filters": [
+            "Precio actual por debajo de SMA180 diaria.",
+            "Precio actual por debajo de SMA120 semanal.",
+            "RSI14 diario menor que 30.",
+            "Debe tener suficiente historico para calcular SMA180 diaria y SMA120 semanal.",
+        ],
+        "score": "Ordena por descuento frente a SMA180, descuento frente a SMA120 semanal y nivel de sobreventa RSI. Cuanto mas castigado y sobrevendido, mayor puntuacion.",
+        "risk": "Operacion LONG de acumulacion. Apertura en precio actual. De momento no tiene cierre automatico; cierre y stop se muestran solo como referencias informativas.",
+    },
+    "acumulacion": {
+        "summary": "Busca oportunidades de acumulacion en cualquier activo del universo filtrado cuando esta castigado y sobrevendido.",
+        "universe": "Analiza todos los tickets filtrados por liquidez y volumen monetario en tickers.txt, el mismo universo que usa el resto de estrategias generales.",
+        "data": [
+            "Velas diarias: apertura, maximo, minimo, cierre y volumen.",
+            "SMA180 diaria.",
+            "SMA120 semanal calculada con cierres semanales.",
+            "RSI14 diario.",
+            "Distancia porcentual del precio a SMA180 diaria.",
+            "Distancia porcentual del precio a SMA120 semanal.",
+        ],
+        "filters": [
+            "Precio actual por debajo de SMA180 diaria.",
+            "Precio actual por debajo de SMA120 semanal.",
+            "RSI14 diario menor que 30.",
+            "Debe tener suficiente historico para calcular SMA180 diaria y SMA120 semanal.",
+        ],
+        "score": "Ordena por descuento frente a SMA180, descuento frente a SMA120 semanal y nivel de sobreventa RSI.",
+        "risk": "Operacion LONG de acumulacion. Apertura en precio actual. De momento no tiene cierre automatico; cierre y stop se muestran solo como referencias informativas.",
+    },
     "swingtrading": {
         "summary": "Busca entradas de varios dias en acciones alcistas que han corregido de forma controlada y empiezan a recuperar fuerza.",
         "universe": "Analiza tickets filtrados previamente por liquidez y volumen monetario.",
@@ -1739,6 +1844,21 @@ STRATEGY_MANUAL_GUIDES = {
         "Anade SMA20 y SMA50. La lectura buena es: precio por encima de SMA50, SMA20 por encima de SMA50, momentum de 20 dias positivo y fuerza relativa superior a QQQ. Si el activo sube mas que QQQ en las ultimas semanas y respeta soportes, la senal tiene mas sentido.",
         "La entrada manual se puede plantear en continuidad o tras un pequeno retroceso sano. El stop suele ir bajo un soporte reciente o bajo SMA50. Los objetivos se calculan por multiplos del riesgo asumido. Evita perseguir velas muy verticales o activos con volumen pobre.",
     ],
+    "followthemoney": [
+        "Follow The Money parte de una idea sencilla: cuando un activo mueve hoy mucho mas dinero de lo normal, puede estar entrando interes institucional, noticias, rotacion sectorial o acumulacion. No mira solo volumen de acciones; usa volumen monetario, que es precio multiplicado por volumen.",
+        "Para revisarla manualmente, compara el volumen monetario del dia actual con su media de 1, 2 y 3 meses. Una senal interesante deberia mostrar un ratio claramente superior a 1.25x frente al ultimo mes y mantener ratios fuertes tambien frente a 2 y 3 meses. Cuanto mas alto sea el ratio y mas liquido sea el activo, mayor calidad tendra el aviso.",
+        "La estrategia devuelve los 10 activos con mayor expansion de volumen monetario. La operativa propuesta es LONG con entrada en el precio actual, objetivo de salida al +10% y stop loss al -10%. Es una estrategia de riesgo alto porque el volumen fuerte puede aparecer tanto por acumulacion como por noticias negativas; por eso conviene revisar grafica, catalizador y direccion del precio antes de operar.",
+    ],
+    "acumulametales": [
+        "Acumula Metales es una estrategia de compra progresiva en debilidad. No busca comprar metales cuando ya estan disparados, sino cuando estan por debajo de medias importantes y el RSI indica sobreventa. La idea es detectar zonas donde el activo podria estar castigado en exceso.",
+        "Para revisarla manualmente, abre una grafica diaria y anade SMA180 y RSI14. Despues mira tambien la grafica semanal con SMA120. La senal aparece solo si el precio esta por debajo de SMA180 diaria, por debajo de SMA120 semanal y el RSI14 diario esta por debajo de 30.",
+        "El aviso no significa que el suelo este hecho. Es una estrategia de acumulacion: puede requerir paciencia y puede seguir cayendo. De momento no se cierra automaticamente; cierre y stop quedan como referencias para seguimiento manual. Conviene revisar contexto macro, dolar, tipos de interes y fuerza del metal antes de aumentar exposicion.",
+    ],
+    "acumulacion": [
+        "Acumulacion aplica la misma logica que Acumula Metales, pero sobre todo el universo filtrado de acciones/ETFs. Busca activos castigados, no activos fuertes. Por eso puede encontrar oportunidades en sectores muy distintos cuando el precio se aleja de sus medias y entra en sobreventa.",
+        "Para revisarla manualmente, abre una grafica diaria con SMA180 y RSI14, y una grafica semanal con SMA120. La senal solo aparece si el precio esta por debajo de SMA180 diaria, por debajo de SMA120 semanal y RSI14 diario esta por debajo de 30.",
+        "Es una estrategia de acumulacion y paciencia. El activo puede seguir bajando aunque este sobrevendido. De momento no se cierra automaticamente; cierre y stop quedan como referencias para seguimiento manual. Antes de operar conviene revisar noticias, resultados y si la caida viene de un deterioro real.",
+    ],
     "swingtrading": [
         "Swing Trading busca operaciones de varios dias. Manualmente debes localizar una accion alcista que haya corregido sin romper su tendencia. No se trata de comprar cualquier caida, sino un retroceso ordenado dentro de una estructura fuerte.",
         "En la grafica diaria usa SMA20, SMA50 y RSI14. Lo ideal es precio por encima de SMA50, SMA20 por encima de SMA50, RSI entre 40 y 60 y recuperacion de maximos recientes de corto plazo. Eso indica que la correccion podria estar terminando.",
@@ -1868,7 +1988,16 @@ def create_app():
             return False
         endpoint = request.endpoint or ""
         path = request.path or ""
-        allowed_endpoints = {"static", "site_login", "login", "logout"}
+        allowed_endpoints = {
+            "static",
+            "site_login",
+            "login",
+            "logout",
+            "user_login",
+            "user_register",
+            "user_logout",
+            "account",
+        }
         if endpoint in allowed_endpoints:
             return False
         if path.startswith("/admin"):
@@ -1897,26 +2026,165 @@ def create_app():
 
         return render_template("site_login.html")
 
+    def current_user():
+        user_id = session.get("user_id")
+        if not user_id:
+            return None
+        return g.db.execute(
+            text(
+                """
+                SELECT id, email, name, has_access, payment_status, created_at
+                FROM users
+                WHERE id = :id
+                """
+            ),
+            {"id": user_id},
+        ).mappings().fetchone()
+
+    def member_has_full_access(user=None):
+        user = user if user is not None else current_user()
+        return bool(user and int(user.get("has_access") or 0))
+
+    def can_view_strategy(strategy):
+        if session.get("admin_logged_in"):
+            return True
+        if member_has_full_access():
+            return True
+        return bool(int(strategy.get("public_visible") or 0))
+
+    @app.context_processor
+    def inject_user_context():
+        user = current_user()
+        return {
+            "current_user": user,
+            "member_has_access": member_has_full_access(user),
+        }
+
+    @app.route("/registro", methods=["GET", "POST"])
+    def user_register():
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "")
+            age_confirmed = 1 if request.form.get("age_confirmed") == "on" else 0
+            risk_accepted = 1 if request.form.get("risk_accepted") == "on" else 0
+
+            if not email or "@" not in email:
+                flash("Introduce un email valido.", "danger")
+                return render_template("user_register.html", name=name, email=email)
+            if len(password) < 6:
+                flash("La contrasena debe tener al menos 6 caracteres.", "danger")
+                return render_template("user_register.html", name=name, email=email)
+            if not age_confirmed or not risk_accepted:
+                flash("Debes confirmar la mayoria de edad y aceptar el aviso de riesgo para crear la cuenta.", "danger")
+                return render_template("user_register.html", name=name, email=email)
+
+            existing = g.db.execute(
+                text("SELECT id FROM users WHERE lower(email) = lower(:email)"),
+                {"email": email},
+            ).mappings().fetchone()
+            if existing:
+                flash("Ese email ya tiene cuenta. Entra con tu contrasena.", "warning")
+                return redirect(url_for("user_login"))
+
+            result = g.db.execute(
+                text(
+                    """
+                    INSERT INTO users
+                    (email, password_hash, name, has_access, payment_status, age_confirmed, risk_accepted, accepted_terms_at)
+                    VALUES (:email, :password_hash, :name, 1, 'trial', :age_confirmed, :risk_accepted, :accepted_terms_at)
+                    RETURNING id
+                    """
+                )
+                if engine.dialect.name == "postgresql"
+                else text(
+                    """
+                    INSERT INTO users
+                    (email, password_hash, name, has_access, payment_status, age_confirmed, risk_accepted, accepted_terms_at)
+                    VALUES (:email, :password_hash, :name, 1, 'trial', :age_confirmed, :risk_accepted, :accepted_terms_at)
+                    """
+                ),
+                {
+                    "email": email,
+                    "password_hash": generate_password_hash(password),
+                    "name": name,
+                    "age_confirmed": age_confirmed,
+                    "risk_accepted": risk_accepted,
+                    "accepted_terms_at": datetime.now(UTC).replace(tzinfo=None),
+                },
+            )
+            if engine.dialect.name == "postgresql":
+                user_id = result.scalar_one()
+            else:
+                user_id = g.db.execute(text("SELECT last_insert_rowid()")).scalar_one()
+            g.db.commit()
+
+            session["user_id"] = user_id
+            session["user_email"] = email
+            flash("Cuenta creada. Acceso completo activado en modo prueba.", "success")
+            return redirect(url_for("index"))
+
+        return render_template("user_register.html")
+
+    @app.route("/entrar", methods=["GET", "POST"])
+    def user_login():
+        if request.method == "POST":
+            email = request.form.get("email", "").strip().lower()
+            password = request.form.get("password", "")
+            user = g.db.execute(
+                text(
+                    """
+                    SELECT id, email, password_hash
+                    FROM users
+                    WHERE lower(email) = lower(:email)
+                    """
+                ),
+                {"email": email},
+            ).mappings().fetchone()
+            if user and check_password_hash(user["password_hash"], password):
+                session["user_id"] = user["id"]
+                session["user_email"] = user["email"]
+                flash("Has entrado correctamente.", "success")
+                return redirect(url_for("index"))
+            flash("Email o contrasena incorrectos.", "danger")
+
+        return render_template("user_login.html")
+
+    @app.route("/salir", methods=["POST"])
+    def user_logout():
+        session.pop("user_id", None)
+        session.pop("user_email", None)
+        flash("Sesion de usuario cerrada.", "info")
+        return redirect(url_for("index"))
+
+    @app.route("/mi-cuenta")
+    def account():
+        user = current_user()
+        if not user:
+            flash("Entra con tu cuenta para ver esta zona.", "warning")
+            return redirect(url_for("user_login"))
+        return render_template("account.html", user=user)
+
     @app.route("/")
     def index():
-        rows = g.db.execute(
-            text(
-            """
-            SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, has_telegram, signals_txt_name,
-                   python_file, auto_execute, schedule_start_time, schedule_end_time,
-                   schedule_interval_minutes, run_status, run_message, run_at,
-                   run_txt_updated, run_returncode, include_in_totalizer, is_active
-            FROM strategies
-            WHERE is_active = 1
-            ORDER BY created_at DESC
-            """
-            )
-        ).mappings().fetchall()
-        strategies = [
-            strategy_with_signals(row)
-            for row in rows
-        ]
+        user = current_user()
+        has_full_access = member_has_full_access(user)
+        query = """
+        SELECT id, name, description, risk_level, signal_frequency,
+               historical_return, telegram_url, has_telegram, signals_txt_name,
+               python_file, auto_execute, schedule_start_time, schedule_end_time,
+               schedule_interval_minutes, run_status, run_message, run_at,
+               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active
+        FROM strategies
+        WHERE is_active = 1
+        ORDER BY created_at DESC
+        """
+        rows = g.db.execute(text(query)).mappings().fetchall()
+        strategies = []
+        for row in rows:
+            strategy = strategy_with_signals(row)
+            strategy["is_locked"] = not has_full_access and not int(strategy.get("public_visible") or 0)
+            strategies.append(strategy)
         strategies.sort(
             key=lambda strategy: (
                 -int(strategy.get("signals_count") or 0),
@@ -1938,11 +2206,16 @@ def create_app():
             top_money_volume_source=top_assets["source"],
             community_url=community_url,
             donation_url=donation_url,
+            page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
+            is_public_view=not has_full_access,
         )
 
     @app.route("/estrategia/<int:strategy_id>/diagnostico/<path:symbol>")
     def strategy_diagnostic(strategy_id, symbol):
         strategy = get_strategy_or_404(strategy_id)
+        if not can_view_strategy(strategy):
+            flash("Crea una cuenta para acceder a todas las estrategias.", "warning")
+            return redirect(url_for("user_login"))
         signals = read_strategy_signals(strategy["signals_txt_name"])
         normalized_symbol = normalize_signal_symbol(symbol)
         selected_key = request.args.get("key", "")
@@ -1974,6 +2247,9 @@ def create_app():
     @app.route("/estrategia/<int:strategy_id>/avisos")
     def strategy_signals(strategy_id):
         strategy = dict(get_strategy_or_404(strategy_id))
+        if not can_view_strategy(strategy):
+            flash("Crea una cuenta para ver los avisos completos.", "warning")
+            return redirect(url_for("user_login"))
         signals = read_strategy_signals(strategy["signals_txt_name"])
         attach_simulated_operations_to_signals(strategy, signals)
 
@@ -2021,6 +2297,9 @@ def create_app():
     @app.route("/estrategia/<int:strategy_id>/historial")
     def strategy_closed_operations(strategy_id):
         strategy = dict(get_strategy_or_404(strategy_id))
+        if not can_view_strategy(strategy):
+            flash("Crea una cuenta para ver el historial completo.", "warning")
+            return redirect(url_for("user_login"))
         operations = closed_operations_for_strategy(strategy.get("signals_txt_name", ""))
         total_profit = sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
         total_invested = sum(parse_display_float(operation.get("investment_value")) for operation in operations)
@@ -2056,6 +2335,9 @@ def create_app():
     @app.route("/estrategia/<int:strategy_id>/funcionamiento")
     def strategy_details(strategy_id):
         strategy = dict(get_strategy_or_404(strategy_id))
+        if not can_view_strategy(strategy):
+            flash("Crea una cuenta para ver el detalle de esta estrategia.", "warning")
+            return redirect(url_for("user_login"))
         return render_template(
             "strategy_details.html",
             strategy=strategy,
@@ -2152,15 +2434,26 @@ def create_app():
                    historical_return, telegram_url, has_telegram, signals_txt_name,
                    python_file, auto_execute, schedule_start_time, schedule_end_time,
                    schedule_interval_minutes, schedule_last_status, schedule_last_message,
-                   schedule_last_run_at, include_in_totalizer, is_active, created_at
+                   schedule_last_run_at, include_in_totalizer, public_visible, is_active, created_at
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
             )
         ).mappings().fetchall()
+        users = g.db.execute(
+            text(
+                """
+                SELECT id, email, name, has_access, payment_status, created_at
+                FROM users
+                ORDER BY created_at DESC
+                LIMIT 50
+                """
+            )
+        ).mappings().fetchall()
         return render_template(
             "admin/dashboard.html",
             strategies=strategies,
+            users=users,
             active_visitors=active_visitor_count(),
             schedules=load_automation_schedules(),
             scheduler_tasks=SCHEDULER_TASKS,
@@ -2172,6 +2465,36 @@ def create_app():
     @login_required
     def admin_system():
         return render_template("admin/system.html", database=database_status())
+
+    @app.route("/admin/users/<int:user_id>/toggle-access", methods=["POST"])
+    @login_required
+    def user_toggle_access(user_id):
+        user = g.db.execute(
+            text("SELECT has_access FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).mappings().fetchone()
+        if user is None:
+            abort(404)
+        next_access = 0 if int(user["has_access"] or 0) else 1
+        next_status = "active" if next_access else "blocked"
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET has_access = :has_access,
+                    payment_status = :payment_status
+                WHERE id = :id
+                """
+            ),
+            {
+                "has_access": next_access,
+                "payment_status": next_status,
+                "id": user_id,
+            },
+        )
+        g.db.commit()
+        flash("Acceso de usuario actualizado.", "success")
+        return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/market-data/update", methods=["POST"])
     @login_required
@@ -2430,6 +2753,7 @@ def create_app():
             maximum=1440,
         )
         include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
+        public_visible = 1 if request.form.get("public_visible") == "on" else 0
         is_active = 1 if request.form.get("is_active") == "on" else 0
 
         errors = []
@@ -2468,6 +2792,7 @@ def create_app():
             "schedule_end_time": schedule_end_time,
             "schedule_interval_minutes": schedule_interval_minutes,
             "include_in_totalizer": include_in_totalizer,
+            "public_visible": public_visible,
             "is_active": is_active,
         }
 
@@ -2502,6 +2827,7 @@ def create_app():
                     schedule_end_time = :schedule_end_time,
                     schedule_interval_minutes = :schedule_interval_minutes,
                     include_in_totalizer = :include_in_totalizer,
+                    public_visible = :public_visible,
                     is_active = :is_active
                 WHERE id = :id
                 """,
@@ -2521,6 +2847,7 @@ def create_app():
                     "schedule_end_time": schedule_end_time,
                     "schedule_interval_minutes": schedule_interval_minutes,
                     "include_in_totalizer": include_in_totalizer,
+                    "public_visible": public_visible,
                     "is_active": is_active,
                     "id": strategy_id,
                 },
@@ -2534,11 +2861,11 @@ def create_app():
                 (name, description, risk_level, signal_frequency,
                  historical_return, telegram_url, has_telegram, signals_txt_name,
                  python_file, auto_execute, schedule_start_time, schedule_end_time,
-                 schedule_interval_minutes, include_in_totalizer, is_active)
+                 schedule_interval_minutes, include_in_totalizer, public_visible, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
                         :historical_return, :telegram_url, :has_telegram, :signals_txt_name,
                         :python_file, :auto_execute, :schedule_start_time, :schedule_end_time,
-                        :schedule_interval_minutes, :include_in_totalizer, :is_active)
+                        :schedule_interval_minutes, :include_in_totalizer, :public_visible, :is_active)
                 """,
                 ),
                 {
@@ -2556,6 +2883,7 @@ def create_app():
                     "schedule_end_time": schedule_end_time,
                     "schedule_interval_minutes": schedule_interval_minutes,
                     "include_in_totalizer": include_in_totalizer,
+                    "public_visible": public_visible,
                     "is_active": is_active,
                 },
             )
@@ -4000,12 +4328,17 @@ def init_db():
                     run_txt_updated INTEGER NOT NULL DEFAULT 0,
                     run_returncode INTEGER,
                     include_in_totalizer INTEGER NOT NULL DEFAULT 0,
+                    public_visible INTEGER NOT NULL DEFAULT 0,
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
         )
+        ensure_users_table(connection)
+        add_user_column(connection, "age_confirmed", "INTEGER NOT NULL DEFAULT 0")
+        add_user_column(connection, "risk_accepted", "INTEGER NOT NULL DEFAULT 0")
+        add_user_column(connection, "accepted_terms_at", "TIMESTAMP")
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
         ensure_simulated_operations_table(connection)
@@ -4026,6 +4359,7 @@ def init_db():
         add_strategy_column(connection, "run_txt_updated", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "run_returncode", "INTEGER")
         add_strategy_column(connection, "include_in_totalizer", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "public_visible", "INTEGER NOT NULL DEFAULT 0")
         ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()
@@ -4340,6 +4674,61 @@ def ensure_simulated_operations_table(connection):
             """
         )
     )
+
+
+def ensure_users_table(connection):
+    id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS users (
+                id {id_column},
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                name TEXT NOT NULL DEFAULT '',
+                has_access INTEGER NOT NULL DEFAULT 1,
+                payment_status TEXT NOT NULL DEFAULT 'trial',
+                age_confirmed INTEGER NOT NULL DEFAULT 0,
+                risk_accepted INTEGER NOT NULL DEFAULT 0,
+                accepted_terms_at TIMESTAMP,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def add_user_column(connection, column_name, definition):
+    if user_column_exists(connection, column_name):
+        return
+    connection.execute(
+        text(
+            f"ALTER TABLE users ADD COLUMN {column_name} {definition}"
+        )
+    )
+
+
+def user_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = 'users'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        )
+        return result.scalar_one() > 0
+
+    rows = connection.execute(text("PRAGMA table_info(users)")).fetchall()
+    return any(row[1] == column_name for row in rows)
 
 
 def automation_schedule_column_exists(connection, column_name):

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Crear cuenta{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="login-panel mx-auto p-4 p-md-5">
+    <p class="text-info fw-semibold mb-1">Acceso miembros</p>
+    <h1 class="h2 mb-2">Crear cuenta</h1>
+    <p class="text-secondary mb-4">Durante la fase de prueba el acceso completo queda activado gratis.</p>
+
+    <form method="post" class="vstack gap-3">
+      <div>
+        <label class="form-label" for="name">Nombre</label>
+        <input class="form-control" id="name" name="name" value="{{ name or '' }}" autocomplete="name">
+      </div>
+      <div>
+        <label class="form-label" for="email">Email</label>
+        <input class="form-control" id="email" name="email" type="email" value="{{ email or '' }}" autocomplete="email" required>
+      </div>
+      <div>
+        <label class="form-label" for="password">Contrasena</label>
+        <input class="form-control" id="password" name="password" type="password" minlength="6" autocomplete="new-password" required>
+        <div class="form-text">Minimo 6 caracteres.</div>
+      </div>
+      <div class="risk-acceptance-box">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="age_confirmed" name="age_confirmed" required>
+          <label class="form-check-label" for="age_confirmed">
+            Confirmo que soy mayor de 18 anos.
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="risk_accepted" name="risk_accepted" required>
+          <label class="form-check-label" for="risk_accepted">
+            Estoy de acuerdo en que cualquier decision de inversion u operacion que realice es exclusivamente mi responsabilidad.
+            Entiendo que el contenido es informativo, no es asesoramiento financiero, que puedo perder dinero y que los beneficios pasados no garantizan beneficios futuros.
+          </label>
+        </div>
+        <p class="text-secondary small mb-0">
+          Al crear la cuenta aceptas usar la informacion bajo tu propio criterio, revisar cada operacion por tu cuenta y asumir completamente el riesgo de tus decisiones.
+        </p>
+      </div>
+      <button class="btn btn-info fw-semibold" type="submit">Crear cuenta gratis</button>
+    </form>
+
+    <p class="text-secondary small mt-4 mb-0">
+      Ya tienes cuenta?
+      <a href="{{ url_for('user_login') }}">Entrar</a>
+    </p>
+  </div>
+</section>
+{% endblock %}

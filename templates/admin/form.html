@@ -84,6 +84,13 @@
       </div>
       <div class="col-12">
         <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="public_visible" name="public_visible" {% if strategy and strategy.public_visible %}checked{% endif %}>
+          <label class="form-check-label" for="public_visible">Visible en pantalla principal publica</label>
+        </div>
+        <div class="form-text">Los visitantes sin cuenta solo veran las estrategias marcadas aqui. Los usuarios con cuenta ven todas las activas.</div>
+      </div>
+      <div class="col-12">
+        <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" role="switch" id="include_in_totalizer" name="include_in_totalizer" {% if strategy and strategy.include_in_totalizer %}checked{% endif %}>
           <label class="form-check-label" for="include_in_totalizer">Incluir estrategia en totalizador</label>
         </div>

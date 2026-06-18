@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Mi cuenta{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="form-panel mx-auto p-4 p-md-5">
+    <p class="text-info fw-semibold mb-1">Mi cuenta</p>
+    <h1 class="h2 mb-4">{{ user.name or user.email }}</h1>
+
+    <div class="account-grid">
+      <div>
+        <span class="text-secondary small d-block">Email</span>
+        <strong>{{ user.email }}</strong>
+      </div>
+      <div>
+        <span class="text-secondary small d-block">Acceso</span>
+        {% if user.has_access %}
+          <strong class="text-success">Completo activo</strong>
+        {% else %}
+          <strong class="text-warning">Pendiente</strong>
+        {% endif %}
+      </div>
+      <div>
+        <span class="text-secondary small d-block">Estado pago</span>
+        <strong>{{ user.payment_status }}</strong>
+      </div>
+      <div>
+        <span class="text-secondary small d-block">Alta</span>
+        <strong>{{ user.created_at }}</strong>
+      </div>
+    </div>
+
+    <div class="alert alert-info border-0 mt-4 mb-0">
+      Modo prueba activo: todavia no se cobra. Cuando conectemos pagos, aqui se vera la suscripcion.
+    </div>
+  </div>
+</section>
+{% endblock %}

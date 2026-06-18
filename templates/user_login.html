@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="login-panel mx-auto p-4 p-md-5">
+    <p class="text-info fw-semibold mb-1">Acceso miembros</p>
+    <h1 class="h2 mb-2">Entrar</h1>
+    <p class="text-secondary mb-4">Entra para ver todas las estrategias activas.</p>
+
+    <form method="post" class="vstack gap-3">
+      <div>
+        <label class="form-label" for="email">Email</label>
+        <input class="form-control" id="email" name="email" type="email" autocomplete="email" required>
+      </div>
+      <div>
+        <label class="form-label" for="password">Contrasena</label>
+        <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-info fw-semibold" type="submit">Entrar</button>
+    </form>
+
+    <p class="text-secondary small mt-4 mb-0">
+      Aun no tienes cuenta?
+      <a href="{{ url_for('user_register') }}">Crear cuenta gratis</a>
+    </p>
+  </div>
+</section>
+{% endblock %}

@@ -163,6 +163,58 @@
     {% endif %}
   </div>
 
+  <div class="form-panel p-4 mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+      <div>
+        <h2 class="h5 mb-1">Usuarios</h2>
+        <p class="text-secondary small mb-0">De momento el registro activa acceso gratis. Mas adelante aqui se conectara el cobro.</p>
+      </div>
+      <span class="badge text-bg-info align-self-start">{{ users|length }} usuarios recientes</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-dark table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Estado</th>
+            <th>Alta</th>
+            <th class="text-end">Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td>
+                <strong>{{ user.name or user.email }}</strong>
+                <span class="d-block text-secondary small">{{ user.email }}</span>
+              </td>
+              <td>
+                {% if user.has_access %}
+                  <span class="badge text-bg-success">Acceso completo</span>
+                {% else %}
+                  <span class="badge text-bg-secondary">Sin acceso</span>
+                {% endif %}
+                <span class="d-block text-secondary small">{{ user.payment_status }}</span>
+              </td>
+              <td class="text-secondary small">{{ user.created_at }}</td>
+              <td class="text-end">
+                <form method="post" action="{{ url_for('user_toggle_access', user_id=user.id) }}">
+                  <button class="btn btn-outline-warning btn-sm" type="submit">
+                    {% if user.has_access %}Quitar acceso{% else %}Dar acceso{% endif %}
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-secondary py-4">Todavia no hay usuarios registrados.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="admin-table strategies-panel">
     <div class="table-responsive strategies-table-wrap">
       <table class="table table-dark table-hover align-middle mb-0 strategies-table">
@@ -209,6 +261,9 @@
                 {% endif %}
                 {% if strategy.include_in_totalizer %}
                   <span class="badge text-bg-primary d-block mt-2">Totalizador</span>
+                {% endif %}
+                {% if strategy.public_visible %}
+                  <span class="badge text-bg-info d-block mt-2">Visible publico</span>
                 {% endif %}
                 {% if strategy.schedule_last_status %}
                   <span class="badge {% if strategy.schedule_last_status == 'OK' %}text-bg-success{% elif strategy.schedule_last_status == 'RUNNING' %}text-bg-warning{% else %}text-bg-danger{% endif %} d-block mt-2">

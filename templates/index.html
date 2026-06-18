@@ -7,7 +7,10 @@
   <div class="container py-5">
     <div class="row align-items-center gy-4">
       <div class="col-lg-8">
-        <p class="eyebrow mb-3">Estrategias activas para Telegram</p>
+        <div class="hero-kicker-row">
+          <p class="eyebrow mb-0">Estrategias activas para Telegram</p>
+          <span class="page-refresh-chip">Ultimo refresh {{ page_refreshed_at }}</span>
+        </div>
         <h1 class="display-5 fw-bold mb-3">Senales organizadas por riesgo, frecuencia y estilo operativo.</h1>
         <p class="lead text-secondary mb-4">Compara cada estrategia, revisa su enfoque y accede al canal correspondiente desde un unico panel profesional.</p>
         <div class="hero-actions d-flex gap-2 flex-wrap">
@@ -15,6 +18,14 @@
           <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
           <a class="btn btn-outline-light" href="#riesgo">Aviso de riesgo</a>
         </div>
+        {% if is_public_view %}
+          <div class="member-access-banner mt-3">
+            <strong>Vista publica:</strong>
+            ahora ves solo las estrategias marcadas como publicas.
+            <a href="{{ url_for('user_register') }}">Crea una cuenta gratis</a>
+            para probar el acceso completo.
+          </div>
+        {% endif %}
       </div>
       <div class="col-lg-4">
         <div class="stats-panel stats-panel-compact">
@@ -40,33 +51,9 @@
   </div>
 </section>
 
-<section class="container pt-3">
-  <div class="community-banner community-banner-compact">
-    <div class="row align-items-center gy-3">
-      <div class="col-lg-8">
-        <p class="eyebrow mb-1">Proyecto en construccion</p>
-        <h2 class="h5 fw-bold mb-2">Colabora y unete a la comunidad desde el inicio.</h2>
-        <p class="text-secondary small mb-0">Estamos preparando nuevas herramientas, filtros de activos, automatizaciones y canales especializados.</p>
-      </div>
-      <div class="col-lg-4">
-        <div class="community-actions">
-          {% if community_url %}
-            <a class="btn btn-info fw-semibold" href="{{ community_url }}" target="_blank" rel="noopener">Unirme a la comunidad</a>
-          {% endif %}
-          {% if donation_url %}
-            <a class="btn btn-outline-light" href="{{ donation_url }}" target="_blank" rel="noopener">Colaborar / donar</a>
-          {% else %}
-            <button class="btn btn-outline-light" type="button" disabled>Donaciones proximamente</button>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <section class="container pt-4">
-  <div class="strategy-card top-assets-card">
-    <div class="section-heading mb-2">
+  <details class="strategy-card top-assets-card top-assets-details">
+    <summary class="top-assets-summary">
       <div>
         <p class="eyebrow mb-1">Universo filtrado</p>
         <h2 class="h6 fw-bold mb-0">20 activos mayor volumen monetario</h2>
@@ -75,32 +62,37 @@
           <strong>{{ top_money_volume_updated_at or "Sin actualizar" }}</strong>
         </p>
       </div>
-      <p class="text-secondary small mb-0">Base usada por las estrategias fundamentales.</p>
-    </div>
-    {% if top_money_volume_assets %}
-      <div class="row g-1">
-        {% for asset in top_money_volume_assets %}
-          <div class="col-sm-6 col-lg-4 col-xl-3">
-            <div class="top-asset-item d-flex gap-2 align-items-start border border-secondary-subtle rounded-2 h-100">
-              <span class="text-info fw-semibold small">{{ asset.rank }}.</span>
-              <div class="min-w-0">
-                <strong class="d-block">{{ asset.symbol }}</strong>
-                <span class="text-secondary small">{{ asset.name }}</span>
-                <span class="top-asset-volume">Volumen monetario {{ asset.money_volume|money_usd }}</span>
-                {% if asset.source == "tickers" %}
-                  <span class="d-block text-warning small">Desde tickers.txt</span>
-                {% endif %}
+      <div class="top-assets-summary-side">
+        <span class="text-secondary small">Base usada por las estrategias fundamentales.</span>
+        <span class="top-assets-toggle-text">Ver activos</span>
+      </div>
+    </summary>
+    <div class="top-assets-content">
+      {% if top_money_volume_assets %}
+        <div class="row g-1">
+          {% for asset in top_money_volume_assets %}
+            <div class="col-sm-6 col-lg-4 col-xl-3">
+              <div class="top-asset-item d-flex gap-2 align-items-start border border-secondary-subtle rounded-2 h-100">
+                <span class="text-info fw-semibold small">{{ asset.rank }}.</span>
+                <div class="min-w-0">
+                  <strong class="d-block">{{ asset.symbol }}</strong>
+                  <span class="text-secondary small">{{ asset.name }}</span>
+                  <span class="top-asset-volume">{{ asset.money_volume|money_usd }}</span>
+                  {% if asset.source == "tickers" %}
+                    <span class="d-block text-warning small">Desde tickers.txt</span>
+                  {% endif %}
+                </div>
               </div>
             </div>
-          </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="alert alert-info border-0 mb-0">
-        Aun no hay activos cargados. Ejecuta primero el generador de tickers o la actualizacion local de mercado.
-      </div>
-    {% endif %}
-  </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-info border-0 mb-0">
+          Aun no hay activos cargados. Ejecuta primero el generador de tickers o la actualizacion local de mercado.
+        </div>
+      {% endif %}
+    </div>
+  </details>
 </section>
 
 <section id="estrategias" class="container py-5">
@@ -140,12 +132,19 @@
     <div class="row g-4">
       {% for strategy in strategies %}
         <div class="col-md-6 col-xl-4">
-          <article class="strategy-card strategy-card-compact h-100" id="strategy-{{ strategy.id }}">
+          <article class="strategy-card strategy-card-compact h-100 {% if strategy.is_locked %}strategy-locked{% endif %}" id="strategy-{{ strategy.id }}">
+            {% if strategy.is_locked %}
+              <div class="locked-overlay">
+                <span class="locked-pill">Solo miembros</span>
+                <p class="mb-2">Crea una cuenta para desbloquear esta estrategia.</p>
+                <a class="btn btn-info btn-sm fw-semibold" href="{{ url_for('user_register') }}">Crear cuenta gratis</a>
+              </div>
+            {% endif %}
             <div class="d-flex justify-content-between gap-2 align-items-start mb-2">
               <div class="strategy-card-title">
                 <span class="strategy-short-badge">{{ strategy.short_name }}</span>
                 <h2 class="h4 mb-0">
-                  <a class="strategy-title-button" href="{{ url_for('strategy_details', strategy_id=strategy.id) }}" target="_blank" rel="noopener">
+                  <a class="strategy-title-button" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_details', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                     {{ strategy.name }}
                   </a>
                 </h2>
@@ -200,16 +199,16 @@
               </div>
             </dl>
             <div class="strategy-actions">
-              <a class="btn btn-outline-light w-100 fw-semibold" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}" target="_blank" rel="noopener">
+              <a class="btn btn-outline-light w-100 fw-semibold {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                 Historial operaciones{% if strategy.closed_operations_count %} ({{ strategy.closed_operations_count }}){% endif %}
               </a>
               {% if strategy.signals_txt_name %}
-                <a class="btn btn-outline-info w-100 fw-semibold" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">
+                <a class="btn btn-outline-info w-100 fw-semibold {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                   Ver avisos actuales{% if strategy.signals_count %} ({{ strategy.signals_count }}){% endif %}
                 </a>
               {% endif %}
               {% if strategy.has_telegram and strategy.telegram_url %}
-                <a class="btn btn-info w-100 fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">
+                <a class="btn btn-info w-100 fw-semibold {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ strategy.telegram_url }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                   Acceder al canal
                 </a>
               {% endif %}

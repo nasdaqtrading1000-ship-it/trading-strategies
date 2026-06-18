@@ -17,8 +17,16 @@ import time
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from env_loader import load_env
+
+
+load_env()
 
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = BASE_DIR.parent
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
 STATUS_FILE = BASE_DIR / "strategy_run_status.json"
 OUTPUT_DIR = BASE_DIR / "salidas_txt"
 LOG_DIR = BASE_DIR / "logs"
@@ -49,6 +57,10 @@ STRATEGIES = [
     {"name": "Momentum Intradia", "file": "MomentumIntradia.py", "txt": "MomentumIntradia.txt"},
     {"name": "Scalping The PullBacks", "file": "ScalpingThePullBacKs.py", "txt": "ScalpingThePullBacKs.txt"},
     {"name": "Gap and Go", "file": "Gap and Go.py", "txt": "Gap_and_Go.txt"},
+    {"name": "Follow The Money", "file": "FollowTheMoney.py", "txt": "Follow_The_Money.txt"},
+    {"name": "Acumula Metales", "file": "AcumulaMetales.py", "txt": "Acumula_Metales.txt"},
+    {"name": "Acumulacion", "file": "Acumulacion.py", "txt": "Acumulacion.txt"},
+    {"name": "Reversion RSI 5", "file": "ReversionRSI5.py", "txt": "Reversion_RSI_5.txt"},
 ]
 
 
@@ -254,9 +266,8 @@ def selected_strategies():
     active_names_raw = os.environ.get("TRADING_ACTIVE_STRATEGIES")
     if active_names_raw is None:
         selected_from_file = selected_strategies_from_file()
-        if selected_from_file is not None:
-            return selected_from_file
-        return STRATEGIES
+        selected = selected_from_file if selected_from_file is not None else STRATEGIES
+        return filter_by_database_active_strategies(selected)
 
     try:
         active_names = set(json.loads(active_names_raw))
@@ -269,6 +280,54 @@ def selected_strategies():
         for strategy in STRATEGIES
         if strategy["name"] in active_names
     ]
+
+
+def filter_by_database_active_strategies(strategies):
+    active_names = active_strategy_names_from_database()
+    if active_names is None:
+        return strategies
+
+    filtered = [
+        strategy
+        for strategy in strategies
+        if strategy["name"] in active_names
+    ]
+    skipped = [
+        strategy["name"]
+        for strategy in strategies
+        if strategy["name"] not in active_names
+    ]
+    if skipped:
+        print(
+            "Estrategias omitidas por estar inactivas en PostgreSQL/admin: "
+            + ", ".join(skipped),
+            flush=True,
+        )
+    return filtered
+
+
+def active_strategy_names_from_database():
+    if os.environ.get("TRADING_RESPECT_DB_ACTIVE", "1").lower() in {"0", "false", "no"}:
+        return None
+    if not os.environ.get("DATABASE_URL"):
+        return None
+    try:
+        from sqlalchemy import text
+        from db import engine
+
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT name FROM strategies WHERE is_active = 1")
+            ).mappings().fetchall()
+        return {row["name"] for row in rows}
+    except Exception as error:
+        print(
+            f"No se pudieron leer estrategias activas de PostgreSQL/admin: {error}. "
+            "Se usa la seleccion local.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return None
 
 
 def selected_strategy_schedules():

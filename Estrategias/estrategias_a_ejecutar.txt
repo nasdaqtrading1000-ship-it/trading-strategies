@@ -18,3 +18,7 @@ VWAP Reversion | 15:30 | 22:00 | 10
 Momentum Intradia | 15:30 | 22:00 | 15
 Scalping The PullBacks | 15:30 | 22:00 | 10
 Gap and Go | 15:30 | 22:00 | 10
+Follow The Money | 15:30 | 22:00 | 60
+Acumula Metales | 15:30 | 22:00 | 240
+Acumulacion | 15:30 | 22:00 | 240
+Reversion RSI 5 | 15:30 | 22:00 | 10

@@ -78,7 +78,21 @@ STRATEGIES = [
     {"name": "Momentum Intradia", "txt": "MomentumIntradia.txt"},
     {"name": "Scalping The PullBacks", "txt": "ScalpingThePullBacKs.txt"},
     {"name": "Gap and Go", "txt": "Gap_and_Go.txt"},
+    {"name": "Follow The Money", "txt": "Follow_The_Money.txt"},
+    {"name": "Acumula Metales", "txt": "Acumula_Metales.txt"},
+    {"name": "Acumulacion", "txt": "Acumulacion.txt"},
+    {"name": "Reversion RSI 5", "txt": "Reversion_RSI_5.txt"},
 ]
+
+NO_AUTO_CLOSE_STRATEGIES = {
+    "Acumula Metales",
+    "Acumulacion",
+}
+
+GROUP_PROFIT_CLOSE_STRATEGIES = {
+    "Reversion RSI 5",
+}
+GROUP_PROFIT_TARGET_PCT = 5.0
 
 
 def main():
@@ -138,6 +152,10 @@ def main():
             close_operation(operation, close_reason, now)
             closed_now.append(operation)
             print(f"OPERACION CERRADA | {operation['strategy_name']} | {operation['symbol']} | {close_reason} | P/L {operation['profit_pct']:.2f}%")
+
+    group_closed = close_profitable_groups(operations, now)
+    if group_closed:
+        closed_now.extend(group_closed)
 
     if closed_now:
         remove_closed_signals_from_txt(closed_now)
@@ -308,6 +326,10 @@ def update_operation(operation, current_price, now):
 
 
 def close_reason_for_operation(operation):
+    if operation.get("strategy_name") in NO_AUTO_CLOSE_STRATEGIES:
+        return ""
+    if operation.get("strategy_name") in GROUP_PROFIT_CLOSE_STRATEGIES:
+        return ""
     if is_pair_operation(operation):
         return ""
 
@@ -333,6 +355,41 @@ def close_operation(operation, reason, now):
     operation["close_reason"] = reason
     operation["closed_at"] = now.isoformat()
     operation["updated_at"] = now.isoformat()
+
+
+def close_profitable_groups(operations, now):
+    groups = {}
+    for operation in operations:
+        if operation.get("status") != "OPEN":
+            continue
+        if operation.get("strategy_name") not in GROUP_PROFIT_CLOSE_STRATEGIES:
+            continue
+        key = (
+            operation.get("strategy_name", ""),
+            operation.get("symbol", ""),
+            normalize_side(operation.get("direction", "LONG")),
+        )
+        groups.setdefault(key, []).append(operation)
+
+    closed = []
+    for (strategy_name, symbol, direction), group_operations in groups.items():
+        invested = sum(
+            float(operation.get("entry_price") or 0) * float(operation.get("shares") or 0)
+            for operation in group_operations
+        )
+        profit = sum(float(operation.get("profit_usd") or 0) for operation in group_operations)
+        profit_pct = (profit / invested * 100) if invested else 0.0
+        if profit_pct < GROUP_PROFIT_TARGET_PCT:
+            continue
+
+        for operation in group_operations:
+            close_operation(operation, f"BENEFICIO GRUPO {profit_pct:.2f}%", now)
+            closed.append(operation)
+        print(
+            f"OPERACION CERRADA GRUPO | {strategy_name} | {symbol} | {direction} | "
+            f"{len(group_operations)} entradas | P/L grupo {profit_pct:.2f}%"
+        )
+    return closed
 
 
 def fetch_latest_prices(symbols):

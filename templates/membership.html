@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Membresia{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="membership-panel mx-auto">
+    <div class="membership-hero">
+      <p class="text-info fw-semibold mb-1">Acceso miembros</p>
+      <h1 class="h2 mb-3">Hazte miembro</h1>
+      <p class="text-secondary mb-0">
+        La membresia desbloquea todas las estrategias activas, avisos completos,
+        historiales y accesos privados configurados en la plataforma.
+      </p>
+    </div>
+
+    <div class="membership-grid mt-4">
+      <article class="membership-card membership-card-main">
+        <span class="text-secondary small d-block">Plan</span>
+        <strong>Miembro</strong>
+        <span class="membership-price">{{ price_text }}</span>
+        <ul class="membership-list">
+          <li>Todas las estrategias activas.</li>
+          <li>Avisos actuales e historial de operaciones.</li>
+          <li>Acceso a canales cuando esten habilitados.</li>
+          <li>Panel de cuenta con estado de membresia.</li>
+        </ul>
+        {% if user and user.has_access %}
+          <div class="alert alert-success mb-0">Tu acceso ya esta activo.</div>
+        {% else %}
+          <form method="post">
+            <button class="btn btn-info fw-semibold w-100" type="submit">
+              {% if payment_url %}Continuar al pago{% else %}Solicitar activacion{% endif %}
+            </button>
+          </form>
+          {% if not payment_url %}
+            <p class="text-secondary small mt-3 mb-0">
+              Aun no hay pasarela conectada. El admin puede marcar el pago como activo manualmente.
+            </p>
+          {% endif %}
+        {% endif %}
+      </article>
+
+      <article class="membership-card">
+        <h2 class="h5 mb-3">Aviso de responsabilidad</h2>
+        <p class="text-secondary small mb-3">
+          El contenido es informativo y no constituye asesoramiento financiero.
+          Cada decision de inversion es responsabilidad exclusiva del usuario.
+        </p>
+        <p class="text-secondary small mb-0">
+          Puedes perder dinero. Los resultados pasados, historiales o simulaciones
+          no garantizan beneficios futuros.
+        </p>
+      </article>
+    </div>
+  </div>
+</section>
+{% endblock %}

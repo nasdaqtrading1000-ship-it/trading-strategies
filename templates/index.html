@@ -16,6 +16,7 @@
         <div class="hero-actions d-flex gap-2 flex-wrap">
           <a class="btn btn-info fw-semibold" href="#estrategias">Ver estrategias</a>
           <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
+          <a class="btn btn-outline-warning fw-semibold" href="{{ url_for('market_news_page') }}" target="_blank" rel="noopener">Noticias relevantes</a>
           <a class="btn btn-outline-light" href="#riesgo">Aviso de riesgo</a>
         </div>
         {% if is_public_view %}
@@ -48,6 +49,46 @@
         </div>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="container pt-4">
+  <div class="market-news-card">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+      <div>
+        <p class="eyebrow mb-1">Noticias relevantes</p>
+        <h2 class="h5 fw-bold mb-1">Resumen de mercado</h2>
+        <p class="text-secondary small mb-0">Ultima actualizacion: <strong>{{ market_news_updated_at or "Sin actualizar" }}</strong></p>
+      </div>
+      <a class="btn btn-outline-warning btn-sm align-self-start" href="{{ url_for('market_news_page') }}" target="_blank" rel="noopener">Ver noticias</a>
+    </div>
+    {% if market_news %}
+      <div class="news-radar-list compact">
+        {% for item in market_news %}
+          <article class="market-news-row compact">
+            <div class="news-row-time">
+              <strong>{{ item.published_display or item.created_display }}</strong>
+              <span>{{ item.source }}</span>
+            </div>
+            <div class="news-row-main">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                <strong class="{{ item.impact_class }}">{{ item.impact|capitalize }}</strong>
+                <h3 class="news-row-title mb-0">{{ item.title }}</h3>
+              </div>
+              <p class="market-news-summary mb-0">{{ item.summary }}</p>
+            </div>
+            <div class="news-row-affected">
+              <span>Afecta</span>
+              <strong>{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info border-0 mb-0">
+        Aun no hay noticias cargadas. Ejecuta el actualizador local de noticias para rellenar esta seccion.
+      </div>
+    {% endif %}
   </div>
 </section>
 

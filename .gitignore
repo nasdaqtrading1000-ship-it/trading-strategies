@@ -18,3 +18,4 @@ data/market_data.csv
 strategies.db
 instance/
 .pytest_cache/
+local_panel_data/

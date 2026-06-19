@@ -23,14 +23,20 @@
     <div class="account-grid account-grid-main">
       <article class="account-card">
         <span class="text-secondary small d-block">Plan actual</span>
-        <strong>Modo prueba</strong>
-        <p class="text-secondary small mb-0 mt-2">Todavia no se cobra. Cuando conectemos pagos, aqui se vera tu suscripcion y renovacion.</p>
+        <strong>{{ user.membership_plan or "Sin plan activo" }}</strong>
+        <p class="text-secondary small mb-0 mt-2">{{ user.membership_amount or membership_price_text }}</p>
       </article>
 
       <article class="account-card">
         <span class="text-secondary small d-block">Estado de pago</span>
         <strong>{{ user.payment_status }}</strong>
-        <p class="text-secondary small mb-0 mt-2">Campo preparado para conectar Stripe u otro sistema de cobro.</p>
+        <p class="text-secondary small mb-0 mt-2">
+          {% if user.membership_expires_at %}
+            Vence: {{ user.membership_expires_at }}
+          {% else %}
+            Sin fecha de vencimiento indicada.
+          {% endif %}
+        </p>
       </article>
 
       <article class="account-card">
@@ -92,6 +98,9 @@
     </div>
 
     <div class="account-actions">
+      {% if not user.has_access %}
+        <a class="btn btn-warning fw-semibold" href="{{ url_for('membership') }}">Hacerme miembro</a>
+      {% endif %}
       <a class="btn btn-info fw-semibold" href="{{ url_for('index') }}">Ver estrategias</a>
       <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
       <form method="post" action="{{ url_for('user_logout') }}">

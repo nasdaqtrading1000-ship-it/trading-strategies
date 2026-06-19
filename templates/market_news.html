@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Noticias relevantes{% endblock %}
+
+{% block content %}
+<section class="container py-4 py-md-5">
+  <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+    <div>
+      <p class="eyebrow mb-2">Noticias relevantes</p>
+      <h1 class="h2 mb-2">Resumen de mercado</h1>
+      <p class="text-secondary mb-0">Ultima actualizacion: <strong>{{ updated_at or "Sin actualizar" }}</strong></p>
+    </div>
+    <button class="btn btn-outline-light align-self-start" type="button" onclick="window.close()">Cerrar</button>
+  </div>
+
+  {% if news_items %}
+    <div class="news-radar-list">
+      {% for item in news_items %}
+        <article class="market-news-row">
+          <div class="news-row-time">
+            <strong>{{ item.published_display or item.created_display }}</strong>
+            <span>{{ item.source }}</span>
+          </div>
+          <div class="news-row-main">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+              <strong class="{{ item.impact_class }}">{{ item.impact|capitalize }}</strong>
+              <h2 class="news-row-title mb-0">{{ item.title }}</h2>
+            </div>
+            <p class="market-news-summary mb-0">{{ item.summary }}</p>
+          </div>
+          <div class="news-row-affected">
+            <span>Afecta</span>
+            <strong>{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state p-4 p-md-5 text-center">
+      <h2 class="h4">Sin noticias cargadas</h2>
+      <p class="text-secondary mb-0">Ejecuta el actualizador local de noticias para guardar resumenes en PostgreSQL.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

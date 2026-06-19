@@ -127,52 +127,88 @@
         <input class="form-control form-control-sm" id="manual_user_password" name="password" type="text" minlength="6" required>
       </div>
       <div class="col-lg-2 col-md-6">
+        <label class="form-label small" for="manual_user_status">Estado pago</label>
+        <select class="form-select form-select-sm" id="manual_user_status" name="payment_status">
+          <option value="active">active</option>
+          <option value="payment_pending">payment_pending</option>
+          <option value="registered">registered</option>
+          <option value="blocked">blocked</option>
+        </select>
+      </div>
+      <div class="col-lg-1 col-md-6">
         <div class="form-check form-switch mb-1">
           <input class="form-check-input" type="checkbox" role="switch" id="manual_user_access" name="has_access" checked>
-          <label class="form-check-label small" for="manual_user_access">Acceso completo</label>
+          <label class="form-check-label small" for="manual_user_access">Acceso</label>
         </div>
       </div>
-      <div class="col-lg-2">
+      <input type="hidden" name="membership_plan" value="Miembro">
+      <input type="hidden" name="membership_amount" value="{{ membership_price_text }}">
+      <div class="col-lg-1">
         <button class="btn btn-info btn-sm fw-semibold w-100" type="submit">Crear usuario</button>
       </div>
     </form>
     <div class="table-responsive">
-      <table class="table table-dark table-hover align-middle mb-0">
+      <table class="table table-dark align-middle mb-0 admin-users-table">
         <thead>
           <tr>
             <th>Usuario</th>
-            <th>Estado</th>
+            <th>Membresia</th>
+            <th>Acceso</th>
             <th>Alta</th>
             <th class="text-end">Accion</th>
           </tr>
         </thead>
         <tbody>
           {% for user in users %}
-            <tr>
+            <tr id="user-{{ user.id }}">
               <td>
-                <strong>{{ user.name or user.email }}</strong>
-                <span class="d-block text-secondary small">{{ user.email }}</span>
+                <input class="form-control form-control-sm admin-inline-control fw-semibold mb-2" form="user-row-form-{{ user.id }}" name="name" value="{{ user.name or '' }}" placeholder="Nombre">
+                <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="email" value="{{ user.email }}" type="email" required>
               </td>
               <td>
-                {% if user.has_access %}
-                  <span class="badge text-bg-success">Acceso completo</span>
-                {% else %}
-                  <span class="badge text-bg-secondary">Sin acceso</span>
-                {% endif %}
-                <span class="d-block text-secondary small">{{ user.payment_status }}</span>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="membership_plan" value="{{ user.membership_plan or 'Miembro' }}" placeholder="Plan">
+                  </div>
+                  <div class="col-md-6">
+                    <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="membership_amount" value="{{ user.membership_amount or membership_price_text }}" placeholder="Importe">
+                  </div>
+                  <div class="col-md-6">
+                    <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="membership_started_at" value="{{ user.membership_started_at or '' }}" placeholder="Inicio">
+                  </div>
+                  <div class="col-md-6">
+                    <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="membership_expires_at" value="{{ user.membership_expires_at or '' }}" placeholder="Fin">
+                  </div>
+                </div>
+              </td>
+              <td>
+                <select class="form-select form-select-sm admin-inline-control mb-2" form="user-row-form-{{ user.id }}" name="payment_status">
+                  {% for status in ["active", "payment_pending", "registered", "trial", "blocked", "expired"] %}
+                    <option value="{{ status }}" {% if user.payment_status == status %}selected{% endif %}>{{ status }}</option>
+                  {% endfor %}
+                </select>
+                <div class="form-check form-switch admin-inline-switch mb-2">
+                  <input class="form-check-input" form="user-row-form-{{ user.id }}" type="checkbox" role="switch" id="user_access_{{ user.id }}" name="has_access" {% if user.has_access %}checked{% endif %}>
+                  <label class="form-check-label small" for="user_access_{{ user.id }}">Acceso completo</label>
+                </div>
+                <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="admin_notes" value="{{ user.admin_notes or '' }}" placeholder="Notas internas">
               </td>
               <td class="text-secondary small">{{ user.created_at }}</td>
               <td class="text-end">
-                <form method="post" action="{{ url_for('user_toggle_access', user_id=user.id) }}">
-                  <button class="btn btn-outline-warning btn-sm" type="submit">
-                    {% if user.has_access %}Quitar acceso{% else %}Dar acceso{% endif %}
-                  </button>
-                </form>
+                <div class="d-flex justify-content-end gap-2 flex-wrap">
+                  <form id="user-row-form-{{ user.id }}" method="post" action="{{ url_for('admin_user_update', user_id=user.id) }}"></form>
+                  <button class="btn btn-info btn-sm fw-semibold" form="user-row-form-{{ user.id }}" type="submit">Guardar</button>
+                  <form method="post" action="{{ url_for('user_toggle_access', user_id=user.id) }}">
+                    <button class="btn btn-outline-warning btn-sm" type="submit">
+                      {% if user.has_access %}Quitar{% else %}Dar{% endif %}
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
           {% else %}
             <tr>
-              <td colspan="4" class="text-center text-secondary py-4">Todavia no hay usuarios registrados.</td>
+              <td colspan="5" class="text-center text-secondary py-4">Todavia no hay usuarios registrados.</td>
             </tr>
           {% endfor %}
         </tbody>

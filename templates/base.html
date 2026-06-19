@@ -15,11 +15,15 @@
         <div class="ms-auto d-flex align-items-center gap-2">
           {% if current_user %}
             <a class="btn btn-outline-info btn-sm" href="{{ url_for('account') }}">Mi cuenta</a>
+            {% if not member_has_access %}
+              <a class="btn btn-warning btn-sm fw-semibold" href="{{ url_for('membership') }}">Membresia</a>
+            {% endif %}
             <form method="post" action="{{ url_for('user_logout') }}">
               <button class="btn btn-outline-light btn-sm" type="submit">Salir usuario</button>
             </form>
           {% else %}
             <a class="btn btn-outline-light btn-sm" href="{{ url_for('user_login') }}">Entrar</a>
+            <a class="btn btn-outline-warning btn-sm" href="{{ url_for('membership') }}">Membresia</a>
             <a class="btn btn-info btn-sm fw-semibold" href="{{ url_for('user_register') }}">Crear cuenta</a>
           {% endif %}
           {% if session.get("admin_logged_in") %}

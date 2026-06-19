@@ -1215,6 +1215,17 @@ def format_signed_money_usd(value):
     return f"{sign}{format_money_usd(abs(amount))}"
 
 
+def format_one_decimal(value):
+    text_value = str(value or "").strip()
+    match = re.search(r"[-+]?\d+(?:[.,]\d+)?", text_value)
+    if not match:
+        return text_value
+    try:
+        return f"{float(match.group(0).replace(',', '.')):.1f}"
+    except ValueError:
+        return text_value
+
+
 def profit_color_class(value):
     try:
         amount = float(value or 0)
@@ -1956,6 +1967,7 @@ def create_app():
     )
     app.jinja_env.globals["technical_term_help"] = technical_term_help
     app.jinja_env.filters["money_usd"] = format_money_usd
+    app.jinja_env.filters["one_decimal"] = format_one_decimal
 
     @app.before_request
     def before_request():
@@ -1997,6 +2009,7 @@ def create_app():
             "user_register",
             "user_logout",
             "account",
+            "membership",
         }
         if endpoint in allowed_endpoints:
             return False
@@ -2033,7 +2046,7 @@ def create_app():
         return g.db.execute(
             text(
                 """
-                SELECT id, email, name, has_access, payment_status, created_at
+                SELECT *
                 FROM users
                 WHERE id = :id
                 """
@@ -2058,7 +2071,21 @@ def create_app():
         return {
             "current_user": user,
             "member_has_access": member_has_full_access(user),
+            "membership_price_text": membership_price_text(),
         }
+
+    def free_trial_enabled():
+        return os.environ.get("FREE_TRIAL_ACCESS", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+    def membership_price_text():
+        return os.environ.get("MEMBERSHIP_PRICE_TEXT", "29 EUR/mes").strip() or "29 EUR/mes"
+
+    def membership_payment_url():
+        return os.environ.get("MEMBERSHIP_PAYMENT_URL", "").strip()
+
+    def empty_to_none(value):
+        value = (value or "").strip()
+        return value or None
 
     @app.route("/registro", methods=["GET", "POST"])
     def user_register():
@@ -2087,12 +2114,16 @@ def create_app():
                 flash("Ese email ya tiene cuenta. Entra con tu contrasena.", "warning")
                 return redirect(url_for("user_login"))
 
+            trial_access = 1 if free_trial_enabled() else 0
+            payment_status = "trial" if trial_access else "registered"
             result = g.db.execute(
                 text(
                     """
                     INSERT INTO users
-                    (email, password_hash, name, has_access, payment_status, age_confirmed, risk_accepted, accepted_terms_at)
-                    VALUES (:email, :password_hash, :name, 1, 'trial', :age_confirmed, :risk_accepted, :accepted_terms_at)
+                    (email, password_hash, name, has_access, payment_status, membership_plan,
+                     membership_amount, age_confirmed, risk_accepted, accepted_terms_at)
+                    VALUES (:email, :password_hash, :name, :has_access, :payment_status,
+                            'Miembro', :membership_amount, :age_confirmed, :risk_accepted, :accepted_terms_at)
                     RETURNING id
                     """
                 )
@@ -2100,14 +2131,19 @@ def create_app():
                 else text(
                     """
                     INSERT INTO users
-                    (email, password_hash, name, has_access, payment_status, age_confirmed, risk_accepted, accepted_terms_at)
-                    VALUES (:email, :password_hash, :name, 1, 'trial', :age_confirmed, :risk_accepted, :accepted_terms_at)
+                    (email, password_hash, name, has_access, payment_status, membership_plan,
+                     membership_amount, age_confirmed, risk_accepted, accepted_terms_at)
+                    VALUES (:email, :password_hash, :name, :has_access, :payment_status,
+                            'Miembro', :membership_amount, :age_confirmed, :risk_accepted, :accepted_terms_at)
                     """
                 ),
                 {
                     "email": email,
                     "password_hash": generate_password_hash(password),
                     "name": name,
+                    "has_access": trial_access,
+                    "payment_status": payment_status,
+                    "membership_amount": membership_price_text(),
                     "age_confirmed": age_confirmed,
                     "risk_accepted": risk_accepted,
                     "accepted_terms_at": datetime.now(UTC).replace(tzinfo=None),
@@ -2121,10 +2157,46 @@ def create_app():
 
             session["user_id"] = user_id
             session["user_email"] = email
-            flash("Cuenta creada. Acceso completo activado en modo prueba.", "success")
-            return redirect(url_for("index"))
+            if trial_access:
+                flash("Cuenta creada. Acceso completo activado en modo prueba.", "success")
+                return redirect(url_for("index"))
+            flash("Cuenta creada. Activa tu membresia para ver todas las estrategias.", "success")
+            return redirect(url_for("membership"))
 
         return render_template("user_register.html")
+
+    @app.route("/membresia", methods=["GET", "POST"])
+    def membership():
+        user = current_user()
+        if request.method == "POST":
+            if not user:
+                flash("Crea una cuenta o entra antes de activar la membresia.", "warning")
+                return redirect(url_for("user_login"))
+            g.db.execute(
+                text(
+                    """
+                    UPDATE users
+                    SET payment_status = 'payment_pending',
+                        membership_plan = 'Miembro',
+                        membership_amount = :membership_amount
+                    WHERE id = :id
+                    """
+                ),
+                {"membership_amount": membership_price_text(), "id": user["id"]},
+            )
+            g.db.commit()
+            payment_url = membership_payment_url()
+            if payment_url:
+                return redirect(payment_url)
+            flash("Solicitud de membresia registrada. Activa el pago manualmente desde el admin.", "info")
+            return redirect(url_for("account"))
+
+        return render_template(
+            "membership.html",
+            user=user,
+            payment_url=membership_payment_url(),
+            price_text=membership_price_text(),
+        )
 
     @app.route("/entrar", methods=["GET", "POST"])
     def user_login():
@@ -2197,6 +2269,7 @@ def create_app():
             community_url = strategies[0]["telegram_url"]
         donation_url = os.environ.get("DONATION_URL", "").strip()
         top_assets = top_money_volume_assets()
+        news_preview = relevant_market_news(limit=8)
         totalizer = build_totalizer(strategies)
         return render_template(
             "index.html",
@@ -2205,10 +2278,21 @@ def create_app():
             top_money_volume_assets=top_assets["rows"],
             top_money_volume_updated_at=top_assets["updated_at"],
             top_money_volume_source=top_assets["source"],
+            market_news=news_preview["rows"],
+            market_news_updated_at=news_preview["updated_at"],
             community_url=community_url,
             donation_url=donation_url,
             page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
             is_public_view=not has_full_access,
+        )
+
+    @app.route("/noticias")
+    def market_news_page():
+        news_data = relevant_market_news(limit=35)
+        return render_template(
+            "market_news.html",
+            news_items=news_data["rows"],
+            updated_at=news_data["updated_at"],
         )
 
     @app.route("/estrategia/<int:strategy_id>/diagnostico/<path:symbol>")
@@ -2447,7 +2531,9 @@ def create_app():
         users = g.db.execute(
             text(
                 """
-                SELECT id, email, name, has_access, payment_status, created_at
+                SELECT id, email, name, has_access, payment_status, membership_plan,
+                       membership_amount, membership_started_at, membership_expires_at,
+                       admin_notes, created_at
                 FROM users
                 ORDER BY created_at DESC
                 LIMIT 50
@@ -2500,6 +2586,78 @@ def create_app():
         flash("Acceso de usuario actualizado.", "success")
         return redirect(url_for("admin_dashboard", _anchor="admin-users"))
 
+    @app.route("/admin/users/<int:user_id>/update", methods=["POST"])
+    @login_required
+    def admin_user_update(user_id):
+        existing = g.db.execute(
+            text("SELECT id FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).mappings().fetchone()
+        if existing is None:
+            abort(404)
+
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        payment_status = request.form.get("payment_status", "registered").strip() or "registered"
+        membership_plan = request.form.get("membership_plan", "Miembro").strip() or "Miembro"
+        membership_amount = request.form.get("membership_amount", membership_price_text()).strip()
+        membership_started_at = empty_to_none(request.form.get("membership_started_at"))
+        membership_expires_at = empty_to_none(request.form.get("membership_expires_at"))
+        admin_notes = request.form.get("admin_notes", "").strip()
+        has_access = 1 if request.form.get("has_access") == "on" else 0
+
+        if not email or "@" not in email:
+            flash("Email de usuario no valido.", "danger")
+            return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+
+        duplicated = g.db.execute(
+            text(
+                """
+                SELECT id
+                FROM users
+                WHERE lower(email) = lower(:email)
+                  AND id <> :id
+                """
+            ),
+            {"email": email, "id": user_id},
+        ).mappings().fetchone()
+        if duplicated:
+            flash("Ese email ya pertenece a otro usuario.", "warning")
+            return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET name = :name,
+                    email = :email,
+                    has_access = :has_access,
+                    payment_status = :payment_status,
+                    membership_plan = :membership_plan,
+                    membership_amount = :membership_amount,
+                    membership_started_at = :membership_started_at,
+                    membership_expires_at = :membership_expires_at,
+                    admin_notes = :admin_notes
+                WHERE id = :id
+                """
+            ),
+            {
+                "name": name,
+                "email": email,
+                "has_access": has_access,
+                "payment_status": payment_status,
+                "membership_plan": membership_plan,
+                "membership_amount": membership_amount,
+                "membership_started_at": membership_started_at,
+                "membership_expires_at": membership_expires_at,
+                "admin_notes": admin_notes,
+                "id": user_id,
+            },
+        )
+        g.db.commit()
+        flash("Usuario actualizado.", "success")
+        return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
+
     @app.route("/admin/users/create", methods=["POST"])
     @login_required
     def admin_user_create():
@@ -2507,7 +2665,9 @@ def create_app():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         has_access = 1 if request.form.get("has_access") == "on" else 0
-        payment_status = "active" if has_access else "manual_pending"
+        payment_status = request.form.get("payment_status", "").strip()
+        if not payment_status:
+            payment_status = "active" if has_access else "manual_pending"
 
         if not email or "@" not in email:
             flash("Introduce un email valido para crear el usuario.", "danger")
@@ -2529,9 +2689,9 @@ def create_app():
                 """
                 INSERT INTO users
                 (email, password_hash, name, has_access, payment_status,
-                 age_confirmed, risk_accepted, accepted_terms_at)
+                 membership_plan, membership_amount, age_confirmed, risk_accepted, accepted_terms_at)
                 VALUES (:email, :password_hash, :name, :has_access, :payment_status,
-                        1, 1, :accepted_terms_at)
+                        :membership_plan, :membership_amount, 1, 1, :accepted_terms_at)
                 """
             ),
             {
@@ -2540,6 +2700,8 @@ def create_app():
                 "name": name,
                 "has_access": has_access,
                 "payment_status": payment_status,
+                "membership_plan": request.form.get("membership_plan", "Miembro").strip() or "Miembro",
+                "membership_amount": request.form.get("membership_amount", membership_price_text()).strip(),
                 "accepted_terms_at": datetime.now(UTC).replace(tzinfo=None),
             },
         )
@@ -3181,6 +3343,45 @@ def create_app():
             }
         except OSError:
             return {"rows": [], "updated_at": "", "source": "tickers"}
+
+    def relevant_market_news(limit=10):
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT title, source, url, published_at, summary, impact,
+                           symbols, sector_tags, ai_used, created_at
+                    FROM market_news
+                    ORDER BY COALESCE(published_at, created_at) DESC, created_at DESC
+                    LIMIT :limit
+                    """
+                ),
+                {"limit": limit},
+            ).mappings().fetchall()
+            updated_at = g.db.execute(text("SELECT MAX(created_at) FROM market_news")).scalar()
+        except Exception:
+            return {"rows": [], "updated_at": ""}
+
+        formatted = []
+        for row in rows:
+            item = dict(row)
+            item["published_display"] = format_any_madrid_datetime(item.get("published_at"))
+            item["created_display"] = format_any_madrid_datetime(item.get("created_at"))
+            item["impact_class"] = news_impact_class(item.get("impact"))
+            item["ai_label"] = "Resumen"
+            formatted.append(item)
+        return {
+            "rows": formatted,
+            "updated_at": format_any_madrid_datetime(updated_at),
+        }
+
+    def news_impact_class(value):
+        value = str(value or "").lower()
+        if value == "positivo":
+            return "text-success"
+        if value == "negativo":
+            return "text-danger"
+        return "text-secondary"
 
     def parse_display_int(value, default):
         try:
@@ -4489,9 +4690,15 @@ def init_db():
         add_user_column(connection, "age_confirmed", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "risk_accepted", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "accepted_terms_at", "TIMESTAMP")
+        add_user_column(connection, "membership_plan", "TEXT NOT NULL DEFAULT 'Miembro'")
+        add_user_column(connection, "membership_amount", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "membership_started_at", "TIMESTAMP")
+        add_user_column(connection, "membership_expires_at", "TIMESTAMP")
+        add_user_column(connection, "admin_notes", "TEXT NOT NULL DEFAULT ''")
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
         ensure_simulated_operations_table(connection)
+        ensure_market_news_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "python_file")
@@ -4827,6 +5034,33 @@ def ensure_simulated_operations_table(connection):
     )
 
 
+def ensure_market_news_table(connection):
+    id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS market_news (
+                id {id_column},
+                title TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT '',
+                url TEXT NOT NULL UNIQUE,
+                published_at TIMESTAMP,
+                summary TEXT NOT NULL DEFAULT '',
+                impact TEXT NOT NULL DEFAULT 'neutral',
+                symbols TEXT NOT NULL DEFAULT '',
+                sector_tags TEXT NOT NULL DEFAULT '',
+                ai_used INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
 def ensure_users_table(connection):
     id_column = (
         "SERIAL PRIMARY KEY"
@@ -4843,6 +5077,11 @@ def ensure_users_table(connection):
                 name TEXT NOT NULL DEFAULT '',
                 has_access INTEGER NOT NULL DEFAULT 1,
                 payment_status TEXT NOT NULL DEFAULT 'trial',
+                membership_plan TEXT NOT NULL DEFAULT 'Miembro',
+                membership_amount TEXT NOT NULL DEFAULT '',
+                membership_started_at TIMESTAMP,
+                membership_expires_at TIMESTAMP,
+                admin_notes TEXT NOT NULL DEFAULT '',
                 age_confirmed INTEGER NOT NULL DEFAULT 0,
                 risk_accepted INTEGER NOT NULL DEFAULT 0,
                 accepted_terms_at TIMESTAMP,

@@ -10,7 +10,8 @@ Variables utiles:
     NEWS_LIMIT=25
     NEWS_AI_ENABLED=1
     OPENAI_API_KEY=...
-    NEWS_AI_MODEL=...
+    NEWS_AI_MODEL=gpt-4.1-mini
+    NEWS_TRANSLATE_EXISTING_LIMIT=40
 
 La IA es opcional. Si no hay clave/modelo, se genera un resumen simple.
 """
@@ -27,6 +28,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -34,6 +36,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from config_env import load_local_env
 from db import engine
 
+
+BASE_DIR = Path(__file__).resolve().parent
+NEWS_STATE_FILE = BASE_DIR / "local_panel_data" / "news_update_state.json"
 
 DEFAULT_FEEDS = [
     "https://finance.yahoo.com/news/rssindex",
@@ -58,6 +63,12 @@ DEFAULT_KEYWORDS = [
 
 def main():
     load_local_env()
+    today_key = datetime.now().date().isoformat()
+    if news_already_updated_today(today_key):
+        print(f"Noticias omitidas: ya se actualizaron correctamente hoy ({today_key}).")
+        print("Para forzar una nueva ejecucion hoy usa NEWS_FORCE_RUN=1.")
+        return 0
+
     ensure_market_news_table()
     feeds = configured_feeds()
     keywords = configured_keywords()
@@ -83,10 +94,36 @@ def main():
         if save_news_item(enriched):
             saved += 1
 
+    translated = translate_existing_news()
     pruned = prune_old_news()
     print(f"Noticias nuevas guardadas: {saved}")
+    print(f"Noticias antiguas traducidas/actualizadas: {translated}")
     print(f"Noticias antiguas limpiadas: {pruned}")
+    mark_news_updated_today(today_key, saved, translated, pruned)
     return 0
+
+
+def news_already_updated_today(today_key):
+    if os.environ.get("NEWS_FORCE_RUN", "0").strip().lower() in {"1", "true", "yes", "on"}:
+        return False
+    try:
+        state = json.loads(NEWS_STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return state.get("last_success_date") == today_key and state.get("last_status") == "OK"
+
+
+def mark_news_updated_today(today_key, saved, translated, pruned):
+    NEWS_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "last_success_date": today_key,
+        "last_status": "OK",
+        "last_finished_at": datetime.now().isoformat(timespec="seconds"),
+        "saved": saved,
+        "translated": translated,
+        "pruned": pruned,
+    }
+    NEWS_STATE_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def configured_feeds():
@@ -194,9 +231,17 @@ def enrich_news_item(item):
     symbols = ", ".join(extract_tickers(text_blob))
     fallback_summary = simple_summary(text_blob)
     ai_result = ai_summary(item, fallback_summary)
+    summary_es = ai_result.get("summary_es") or ai_result.get("summary") or fallback_summary
+    summary_en = ai_result.get("summary_en") or fallback_summary
+    title_es = ai_result.get("title_es") or item["title"]
+    title_en = ai_result.get("title_en") or item["title"]
     return {
         **item,
-        "summary": ai_result.get("summary") or fallback_summary,
+        "title_es": title_es,
+        "title_en": title_en,
+        "summary": summary_es,
+        "summary_es": summary_es,
+        "summary_en": summary_en,
         "impact": ai_result.get("impact") or infer_impact(text_blob),
         "symbols": ai_result.get("symbols") or symbols,
         "sector_tags": ai_result.get("sector_tags") or infer_sector_tags(text_blob),
@@ -206,16 +251,19 @@ def enrich_news_item(item):
 
 def ai_summary(item, fallback_summary):
     if os.environ.get("NEWS_AI_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
-        return {"summary": fallback_summary, "ai_used": False}
+        return {"summary": fallback_summary, "summary_es": fallback_summary, "summary_en": fallback_summary, "ai_used": False}
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    model = os.environ.get("NEWS_AI_MODEL", "").strip()
-    if not api_key or not model:
-        return {"summary": fallback_summary, "ai_used": False}
+    model = news_ai_model()
+    if not api_key:
+        return {"summary": fallback_summary, "summary_es": fallback_summary, "summary_en": fallback_summary, "ai_used": False}
 
     prompt = (
         "Analiza esta noticia financiera para una web de trading. "
-        "Responde solo JSON valido con estas claves exactas: summary, impact, symbols, sector_tags. "
-        "summary: una sola frase corta, maximo 28 palabras, directo, sin relleno, sin mencionar la fuente salvo que sea imprescindible. "
+        "Responde solo JSON valido con estas claves exactas: title_es, title_en, summary_es, summary_en, impact, symbols, sector_tags. "
+        "title_es: titular breve en espanol, natural, no literal. "
+        "title_en: titular breve en ingles. "
+        "summary_es: una sola frase corta en espanol, maximo 30 palabras, directo, sin relleno, sin mencionar la fuente salvo que sea imprescindible. "
+        "summary_en: same idea in English, maximum 30 words. "
         "impact: positivo, negativo o neutral. "
         "symbols: tickers afectados separados por coma; si no hay tickers claros, activos/indices/commodities afectados. "
         "sector_tags: sectores afectados separados por coma. "
@@ -246,7 +294,7 @@ def ai_summary(item, fallback_summary):
         return parsed
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, TypeError) as error:
         print(f"IA omitida para noticia: {error}")
-        return {"summary": fallback_summary, "ai_used": False}
+        return {"summary": fallback_summary, "summary_es": fallback_summary, "summary_en": fallback_summary, "ai_used": False}
 
 
 def extract_response_json(data):
@@ -261,11 +309,23 @@ def extract_response_json(data):
     raw = "\n".join(chunks).strip()
     parsed = json.loads(raw)
     return {
-        "summary": remove_ai_phrasing(parsed.get("summary", "")),
+        "title_es": remove_ai_phrasing(parsed.get("title_es", "")),
+        "title_en": remove_ai_phrasing(parsed.get("title_en", "")),
+        "summary": remove_ai_phrasing(parsed.get("summary_es") or parsed.get("summary", "")),
+        "summary_es": remove_ai_phrasing(parsed.get("summary_es", "")),
+        "summary_en": remove_ai_phrasing(parsed.get("summary_en", "")),
         "impact": normalize_impact(parsed.get("impact", "")),
         "symbols": normalize_list_text(parsed.get("symbols", "")),
         "sector_tags": normalize_list_text(parsed.get("sector_tags", "")),
     }
+
+
+def news_ai_model():
+    return (
+        os.environ.get("NEWS_AI_MODEL", "").strip()
+        or os.environ.get("OPENAI_MODEL", "").strip()
+        or "gpt-4.1-mini"
+    )
 
 
 def save_news_item(item):
@@ -281,9 +341,13 @@ def save_news_item(item):
                     """
                     UPDATE market_news
                     SET title = :title,
+                        title_es = :title_es,
+                        title_en = :title_en,
                         source = :source,
                         published_at = :published_at,
                         summary = :summary,
+                        summary_es = :summary_es,
+                        summary_en = :summary_en,
                         impact = :impact,
                         symbols = :symbols,
                         sector_tags = :sector_tags,
@@ -294,10 +358,14 @@ def save_news_item(item):
                 ),
                 {
                     "title": item["title"][:500],
+                    "title_es": item.get("title_es", item["title"])[:500],
+                    "title_en": item.get("title_en", item["title"])[:500],
                     "source": item["source"][:160],
                     "url": item["url"][:1000],
                     "published_at": item["published_at"] or datetime.now(UTC).replace(tzinfo=None),
                     "summary": item["summary"][:1200],
+                    "summary_es": item.get("summary_es", item["summary"])[:1200],
+                    "summary_en": item.get("summary_en", item["summary"])[:1200],
                     "impact": normalize_impact(item["impact"]),
                     "symbols": item["symbols"][:300],
                     "sector_tags": item["sector_tags"][:300],
@@ -310,17 +378,21 @@ def save_news_item(item):
             text(
                 """
                 INSERT INTO market_news
-                (title, source, url, published_at, summary, impact, symbols, sector_tags, ai_used, created_at)
+                (title, title_es, title_en, source, url, published_at, summary, summary_es, summary_en, impact, symbols, sector_tags, ai_used, created_at)
                 VALUES
-                (:title, :source, :url, :published_at, :summary, :impact, :symbols, :sector_tags, :ai_used, :created_at)
+                (:title, :title_es, :title_en, :source, :url, :published_at, :summary, :summary_es, :summary_en, :impact, :symbols, :sector_tags, :ai_used, :created_at)
                 """
             ),
             {
                 "title": item["title"][:500],
+                "title_es": item.get("title_es", item["title"])[:500],
+                "title_en": item.get("title_en", item["title"])[:500],
                 "source": item["source"][:160],
                 "url": item["url"][:1000],
                 "published_at": item["published_at"] or datetime.now(UTC).replace(tzinfo=None),
                 "summary": item["summary"][:1200],
+                "summary_es": item.get("summary_es", item["summary"])[:1200],
+                "summary_en": item.get("summary_en", item["summary"])[:1200],
                 "impact": normalize_impact(item["impact"]),
                 "symbols": item["symbols"][:300],
                 "sector_tags": item["sector_tags"][:300],
@@ -345,6 +417,69 @@ def prune_old_news():
     return result.rowcount or 0
 
 
+def translate_existing_news():
+    if os.environ.get("NEWS_AI_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
+        return 0
+    if not os.environ.get("OPENAI_API_KEY", "").strip():
+        print("Traduccion de noticias antiguas omitida: falta OPENAI_API_KEY.")
+        return 0
+
+    limit = parse_int(os.environ.get("NEWS_TRANSLATE_EXISTING_LIMIT"), 40)
+    with engine.begin() as connection:
+        ensure_market_news_table(connection)
+        rows = connection.execute(
+            text(
+                """
+                SELECT id, title, source, summary, symbols, sector_tags
+                FROM market_news
+                WHERE COALESCE(summary_es, '') = ''
+                   OR COALESCE(summary_en, '') = ''
+                   OR COALESCE(title_es, '') = ''
+                   OR COALESCE(title_en, '') = ''
+                ORDER BY COALESCE(published_at, created_at) DESC, created_at DESC
+                LIMIT :limit
+                """
+            ),
+            {"limit": limit},
+        ).mappings().fetchall()
+
+    updated = 0
+    for row in rows:
+        item = {
+            "title": row["title"],
+            "source": row["source"],
+            "description": row["summary"],
+        }
+        fallback_summary = simple_summary(f"{row['title']}. {row['summary']}")
+        result = ai_summary(item, fallback_summary)
+        title_es = result.get("title_es") or row["title"]
+        title_en = result.get("title_en") or row["title"]
+        summary_es = result.get("summary_es") or result.get("summary") or row["summary"] or fallback_summary
+        summary_en = result.get("summary_en") or row["summary"] or fallback_summary
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE market_news
+                    SET title_es = :title_es,
+                        title_en = :title_en,
+                        summary_es = :summary_es,
+                        summary_en = :summary_en
+                    WHERE id = :id
+                    """
+                ),
+                {
+                    "id": row["id"],
+                    "title_es": title_es[:500],
+                    "title_en": title_en[:500],
+                    "summary_es": summary_es[:1200],
+                    "summary_en": summary_en[:1200],
+                },
+            )
+        updated += 1
+    return updated
+
+
 def ensure_market_news_table(connection=None):
     id_column = "SERIAL PRIMARY KEY" if engine.dialect.name == "postgresql" else "INTEGER PRIMARY KEY AUTOINCREMENT"
     statement = text(
@@ -352,10 +487,14 @@ def ensure_market_news_table(connection=None):
         CREATE TABLE IF NOT EXISTS market_news (
             id {id_column},
             title TEXT NOT NULL,
+            title_es TEXT NOT NULL DEFAULT '',
+            title_en TEXT NOT NULL DEFAULT '',
             source TEXT NOT NULL DEFAULT '',
             url TEXT NOT NULL UNIQUE,
             published_at TIMESTAMP,
             summary TEXT NOT NULL DEFAULT '',
+            summary_es TEXT NOT NULL DEFAULT '',
+            summary_en TEXT NOT NULL DEFAULT '',
             impact TEXT NOT NULL DEFAULT 'neutral',
             symbols TEXT NOT NULL DEFAULT '',
             sector_tags TEXT NOT NULL DEFAULT '',
@@ -366,9 +505,25 @@ def ensure_market_news_table(connection=None):
     )
     if connection is not None:
         connection.execute(statement)
+        ensure_market_news_language_columns(connection)
         return
     with engine.begin() as managed_connection:
         managed_connection.execute(statement)
+        ensure_market_news_language_columns(managed_connection)
+
+
+def ensure_market_news_language_columns(connection):
+    columns = {
+        "title_es": "TEXT NOT NULL DEFAULT ''",
+        "title_en": "TEXT NOT NULL DEFAULT ''",
+        "summary_es": "TEXT NOT NULL DEFAULT ''",
+        "summary_en": "TEXT NOT NULL DEFAULT ''",
+    }
+    for name, definition in columns.items():
+        try:
+            connection.execute(text(f"ALTER TABLE market_news ADD COLUMN {name} {definition}"))
+        except Exception:
+            pass
 
 
 def parse_news_datetime(value):

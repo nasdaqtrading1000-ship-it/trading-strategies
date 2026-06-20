@@ -27,13 +27,14 @@ from collections import deque
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from flask import Flask, redirect, render_template_string, request, url_for
+from flask import Flask, Response, redirect, render_template_string, request, url_for
 
 from config_env import load_local_env
 
 
 BASE_DIR = Path(__file__).resolve().parent
 STRATEGIES_DIR = BASE_DIR / "Estrategias"
+STRATEGIES_V2_DIR = BASE_DIR / "EstrategiasV2"
 PANEL_DATA_DIR = BASE_DIR / "local_panel_data"
 NOTES_DIR = PANEL_DATA_DIR / "notes"
 ERRORS_DIR = PANEL_DATA_DIR / "errors"
@@ -43,6 +44,7 @@ TASK_STATUS_FILE = PANEL_DATA_DIR / "task_status.json"
 RUNNER_CONFIG_FILE = STRATEGIES_DIR / "runner_config.txt"
 RUNNER_SELECTION_FILE = STRATEGIES_DIR / "estrategias_a_ejecutar.txt"
 RUNNER_SCRIPT_FILE = STRATEGIES_DIR / "run_all_strategies.py"
+V2_CONFIG_FILE = STRATEGIES_V2_DIR / "config.json"
 LOG_LINES = deque(maxlen=600)
 TASK_LOCK = threading.Lock()
 ACTIVE_PROCESS_LOCK = threading.Lock()
@@ -74,6 +76,26 @@ RUNNER_DAYS = [
     ("5", "Vie"),
     ("6", "Sab"),
     ("7", "Dom"),
+]
+V2_STRATEGY_LABELS = [
+    ("momentum", "Momentum"),
+    ("swing_trading", "Swing Trading"),
+    ("breakout", "BreaKout"),
+    ("mean_reversion", "Mean Reversion"),
+    ("value_trading", "Value Trading"),
+    ("dividend_growth", "Dividend Growth"),
+    ("trend_following", "Trend Following"),
+    ("sector_rotation", "Sector Rotation"),
+    ("quality_investing", "Quality Investing"),
+    ("opening_range_breakout", "Opening Range BreaKout"),
+    ("vwap_reversion", "VWAP Reversion"),
+    ("momentum_intradia", "Momentum Intradia"),
+    ("scalping_pullbacks", "Scalping The PullBacks"),
+    ("gap_and_go", "Gap and Go"),
+    ("follow_the_money", "Follow The Money"),
+    ("acumula_metales", "Acumula Metales"),
+    ("acumulacion", "Acumulacion"),
+    ("extension_reversal", "Reversion RSI 5"),
 ]
 
 TASKS = {
@@ -108,14 +130,26 @@ TASKS = {
         ],
     },
     "strategies": {
-        "label": "Ejecutar estrategias",
+        "label": "Ejecutar estrategias clasico",
         "description": "Ejecuta Estrategias/run_all_strategies.py con la configuracion local.",
         "commands": [
             {
-                "label": "Ejecutar estrategias",
+                "label": "Ejecutar estrategias clasico",
                 "command": [sys.executable, str(STRATEGIES_DIR / "run_all_strategies.py")],
                 "cwd": STRATEGIES_DIR,
                 "timeout_seconds": 7200,
+            }
+        ],
+    },
+    "strategies_v2": {
+        "label": "Ejecutar motor V2",
+        "description": "Ejecuta EstrategiasV2/run_engine_v2.py. Genera avisos, escribe TXT antiguos, sube PostgreSQL, simula operaciones y copia a SQLite.",
+        "commands": [
+            {
+                "label": "Ejecutar motor V2 completo",
+                "command": [sys.executable, str(STRATEGIES_V2_DIR / "run_engine_v2.py")],
+                "cwd": BASE_DIR,
+                "timeout_seconds": 10800,
             }
         ],
     },
@@ -133,7 +167,7 @@ TASKS = {
     },
     "news": {
         "label": "Actualizar noticias relevantes",
-        "description": "Lee feeds de noticias, resume con IA si esta configurada y guarda en PostgreSQL.",
+        "description": "Lee feeds de noticias, resume y traduce ES/EN con IA si OPENAI_API_KEY esta configurada, y guarda en PostgreSQL.",
         "commands": [
             {
                 "label": "Actualizar noticias relevantes",
@@ -173,6 +207,7 @@ PAGE = """
       .clock-box span { color:#9aa7b7; display:block; font-size:.72rem; }
       .clock-box strong { display:block; font-size:.9rem; margin-top:.15rem; }
       .automation-form { background:rgba(13,202,240,.05); border:1px solid rgba(13,202,240,.16); border-radius:8px; padding:.75rem; }
+      .runner-v2-note { background:rgba(13,202,240,.07); border:1px solid rgba(13,202,240,.18); border-radius:8px; color:#b8ecff; padding:.75rem; }
       .task-error { background:rgba(220,53,69,.08); border:1px solid rgba(220,53,69,.22); border-radius:8px; color:#ffb9c0; max-height:170px; overflow:auto; padding:.75rem; white-space:pre-wrap; }
       .task-log-details { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.08); border-radius:8px; }
       .task-log-details summary { color:#dbe7f3; cursor:pointer; font-size:.86rem; font-weight:700; list-style:none; padding:.55rem .7rem; }
@@ -181,6 +216,14 @@ PAGE = """
       .task-log-details[open] summary::after { content:"Cerrar"; }
       .task-log-box { background:#05080d; border-top:1px solid rgba(255,255,255,.08); color:#dbe7f3; max-height:150px; overflow:auto; padding:.65rem .75rem; white-space:pre-wrap; }
       .task-note { min-height:96px; }
+      .data-overview { display:grid; gap:.75rem; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+      .data-card { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.75rem; }
+      .data-card span { color:#9aa7b7; display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; }
+      .data-card strong { display:block; font-size:1rem; margin-top:.15rem; }
+      .v2-strategy-grid { display:grid; gap:.45rem; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); }
+      .v2-strategy-option { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.45rem .55rem; }
+      .path-line { color:#9aa7b7; font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .diagnostics-preview { max-height:360px; }
       pre { background:#05080d; border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#dbe7f3; max-height:520px; overflow:auto; padding:1rem; white-space:pre-wrap; }
     </style>
   </head>
@@ -248,12 +291,19 @@ PAGE = """
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
           <div>
             <h2 class="h5 mb-1">Runner de estrategias</h2>
-            <p class="text-secondary small mb-0">Horario comun para todas. Cada estrategia mantiene su propio intervalo.</p>
+            <p class="text-secondary small mb-0">Elige motor clasico o motor V2. En V2 no aplican los intervalos por estrategia.</p>
           </div>
-          <span class="badge text-bg-info align-self-start">{{ runner.enabled_count }} estrategias activas</span>
+          <span class="badge text-bg-info align-self-start">{{ runner.engine_label }}</span>
         </div>
         <form method="post" action="{{ url_for('save_runner_settings') }}">
           <div class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-md-3">
+              <label class="form-label small" for="runner-engine">Motor</label>
+              <select class="form-select form-select-sm" id="runner-engine" name="motor">
+                <option value="clasico" {% if runner.config.motor == "clasico" %}selected{% endif %}>Estrategias clasico</option>
+                <option value="v2" {% if runner.config.motor == "v2" %}selected{% endif %}>Motor V2</option>
+              </select>
+            </div>
             <div class="col-6 col-md-2">
               <label class="form-label small" for="runner-mode">Modo</label>
               <select class="form-select form-select-sm" id="runner-mode" name="modo">
@@ -300,7 +350,11 @@ PAGE = """
             </div>
           </div>
 
-          <div class="table-responsive">
+          <div class="runner-v2-note mb-3" data-runner-v2-note {% if runner.config.motor != "v2" %}hidden{% endif %}>
+            Motor V2 seleccionado: se ejecuta el motor completo. El campo "cada min" por estrategia queda desactivado porque V2 calcula todas las reglas dentro del mismo ciclo.
+          </div>
+
+          <div class="table-responsive" data-classic-runner-settings {% if runner.config.motor == "v2" %}hidden{% endif %}>
             <table class="table table-dark table-sm align-middle mb-3">
               <thead>
                 <tr>
@@ -325,7 +379,29 @@ PAGE = """
             </table>
           </div>
           <button class="btn btn-info btn-sm fw-semibold" type="submit">Guardar runner</button>
-          <span class="text-secondary small ms-2">Guarda {{ runner.config_file }} y {{ runner.selection_file }}</span>
+          <span class="text-secondary small ms-2">Guarda {{ runner.config_file }}{% if runner.config.motor == "clasico" %} y {{ runner.selection_file }}{% endif %}</span>
+        </form>
+      </div>
+
+      <div class="panel p-4 mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="h5 mb-1">Estrategias Motor V2</h2>
+            <p class="text-secondary small mb-0">Estos checkboxes solo afectan a Motor V2. Guardan enabled_strategies en EstrategiasV2/config.json.</p>
+          </div>
+          <span class="badge text-bg-info align-self-start">{{ v2_runner.enabled_count }} V2 activas</span>
+        </div>
+        <form method="post" action="{{ url_for('save_v2_strategy_settings') }}">
+          <div class="v2-strategy-grid mb-3">
+            {% for strategy in v2_runner.strategies %}
+              <label class="v2-strategy-option form-check m-0">
+                <input class="form-check-input" type="checkbox" name="v2_strategy_enabled" value="{{ strategy.key }}" {% if strategy.enabled %}checked{% endif %}>
+                <span class="form-check-label">{{ strategy.label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+          <button class="btn btn-info btn-sm fw-semibold" type="submit">Guardar estrategias V2</button>
+          <span class="text-secondary small ms-2">Esto no cambia las estrategias del motor clasico.</span>
         </form>
       </div>
 
@@ -435,6 +511,36 @@ PAGE = """
         {% endfor %}
       </div>
 
+      <div class="panel p-4 mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="h5 mb-1">Datos preparados</h2>
+            <p class="text-secondary small mb-0">Resumen local de archivos, salidas y bases. PostgreSQL alimenta Render; SQLite alimenta 127.0.0.1.</p>
+          </div>
+          <span class="badge text-bg-secondary align-self-start">Lectura local</span>
+        </div>
+        <div class="data-overview">
+          {% for item in data_overview %}
+            <div class="data-card">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+              <div class="path-line" title="{{ item.path }}">{{ item.path }}</div>
+            </div>
+          {% endfor %}
+        </div>
+        <details class="task-log-details mt-3">
+          <summary>Ver diagnostics_v2.txt</summary>
+          <div class="p-3 border-top border-secondary-subtle">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <a class="btn btn-outline-info btn-sm" href="{{ url_for('view_local_file', file_key='diagnostics_v2') }}" target="_blank" rel="noopener">Abrir diagnostics completo</a>
+              <a class="btn btn-outline-light btn-sm" href="{{ url_for('view_local_file', file_key='signals_v2') }}" target="_blank" rel="noopener">Abrir signals completo</a>
+            </div>
+            <p class="text-secondary small mb-2">Vista previa de las ultimas lineas de diagnostics_v2.txt.</p>
+            <pre class="diagnostics-preview mb-0">{{ diagnostics_preview or "Aun no existe diagnostics_v2.txt. Ejecuta Motor V2 primero." }}</pre>
+          </div>
+        </details>
+      </div>
+
       <div class="panel p-4">
         <div class="d-flex justify-content-between gap-2 mb-3">
           <h2 class="h5 mb-0">Log</h2>
@@ -476,6 +582,22 @@ PAGE = """
         });
       }
       paintRefreshState();
+      const runnerEngine = document.getElementById("runner-engine");
+      const classicRunnerSettings = document.querySelector("[data-classic-runner-settings]");
+      const runnerV2Note = document.querySelector("[data-runner-v2-note]");
+      const paintRunnerEngine = () => {
+        const isV2 = runnerEngine && runnerEngine.value === "v2";
+        if (classicRunnerSettings) {
+          classicRunnerSettings.hidden = isV2;
+        }
+        if (runnerV2Note) {
+          runnerV2Note.hidden = !isV2;
+        }
+      };
+      if (runnerEngine) {
+        runnerEngine.addEventListener("change", paintRunnerEngine);
+        paintRunnerEngine();
+      }
       if (!isRefreshPaused()) {
         setTimeout(() => {
           if (!isRefreshPaused()) {
@@ -508,9 +630,27 @@ def index():
         weekdays=WEEKDAYS,
         runner_days=RUNNER_DAYS,
         runner=load_runner_panel_state(),
+        v2_runner=load_v2_runner_panel_state(),
+        data_overview=load_data_overview(),
+        diagnostics_preview=tail_text(STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.txt", max_lines=120),
         now_display=now_text(),
         active_automation_count=sum(1 for item in automation.values() if item.get("enabled")),
     )
+
+
+@app.route("/files/<file_key>")
+def view_local_file(file_key):
+    files = {
+        "diagnostics_v2": STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.txt",
+        "signals_v2": STRATEGIES_V2_DIR / "outputs" / "signals_v2.txt",
+        "pair_diagnostics_v2": STRATEGIES_V2_DIR / "outputs" / "pair_diagnostics_v2.txt",
+    }
+    path = files.get(file_key)
+    if not path:
+        return Response("Archivo no permitido.", status=404, mimetype="text/plain; charset=utf-8")
+    if not path.exists():
+        return Response(f"No existe: {path}", status=404, mimetype="text/plain; charset=utf-8")
+    return Response(path.read_text(encoding="utf-8", errors="replace"), mimetype="text/plain; charset=utf-8")
 
 
 @app.route("/run/<task_key>", methods=["POST"])
@@ -560,7 +700,11 @@ def save_automation(task_key):
 def save_runner_settings():
     catalog = load_strategy_catalog()
     enabled_names = set(request.form.getlist("strategy_enabled"))
+    motor = request.form.get("motor", "clasico")
+    if motor not in {"clasico", "v2"}:
+        motor = "clasico"
     config = {
+        "motor": motor,
         "modo": request.form.get("modo", "loop") if request.form.get("modo") in {"loop", "once"} else "loop",
         "dias": ",".join(normalize_runner_days(request.form.getlist("runner_days"))),
         "hora_global_inicio": normalize_time(request.form.get("hora_global_inicio"), "15:30"),
@@ -584,7 +728,19 @@ def save_runner_settings():
         interval = parse_int(request.form.get(f"interval_{strategy['slug']}"), 60, 1, 1440)
         lines.append(f"{strategy['name']} | {interval}")
     write_text(RUNNER_SELECTION_FILE, "\n".join(lines) + "\n")
-    add_log(f"Runner guardado: {len(enabled_names)} estrategias seleccionadas, horario {config['hora_global_inicio']} - {config['hora_global_fin']}.")
+    add_log(f"Runner guardado: motor {motor}, {len(enabled_names)} estrategias clasicas seleccionadas, horario {config['hora_global_inicio']} - {config['hora_global_fin']}.")
+    return redirect(url_for("index"))
+
+
+@app.route("/v2/strategies/save", methods=["POST"])
+def save_v2_strategy_settings():
+    selected_keys = set(request.form.getlist("v2_strategy_enabled"))
+    valid_keys = [key for key, _label in V2_STRATEGY_LABELS]
+    enabled = [key for key in valid_keys if key in selected_keys]
+    config = load_v2_config_file()
+    config["enabled_strategies"] = enabled
+    write_text(V2_CONFIG_FILE, json.dumps(config, indent=2, ensure_ascii=False) + "\n")
+    add_log(f"Motor V2 guardado: {len(enabled)} estrategias activas.")
     return redirect(url_for("index"))
 
 
@@ -820,6 +976,118 @@ def load_all_task_logs():
     return {key: tail_text(task_log_path(key), max_lines=80) for key in TASKS}
 
 
+def load_data_overview():
+    return [
+        {
+            "label": "Tickers filtrados",
+            "value": count_nonempty_lines(STRATEGIES_DIR / "tickers.txt"),
+            "path": str(STRATEGIES_DIR / "tickers.txt"),
+        },
+        {
+            "label": "Pares",
+            "value": count_nonempty_lines(STRATEGIES_DIR / "pairs.txt"),
+            "path": str(STRATEGIES_DIR / "pairs.txt"),
+        },
+        {
+            "label": "TXT avisos",
+            "value": count_files(STRATEGIES_DIR / "salidas_txt", "*.txt"),
+            "path": str(STRATEGIES_DIR / "salidas_txt"),
+        },
+        {
+            "label": "Historicos TXT",
+            "value": count_files(STRATEGIES_DIR / "historico_txt", "*.txt"),
+            "path": str(STRATEGIES_DIR / "historico_txt"),
+        },
+        {
+            "label": "Operaciones",
+            "value": json_count(STRATEGIES_DIR / "operaciones_simuladas" / "operaciones_estado.json"),
+            "path": str(STRATEGIES_DIR / "operaciones_simuladas" / "operaciones_estado.json"),
+        },
+        {
+            "label": "SQLite local",
+            "value": file_size_label(BASE_DIR / "strategies.db"),
+            "path": str(BASE_DIR / "strategies.db"),
+        },
+        {
+            "label": "V2 senales",
+            "value": json_signal_count(STRATEGIES_V2_DIR / "outputs" / "signals_v2.json"),
+            "path": str(STRATEGIES_V2_DIR / "outputs" / "signals_v2.json"),
+        },
+        {
+            "label": "V2 diagnosticos",
+            "value": json_ticker_count(STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.json"),
+            "path": str(STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.json"),
+        },
+    ]
+
+
+def count_nonempty_lines(path):
+    if not path.exists():
+        return "0"
+    count = 0
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        clean = line.strip()
+        if clean and not clean.startswith("#"):
+            count += 1
+    return str(count)
+
+
+def count_files(path, pattern):
+    if not path.exists():
+        return "0"
+    return str(len(list(path.glob(pattern))))
+
+
+def json_count(path):
+    if not path.exists():
+        return "0"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        return "Error"
+    if isinstance(data, list):
+        return str(len(data))
+    if isinstance(data, dict):
+        for key in ("operations", "operaciones", "items"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return str(len(value))
+        return str(len(data))
+    return "0"
+
+
+def json_signal_count(path):
+    if not path.exists():
+        return "0"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        return "Error"
+    return str(len(data.get("signals", []))) if isinstance(data, dict) else "0"
+
+
+def json_ticker_count(path):
+    if not path.exists():
+        return "0"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        return "Error"
+    tickers = data.get("tickers", {}) if isinstance(data, dict) else {}
+    return str(len(tickers)) if isinstance(tickers, dict) else "0"
+
+
+def file_size_label(path):
+    if not path.exists():
+        return "No existe"
+    size = path.stat().st_size
+    if size >= 1024 * 1024:
+        return f"{size / (1024 * 1024):.1f} MB"
+    if size >= 1024:
+        return f"{size / 1024:.1f} KB"
+    return f"{size} B"
+
+
 def load_runner_panel_state():
     config = load_runner_config_file()
     selected = load_runner_selection()
@@ -837,13 +1105,46 @@ def load_runner_panel_state():
         "config": config,
         "strategies": strategies,
         "enabled_count": sum(1 for strategy in strategies if strategy["enabled"]),
+        "engine_label": "Motor V2" if config["motor"] == "v2" else f"{sum(1 for strategy in strategies if strategy['enabled'])} estrategias clasicas",
         "config_file": RUNNER_CONFIG_FILE.name,
         "selection_file": RUNNER_SELECTION_FILE.name,
     }
 
 
+def load_v2_runner_panel_state():
+    config = load_v2_config_file()
+    enabled_keys = {str(item).strip().lower() for item in config.get("enabled_strategies", [])}
+    strategies = [
+        {
+            "key": key,
+            "label": label,
+            "enabled": key in enabled_keys,
+        }
+        for key, label in V2_STRATEGY_LABELS
+    ]
+    return {
+        "strategies": strategies,
+        "enabled_count": sum(1 for strategy in strategies if strategy["enabled"]),
+        "config_file": V2_CONFIG_FILE.name,
+    }
+
+
+def load_v2_config_file():
+    if not V2_CONFIG_FILE.exists():
+        return {"enabled_strategies": [key for key, _label in V2_STRATEGY_LABELS]}
+    try:
+        config = json.loads(V2_CONFIG_FILE.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, json.JSONDecodeError):
+        return {"enabled_strategies": [key for key, _label in V2_STRATEGY_LABELS]}
+    if not isinstance(config, dict):
+        return {"enabled_strategies": [key for key, _label in V2_STRATEGY_LABELS]}
+    config.setdefault("enabled_strategies", [key for key, _label in V2_STRATEGY_LABELS])
+    return config
+
+
 def load_runner_config_file():
     config = {
+        "motor": "clasico",
         "modo": "loop",
         "dias": "1,2,3,4,5",
         "hora_global_inicio": "15:30",
@@ -860,7 +1161,9 @@ def load_runner_config_file():
                 continue
             key, value = [part.strip() for part in line.split("=", 1)]
             normalized_key = key.lower()
-            if normalized_key == "modo":
+            if normalized_key == "motor":
+                config["motor"] = value.lower() if value.lower() in {"clasico", "v2"} else "clasico"
+            elif normalized_key == "modo":
                 config["modo"] = value.lower() if value.lower() in {"loop", "once"} else "loop"
             elif normalized_key == "dias":
                 config["dias"] = ",".join(normalize_runner_days(value.split(",")))
@@ -886,6 +1189,7 @@ def write_runner_config(config):
 
 # loop = espera a la hora de inicio, ejecuta ciclos y sale a la hora final.
 # once = ejecuta una sola pasada y termina.
+MOTOR={config["motor"]}
 MODO={config["modo"]}
 
 # Dias permitidos. Usa numeros 1-7: 1=Lunes, 2=Martes, ..., 7=Domingo.

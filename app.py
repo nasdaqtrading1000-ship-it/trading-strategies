@@ -53,6 +53,7 @@ DEFAULT_STRATEGY_LOG_DIR = (BASE_DIR / "Estrategias" / "logs").resolve()
 DEFAULT_STRATEGY_TICKERS_FILE = (BASE_DIR / "Estrategias" / "tickers.txt").resolve()
 DEFAULT_TOP_MONEY_VOLUME_FILE = (BASE_DIR / "Estrategias" / "top_money_volume_assets.txt").resolve()
 DEFAULT_SIMULATED_OPERATIONS_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_estado.json").resolve()
+DEFAULT_V2_DIAGNOSTICS_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.json").resolve()
 STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 SCHEDULER_THREAD_STARTED = False
@@ -1413,7 +1414,7 @@ def build_totalizer(strategies):
     selected = [
         strategy
         for strategy in strategies
-        if int(strategy.get("include_in_totalizer") or 0) == 1
+        if int(strategy.get("selected_for_totalizer") if "selected_for_totalizer" in strategy else strategy.get("include_in_totalizer") or 0) == 1
     ]
     total_usd = sum(parse_profit_usd(strategy.get("historical_return")) for strategy in selected)
     total_capital = sum(parse_strategy_capital_usd(strategy.get("historical_return")) for strategy in selected)
@@ -2065,6 +2066,48 @@ def create_app():
             return True
         return bool(int(strategy.get("public_visible") or 0))
 
+    def load_user_totalizer_selection(user_id):
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT strategy_id
+                    FROM user_strategy_selections
+                    WHERE user_id = :user_id
+                      AND selected = 1
+                    """
+                ),
+                {"user_id": user_id},
+            ).fetchall()
+        except Exception:
+            return set()
+        return {int(row[0]) for row in rows}
+
+    def save_user_strategy_selection(user_id, strategy_id, selected):
+        if engine.dialect.name == "postgresql":
+            statement = text(
+                """
+                INSERT INTO user_strategy_selections (user_id, strategy_id, selected, updated_at)
+                VALUES (:user_id, :strategy_id, :selected, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id, strategy_id)
+                DO UPDATE SET selected = EXCLUDED.selected, updated_at = CURRENT_TIMESTAMP
+                """
+            )
+        else:
+            statement = text(
+                """
+                INSERT INTO user_strategy_selections (user_id, strategy_id, selected, updated_at)
+                VALUES (:user_id, :strategy_id, :selected, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, strategy_id)
+                DO UPDATE SET selected = excluded.selected, updated_at = CURRENT_TIMESTAMP
+                """
+            )
+        g.db.execute(
+            statement,
+            {"user_id": user_id, "strategy_id": strategy_id, "selected": selected},
+        )
+        g.db.commit()
+
     @app.context_processor
     def inject_user_context():
         user = current_user()
@@ -2237,6 +2280,22 @@ def create_app():
             return redirect(url_for("user_login"))
         return render_template("account.html", user=user)
 
+    @app.route("/estrategias/<int:strategy_id>/seleccionar-totalizador", methods=["POST"])
+    def user_select_strategy_totalizer(strategy_id):
+        user = current_user()
+        if not user:
+            flash("Entra con tu cuenta para seleccionar estrategias.", "warning")
+            return redirect(url_for("user_login"))
+        exists = g.db.execute(
+            text("SELECT id FROM strategies WHERE id = :id AND is_active = 1"),
+            {"id": strategy_id},
+        ).fetchone()
+        if not exists:
+            abort(404)
+        selected = 1 if request.form.get("selected") == "on" else 0
+        save_user_strategy_selection(user["id"], strategy_id, selected)
+        return redirect(url_for("index", _anchor=f"strategy-{strategy_id}"))
+
     @app.route("/")
     def index():
         user = current_user()
@@ -2252,10 +2311,15 @@ def create_app():
         ORDER BY created_at DESC
         """
         rows = g.db.execute(text(query)).mappings().fetchall()
+        user_totalizer_selection = load_user_totalizer_selection(user["id"]) if user else None
         strategies = []
         for row in rows:
             strategy = strategy_with_signals(row)
             strategy["is_locked"] = not has_full_access and not int(strategy.get("public_visible") or 0)
+            if user_totalizer_selection is None:
+                strategy["selected_for_totalizer"] = int(strategy.get("include_in_totalizer") or 0)
+            else:
+                strategy["selected_for_totalizer"] = 1 if strategy["id"] in user_totalizer_selection else 0
             strategies.append(strategy)
         strategies.sort(
             key=lambda strategy: (
@@ -2284,6 +2348,7 @@ def create_app():
             donation_url=donation_url,
             page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
             is_public_view=not has_full_access,
+            user_totalizer_enabled=user is not None,
         )
 
     @app.route("/noticias")
@@ -2319,6 +2384,7 @@ def create_app():
         if signal is None:
             abort(404)
 
+        attach_v2_diagnostics_to_signal(signal)
         diagnostic = build_signal_diagnostic(strategy, signal)
         operation = signal.get("open_operation") or simulated_operation_for_signal(strategy, signal)
         return render_template(
@@ -2337,6 +2403,7 @@ def create_app():
             return redirect(url_for("user_login"))
         signals = read_strategy_signals(strategy["signals_txt_name"])
         attach_simulated_operations_to_signals(strategy, signals)
+        signal_groups = build_signal_groups(signals)
 
         selected_symbol = normalize_signal_symbol(request.args.get("symbol", ""))
         selected_key = request.args.get("key", "")
@@ -2364,15 +2431,20 @@ def create_app():
 
         diagnostic = None
         operation = None
+        selected_group = None
         if selected_signal is not None:
+            attach_v2_diagnostics_to_signal(selected_signal)
             diagnostic = build_signal_diagnostic(strategy, selected_signal)
             operation = selected_signal.get("open_operation") or simulated_operation_for_signal(strategy, selected_signal)
+            selected_group = signal_group_for_symbol(signal_groups, selected_signal.get("symbol", ""))
 
         return render_template(
             "strategy_signals.html",
             strategy=strategy,
             signals=signals,
+            signal_groups=signal_groups,
             selected_signal=selected_signal,
+            selected_group=selected_group,
             selected_symbol=normalize_signal_symbol(selected_signal.get("symbol", "")) if selected_signal else "",
             diagnostic=diagnostic,
             operation=operation,
@@ -3346,18 +3418,33 @@ def create_app():
 
     def relevant_market_news(limit=10):
         try:
-            rows = g.db.execute(
-                text(
-                    """
-                    SELECT title, source, url, published_at, summary, impact,
-                           symbols, sector_tags, ai_used, created_at
-                    FROM market_news
-                    ORDER BY COALESCE(published_at, created_at) DESC, created_at DESC
-                    LIMIT :limit
-                    """
-                ),
-                {"limit": limit},
-            ).mappings().fetchall()
+            try:
+                rows = g.db.execute(
+                    text(
+                        """
+                        SELECT title, title_es, title_en, source, url, published_at,
+                               summary, summary_es, summary_en, impact,
+                               symbols, sector_tags, ai_used, created_at
+                        FROM market_news
+                        ORDER BY COALESCE(published_at, created_at) DESC, created_at DESC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                ).mappings().fetchall()
+            except Exception:
+                rows = g.db.execute(
+                    text(
+                        """
+                        SELECT title, source, url, published_at, summary, impact,
+                               symbols, sector_tags, ai_used, created_at
+                        FROM market_news
+                        ORDER BY COALESCE(published_at, created_at) DESC, created_at DESC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                ).mappings().fetchall()
             updated_at = g.db.execute(text("SELECT MAX(created_at) FROM market_news")).scalar()
         except Exception:
             return {"rows": [], "updated_at": ""}
@@ -3368,6 +3455,11 @@ def create_app():
             item["published_display"] = format_any_madrid_datetime(item.get("published_at"))
             item["created_display"] = format_any_madrid_datetime(item.get("created_at"))
             item["impact_class"] = news_impact_class(item.get("impact"))
+            item["impact_label"] = news_impact_label(item.get("impact"))
+            item["title_es"] = item.get("title_es") or item.get("title") or ""
+            item["title_en"] = item.get("title_en") or item.get("title") or ""
+            item["summary_es"] = item.get("summary_es") or item.get("summary") or ""
+            item["summary_en"] = item.get("summary_en") or item.get("summary") or ""
             item["ai_label"] = "Resumen"
             formatted.append(item)
         return {
@@ -3382,6 +3474,14 @@ def create_app():
         if value == "negativo":
             return "text-danger"
         return "text-secondary"
+
+    def news_impact_label(value):
+        value = str(value or "").lower()
+        if value == "positivo":
+            return "Positivo"
+        if value == "negativo":
+            return "Negativo"
+        return "Neutral"
 
     def parse_display_int(value, default):
         try:
@@ -3564,6 +3664,113 @@ def create_app():
                     "profit_class": "text-warning",
                 }
                 signal["is_new"] = signal.get("is_today_signal", False)
+
+    def build_signal_groups(signals):
+        groups_by_symbol = {}
+        ordered_groups = []
+        for signal in signals:
+            symbol = normalize_signal_symbol(signal.get("symbol", ""))
+            if not symbol:
+                continue
+            group = groups_by_symbol.get(symbol)
+            if group is None:
+                group = {
+                    "symbol": symbol,
+                    "display_symbol": signal.get("symbol", symbol),
+                    "signals": [],
+                    "operations": [],
+                    "first_signal": signal,
+                    "is_new": False,
+                    "notice_short_datetime": signal.get("notice_short_datetime", ""),
+                }
+                groups_by_symbol[symbol] = group
+                ordered_groups.append(group)
+            group["signals"].append(signal)
+            group["is_new"] = group["is_new"] or bool(signal.get("is_new"))
+            if signal.get("notice_short_datetime"):
+                group["notice_short_datetime"] = signal["notice_short_datetime"]
+            operation = signal.get("open_operation")
+            if operation and not operation_in_group(group["operations"], operation):
+                group["operations"].append(operation)
+
+        for group in ordered_groups:
+            group.update(build_operation_group_summary(group["operations"], group["signals"]))
+        return ordered_groups
+
+    def signal_group_for_symbol(signal_groups, symbol):
+        normalized = normalize_signal_symbol(symbol)
+        return next((group for group in signal_groups if group["symbol"] == normalized), None)
+
+    def operation_in_group(operations, operation):
+        operation_key = str(operation.get("operation_key") or "")
+        if operation_key:
+            return any(str(item.get("operation_key") or "") == operation_key for item in operations)
+        return any(
+            item.get("opened_at") == operation.get("opened_at")
+            and normalize_signal_symbol(item.get("symbol", "")) == normalize_signal_symbol(operation.get("symbol", ""))
+            for item in operations
+        )
+
+    def build_operation_group_summary(operations, signals):
+        invested = 0.0
+        current_value = 0.0
+        total_shares = 0.0
+        profit_usd = 0.0
+        direction = ""
+        weighted_target = 0.0
+        target_weight = 0.0
+        for operation in operations:
+            shares = parse_display_float(operation.get("shares"))
+            entry = parse_display_float(operation.get("entry_price"))
+            current = parse_display_float(operation.get("current_price"))
+            target = parse_display_float(operation.get("target_price"))
+            invested += entry * shares
+            current_value += current * shares
+            total_shares += shares
+            profit_usd += parse_display_float(operation.get("profit_usd"))
+            direction = direction or normalize_operation_side(operation.get("direction"))
+            if target > 0 and shares > 0:
+                weighted_target += target * shares
+                target_weight += shares
+
+        average_entry = invested / total_shares if total_shares else 0.0
+        current_price = current_value / total_shares if total_shares else 0.0
+        profit_pct = (profit_usd / invested * 100) if invested else 0.0
+        if target_weight:
+            target_price = weighted_target / target_weight
+            target_label = "Objetivo medio"
+        else:
+            target_price = average_entry * (0.95 if direction == "SHORT" else 1.05) if average_entry else 0.0
+            target_label = "Objetivo grupo"
+        operation_count = len(operations)
+        signal_count = len(signals)
+        first_signal = signals[0] if signals else {}
+        first_operation = operations[0] if operations else {}
+        operation_summary = first_signal.get("operation_summary", {})
+        return {
+            "operation_count": operation_count,
+            "signal_count": signal_count,
+            "group_count_label": (
+                f"{operation_count} operaciones abiertas"
+                if operation_count
+                else f"{signal_count} avisos pendientes"
+            ),
+            "average_entry": average_entry,
+            "average_entry_display": f"{average_entry:.2f} USD" if average_entry else "Pendiente",
+            "current_price_display": f"{current_price:.2f} USD" if current_price else "Pendiente",
+            "target_label": target_label,
+            "target_price_display": f"{target_price:.2f} USD" if target_price else "Pendiente",
+            "total_shares_display": f"{total_shares:.4f}" if total_shares else "Pendiente",
+            "invested_display": format_money_usd(invested),
+            "current_value_display": format_money_usd(current_value),
+            "profit_usd": profit_usd,
+            "profit_usd_display": format_signed_money_usd(profit_usd),
+            "profit_pct_display": f"{profit_pct:+.2f}%" if operation_count else operation_summary.get("profit_pct_display", "Pendiente"),
+            "profit_class": profit_color_class(profit_usd if operation_count else 0),
+            "direction": direction or first_signal.get("side") or "",
+            "selected_key": first_signal.get("signal_key", ""),
+            "latest_update_display": first_operation.get("updated_at_display", "Pendiente") if first_operation else "Pendiente",
+        }
 
     def operation_is_new_today(operation):
         value = operation.get("opened_at")
@@ -4066,6 +4273,7 @@ def create_app():
                 text(
                     """
                     SELECT strategy_name, txt_name, symbol, direction, status,
+                           operation_key,
                            signal_date, signal_line, opened_at, closed_at,
                            entry_price, target_price, stop_loss, shares,
                            current_price, investment_value, profit_usd,
@@ -4501,6 +4709,54 @@ def create_app():
             "warning": "Lectura automatica informativa. No es asesoramiento financiero ni recomendacion de compra o venta.",
         }
 
+    def attach_v2_diagnostics_to_signal(signal):
+        symbol = normalize_signal_symbol(signal.get("symbol", ""))
+        if not symbol:
+            signal["diagnostic_all_fields"] = []
+            return
+        metrics = v2_diagnostics_for_symbol(symbol)
+        if not metrics:
+            signal["diagnostic_all_fields"] = []
+            return
+
+        strategy_keys = {
+            normalize_field_name(key)
+            for key in signal.get("detail_fields", {})
+        }
+        rows = []
+        for key, value in sorted(metrics.items()):
+            if value is None:
+                continue
+            rows.append(
+                {
+                    "key": key,
+                    "value": format_diagnostic_metric(value),
+                    "is_strategy_param": normalize_field_name(key) in strategy_keys,
+                }
+            )
+        signal["diagnostic_all_fields"] = rows
+
+    def v2_diagnostics_for_symbol(symbol):
+        diagnostics_path = Path(os.environ.get("TRADING_V2_DIAGNOSTICS_FILE", DEFAULT_V2_DIAGNOSTICS_FILE)).resolve()
+        if not diagnostics_path.exists() or not diagnostics_path.is_file():
+            return {}
+        try:
+            payload = json.loads(diagnostics_path.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        tickers = payload.get("tickers", {}) if isinstance(payload, dict) else {}
+        if not isinstance(tickers, dict):
+            return {}
+        return tickers.get(symbol.upper(), {}) or {}
+
+    def normalize_field_name(value):
+        return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+
+    def format_diagnostic_metric(value):
+        if isinstance(value, float):
+            return f"{value:.4f}"
+        return str(value)
+
     def generate_ai_signal_analysis(strategy, signal, diagnostic):
         api_key = os.environ.get("OPENAI_API_KEY", "").strip()
         if not api_key:
@@ -4687,6 +4943,7 @@ def init_db():
             )
         )
         ensure_users_table(connection)
+        ensure_user_strategy_selections_table(connection)
         add_user_column(connection, "age_confirmed", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "risk_accepted", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "accepted_terms_at", "TIMESTAMP")
@@ -4698,6 +4955,7 @@ def init_db():
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
         ensure_simulated_operations_table(connection)
+        ensure_top_money_volume_table(connection)
         ensure_market_news_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
@@ -5034,6 +5292,24 @@ def ensure_simulated_operations_table(connection):
     )
 
 
+def ensure_top_money_volume_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS top_money_volume_assets (
+                asset_rank INTEGER PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                name TEXT NOT NULL DEFAULT '',
+                market TEXT NOT NULL DEFAULT '',
+                price FLOAT NOT NULL DEFAULT 0,
+                money_volume FLOAT NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
 def ensure_market_news_table(connection):
     id_column = (
         "SERIAL PRIMARY KEY"
@@ -5046,10 +5322,14 @@ def ensure_market_news_table(connection):
             CREATE TABLE IF NOT EXISTS market_news (
                 id {id_column},
                 title TEXT NOT NULL,
+                title_es TEXT NOT NULL DEFAULT '',
+                title_en TEXT NOT NULL DEFAULT '',
                 source TEXT NOT NULL DEFAULT '',
                 url TEXT NOT NULL UNIQUE,
                 published_at TIMESTAMP,
                 summary TEXT NOT NULL DEFAULT '',
+                summary_es TEXT NOT NULL DEFAULT '',
+                summary_en TEXT NOT NULL DEFAULT '',
                 impact TEXT NOT NULL DEFAULT 'neutral',
                 symbols TEXT NOT NULL DEFAULT '',
                 sector_tags TEXT NOT NULL DEFAULT '',
@@ -5059,6 +5339,11 @@ def ensure_market_news_table(connection):
             """
         )
     )
+    for name in ("title_es", "title_en", "summary_es", "summary_en"):
+        try:
+            connection.execute(text(f"ALTER TABLE market_news ADD COLUMN {name} TEXT NOT NULL DEFAULT ''"))
+        except Exception:
+            pass
 
 
 def ensure_users_table(connection):
@@ -5086,6 +5371,28 @@ def ensure_users_table(connection):
                 risk_accepted INTEGER NOT NULL DEFAULT 0,
                 accepted_terms_at TIMESTAMP,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def ensure_user_strategy_selections_table(connection):
+    id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS user_strategy_selections (
+                id {id_column},
+                user_id INTEGER NOT NULL,
+                strategy_id INTEGER NOT NULL,
+                selected INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, strategy_id)
             )
             """
         )

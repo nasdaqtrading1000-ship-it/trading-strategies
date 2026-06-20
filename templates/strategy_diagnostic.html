@@ -19,22 +19,28 @@
     <div class="row g-4">
       <div class="col-lg-5">
         <div class="diagnostic-box h-100">
-          <h2 class="h5 mb-3">Datos especificos de la estrategia</h2>
-          {% if signal.detail_fields %}
-            <dl class="diagnostic-fields">
-              {% for key, value in signal.detail_fields.items() %}
-                <div>
-                  {% set help_text = technical_term_help(key) %}
-                  <dt>
-                    {{ key }}
-                    {% if help_text %}
-                      <button class="term-help" type="button" data-bs-toggle="tooltip" title="{{ help_text }}">?</button>
-                    {% endif %}
-                  </dt>
-                  <dd>{{ value }}</dd>
-                </div>
+          <h2 class="h5 mb-3">Parametros completos</h2>
+          <p class="text-secondary small mb-3">Los ovalos destacados corresponden a los datos usados por esta estrategia.</p>
+          {% if signal.diagnostic_all_fields %}
+            <div class="diagnostic-param-pills">
+              {% for item in signal.diagnostic_all_fields %}
+                {% set help_text = technical_term_help(item.key) %}
+                <span class="diagnostic-param-pill {% if item.is_strategy_param %}diagnostic-param-active{% endif %}" {% if help_text %}data-bs-toggle="tooltip" title="{{ help_text }}"{% endif %}>
+                  <span>{{ item.key }}</span>
+                  <strong>{{ item.value }}</strong>
+                </span>
               {% endfor %}
-            </dl>
+            </div>
+          {% elif signal.detail_fields %}
+            <div class="diagnostic-param-pills">
+              {% for key, value in signal.detail_fields.items() %}
+                {% set help_text = technical_term_help(key) %}
+                <span class="diagnostic-param-pill diagnostic-param-active" {% if help_text %}data-bs-toggle="tooltip" title="{{ help_text }}"{% endif %}>
+                  <span>{{ key }}</span>
+                  <strong>{{ value }}</strong>
+                </span>
+              {% endfor %}
+            </div>
           {% else %}
             <p class="text-secondary mb-0">No hay campos especificos adicionales para este aviso.</p>
           {% endif %}

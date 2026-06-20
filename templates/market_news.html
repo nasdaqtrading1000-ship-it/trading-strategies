@@ -10,7 +10,10 @@
       <h1 class="h2 mb-2">Resumen de mercado</h1>
       <p class="text-secondary mb-0">Ultima actualizacion: <strong>{{ updated_at or "Sin actualizar" }}</strong></p>
     </div>
-    <button class="btn btn-outline-light align-self-start" type="button" onclick="window.close()">Cerrar</button>
+    <div class="d-flex gap-2 align-self-start">
+      <button class="btn btn-outline-info" type="button" data-news-language-toggle>Ver en ingles</button>
+      <button class="btn btn-outline-light" type="button" onclick="window.close()">Cerrar</button>
+    </div>
   </div>
 
   {% if news_items %}
@@ -23,10 +26,16 @@
           </div>
           <div class="news-row-main">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-              <strong class="{{ item.impact_class }}">{{ item.impact|capitalize }}</strong>
-              <h2 class="news-row-title mb-0">{{ item.title }}</h2>
+              <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
+              <h2 class="news-row-title mb-0">
+                <span data-news-lang="es">{{ item.title_es }}</span>
+                <span data-news-lang="en" hidden>{{ item.title_en }}</span>
+              </h2>
             </div>
-            <p class="market-news-summary mb-0">{{ item.summary }}</p>
+            <p class="market-news-summary mb-0">
+              <span data-news-lang="es">{{ item.summary_es }}</span>
+              <span data-news-lang="en" hidden>{{ item.summary_en }}</span>
+            </p>
           </div>
           <div class="news-row-affected">
             <span>Afecta</span>
@@ -42,4 +51,21 @@
     </div>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const languageButton = document.querySelector("[data-news-language-toggle]");
+  let currentNewsLanguage = "es";
+
+  if (languageButton) {
+    languageButton.addEventListener("click", () => {
+      currentNewsLanguage = currentNewsLanguage === "es" ? "en" : "es";
+      document.querySelectorAll("[data-news-lang]").forEach((element) => {
+        element.hidden = element.dataset.newsLang !== currentNewsLanguage;
+      });
+      languageButton.textContent = currentNewsLanguage === "es" ? "Ver en ingles" : "Ver en espanol";
+    });
+  }
+</script>
 {% endblock %}

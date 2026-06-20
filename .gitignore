@@ -6,6 +6,7 @@ __pycache__/
 .Python
 .env
 Estrategias/
+EstrategiasV2/
 Estrategias/.env
 Estrategias/historico_txt/
 Estrategias/logs/

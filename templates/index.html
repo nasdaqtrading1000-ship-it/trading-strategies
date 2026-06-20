@@ -72,10 +72,10 @@
             </div>
             <div class="news-row-main">
               <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                <strong class="{{ item.impact_class }}">{{ item.impact|capitalize }}</strong>
-                <h3 class="news-row-title mb-0">{{ item.title }}</h3>
+                <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
+                <h3 class="news-row-title mb-0">{{ item.title_es }}</h3>
               </div>
-              <p class="market-news-summary mb-0">{{ item.summary }}</p>
+              <p class="market-news-summary mb-0">{{ item.summary_es }}</p>
             </div>
             <div class="news-row-affected">
               <span>Afecta</span>
@@ -156,7 +156,7 @@
           Beneficio / perdida acumulado de {{ totalizer.count }} estrategias seleccionadas.
           <span class="d-block small totalizer-return-line">Capital total: {{ totalizer.capital_display }} | Rentabilidad conjunta: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
         {% else %}
-          Selecciona estrategias desde admin para incluirlas.
+          Selecciona estrategias en sus tarjetas para incluirlas.
         {% endif %}
       </p>
     </div>
@@ -181,6 +181,12 @@
                 <a class="btn btn-info btn-sm fw-semibold" href="{{ url_for('user_register') }}">Crear cuenta gratis</a>
               </div>
             {% endif %}
+            <form class="strategy-select-form mb-3" method="post" action="{% if current_user %}{{ url_for('user_select_strategy_totalizer', strategy_id=strategy.id) }}{% else %}{{ url_for('user_login') }}{% endif %}">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="select_strategy_{{ strategy.id }}" name="selected" {% if strategy.selected_for_totalizer %}checked{% endif %} {% if strategy.is_locked %}disabled{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label small" for="select_strategy_{{ strategy.id }}">Seleccionar estrategia</label>
+              </div>
+            </form>
             <div class="d-flex justify-content-between gap-2 align-items-start mb-2">
               <div class="strategy-card-title">
                 <span class="strategy-short-badge">{{ strategy.short_name }}</span>

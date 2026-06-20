@@ -10,6 +10,7 @@ rapida para probar la web en 127.0.0.1 sin depender de la red.
 
 import os
 from pathlib import Path
+from decimal import Decimal
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -102,7 +103,19 @@ def read_rows(engine, table_name, columns):
     column_sql = ", ".join(columns)
     with engine.connect() as connection:
         rows = connection.execute(text(f"SELECT {column_sql} FROM {table_name}")).mappings().fetchall()
-    return [dict(row) for row in rows]
+    return [
+        {
+            key: sqlite_safe_value(value)
+            for key, value in dict(row).items()
+        }
+        for row in rows
+    ]
+
+
+def sqlite_safe_value(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
 
 
 def insert_statement(table_name, columns):

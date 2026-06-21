@@ -3942,6 +3942,109 @@ html[data-bs-theme="light"] .report-signals-btn:focus {
   color: #b9ddff !important;
 }
 
+/* Blue focus for internal signal, diagnostic and history views */
+.strategy-signals-page .signals-sidebar,
+.strategy-signals-page .signals-diagnostic .diagnostic-panel,
+.diagnostic-panel,
+.diagnostic-box {
+  background:
+    linear-gradient(180deg, rgba(13, 28, 48, 0.96), rgba(12, 18, 28, 0.98)) !important;
+  border-color: rgba(86, 165, 255, 0.34) !important;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(86, 165, 255, 0.08) inset !important;
+}
+
+.strategy-signals-page .signals-sidebar-head,
+.diagnostic-panel .eyebrow,
+.diagnostic-box h2,
+.history-totalizer span,
+.history-table th {
+  color: #b9ddff !important;
+}
+
+.strategy-signals-page .signal-mini-card {
+  background: rgba(10, 22, 38, 0.72) !important;
+  border-color: rgba(86, 165, 255, 0.2) !important;
+}
+
+.strategy-signals-page .signal-mini-card:hover,
+.strategy-signals-page .signal-mini-card.active {
+  background: rgba(26, 76, 132, 0.24) !important;
+  border-color: rgba(158, 210, 255, 0.7) !important;
+}
+
+.strategy-signals-page .signal-mini-card.signal-new,
+.strategy-signals-page .signal-mini-card.signal-new:hover,
+.strategy-signals-page .signal-mini-card.signal-new.active {
+  background: linear-gradient(135deg, rgba(18, 96, 222, 0.22), rgba(10, 22, 38, 0.94)) !important;
+  border-color: #9ed2ff !important;
+  box-shadow: 0 0 0 1px rgba(158, 210, 255, 0.18) inset, 0 10px 28px rgba(18, 96, 222, 0.12) !important;
+}
+
+.strategy-signals-page .signal-symbol,
+.strategy-signals-page .signal-line-link,
+.strategy-signals-page .signal-symbol-link > span:first-child {
+  color: #d8edff !important;
+}
+
+.strategy-signals-page .signal-date-chip,
+.strategy-signals-page .signal-count-chip,
+.strategy-signals-page .signal-price-chip {
+  background: rgba(18, 96, 222, 0.14) !important;
+  border-color: rgba(158, 210, 255, 0.64) !important;
+  color: #cfe9ff !important;
+}
+
+.diagnostic-param-pills-priority {
+  background: rgba(10, 22, 38, 0.72) !important;
+  border-color: rgba(86, 165, 255, 0.34) !important;
+}
+
+.diagnostic-param-active,
+.diagnostic-param-pills-priority .diagnostic-param-pill,
+.diagnostic-param-pill.active {
+  background: rgba(18, 96, 222, 0.22) !important;
+  border-color: rgba(158, 210, 255, 0.72) !important;
+  color: #e8f6ff !important;
+  box-shadow: 0 0 0 1px rgba(158, 210, 255, 0.12) inset !important;
+}
+
+.diagnostic-param-pill span,
+.signal-param-pill span {
+  color: #b9ddff !important;
+}
+
+.diagnostic-param-pill strong,
+.signal-param-pill strong {
+  color: #f2f9ff !important;
+}
+
+.diagnostic-side {
+  background: rgba(18, 96, 222, 0.18) !important;
+  border-color: rgba(158, 210, 255, 0.72) !important;
+  color: #d8edff !important;
+}
+
+.diagnostic-summary-grid div,
+.history-totalizer div {
+  background: linear-gradient(135deg, rgba(13, 28, 48, 0.94), rgba(10, 22, 38, 0.82)) !important;
+  border-color: rgba(86, 165, 255, 0.36) !important;
+}
+
+.history-table {
+  --bs-table-bg: rgba(10, 22, 38, 0.72) !important;
+  --bs-table-hover-bg: rgba(18, 96, 222, 0.16) !important;
+  border-color: rgba(86, 165, 255, 0.24) !important;
+}
+
+.history-table td,
+.history-table th {
+  border-color: rgba(86, 165, 255, 0.18) !important;
+}
+
+.history-table tbody tr:hover td {
+  background: rgba(18, 96, 222, 0.14) !important;
+}
+
 html[data-bs-theme="dark"] .report-ranking-table {
   --bs-table-bg: #001331 !important;
   --bs-table-striped-bg: #062958 !important;

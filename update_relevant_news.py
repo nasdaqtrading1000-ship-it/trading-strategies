@@ -39,6 +39,7 @@ from db import engine
 
 BASE_DIR = Path(__file__).resolve().parent
 NEWS_STATE_FILE = BASE_DIR / "local_panel_data" / "news_update_state.json"
+AI_RATE_LIMITED = False
 
 DEFAULT_FEEDS = [
     "https://finance.yahoo.com/news/rssindex",
@@ -91,8 +92,12 @@ def main():
     saved = 0
     for item in filtered:
         enriched = enrich_news_item(item)
-        if save_news_item(enriched):
-            saved += 1
+        try:
+            if save_news_item(enriched):
+                saved += 1
+        except SQLAlchemyError as error:
+            print(f"Noticia omitida por error de base de datos: {item.get('title', '')[:120]} | {error}")
+            continue
 
     translated = translate_existing_news()
     pruned = prune_old_news()
@@ -250,7 +255,10 @@ def enrich_news_item(item):
 
 
 def ai_summary(item, fallback_summary):
+    global AI_RATE_LIMITED
     if os.environ.get("NEWS_AI_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
+        return {"summary": fallback_summary, "summary_es": fallback_summary, "summary_en": fallback_summary, "ai_used": False}
+    if AI_RATE_LIMITED:
         return {"summary": fallback_summary, "summary_es": fallback_summary, "summary_en": fallback_summary, "ai_used": False}
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     model = news_ai_model()
@@ -292,6 +300,13 @@ def ai_summary(item, fallback_summary):
         parsed = extract_response_json(data)
         parsed["ai_used"] = True
         return parsed
+    except urllib.error.HTTPError as error:
+        if error.code == 429:
+            AI_RATE_LIMITED = True
+            print("IA omitida para el resto de noticias: limite de OpenAI alcanzado (HTTP 429).")
+        else:
+            print(f"IA omitida para noticia: HTTP Error {error.code}: {error.reason}")
+        return {"summary": fallback_summary, "summary_es": fallback_summary, "summary_en": fallback_summary, "ai_used": False}
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, TypeError) as error:
         print(f"IA omitida para noticia: {error}")
         return {"summary": fallback_summary, "summary_es": fallback_summary, "summary_en": fallback_summary, "ai_used": False}
@@ -420,6 +435,9 @@ def prune_old_news():
 def translate_existing_news():
     if os.environ.get("NEWS_AI_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
         return 0
+    if AI_RATE_LIMITED:
+        print("Traduccion de noticias antiguas omitida: limite de OpenAI alcanzado.")
+        return 0
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         print("Traduccion de noticias antiguas omitida: falta OPENAI_API_KEY.")
         return 0
@@ -452,6 +470,8 @@ def translate_existing_news():
         }
         fallback_summary = simple_summary(f"{row['title']}. {row['summary']}")
         result = ai_summary(item, fallback_summary)
+        if not result.get("ai_used"):
+            continue
         title_es = result.get("title_es") or row["title"]
         title_en = result.get("title_en") or row["title"]
         summary_es = result.get("summary_es") or result.get("summary") or row["summary"] or fallback_summary
@@ -520,10 +540,27 @@ def ensure_market_news_language_columns(connection):
         "summary_en": "TEXT NOT NULL DEFAULT ''",
     }
     for name, definition in columns.items():
-        try:
-            connection.execute(text(f"ALTER TABLE market_news ADD COLUMN {name} {definition}"))
-        except Exception:
-            pass
+        if market_news_column_exists(connection, name):
+            continue
+        connection.execute(text(f"ALTER TABLE market_news ADD COLUMN {name} {definition}"))
+
+
+def market_news_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = 'market_news'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        ).scalar()
+        return bool(result)
+    result = connection.execute(text("PRAGMA table_info(market_news)")).fetchall()
+    return any(row[1] == column_name for row in result)
 
 
 def parse_news_datetime(value):

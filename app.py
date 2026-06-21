@@ -5741,10 +5741,27 @@ def ensure_market_news_table(connection):
         )
     )
     for name in ("title_es", "title_en", "summary_es", "summary_en"):
-        try:
-            connection.execute(text(f"ALTER TABLE market_news ADD COLUMN {name} TEXT NOT NULL DEFAULT ''"))
-        except Exception:
-            pass
+        if market_news_column_exists(connection, name):
+            continue
+        connection.execute(text(f"ALTER TABLE market_news ADD COLUMN {name} TEXT NOT NULL DEFAULT ''"))
+
+
+def market_news_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = 'market_news'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        ).scalar()
+        return bool(result)
+    result = connection.execute(text("PRAGMA table_info(market_news)")).fetchall()
+    return any(row[1] == column_name for row in result)
 
 
 def ensure_users_table(connection):

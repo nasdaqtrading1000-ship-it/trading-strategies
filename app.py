@@ -20,6 +20,7 @@ from flask import (
     Flask,
     flash,
     g,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -53,7 +54,9 @@ DEFAULT_STRATEGY_LOG_DIR = (BASE_DIR / "Estrategias" / "logs").resolve()
 DEFAULT_STRATEGY_TICKERS_FILE = (BASE_DIR / "Estrategias" / "tickers.txt").resolve()
 DEFAULT_TOP_MONEY_VOLUME_FILE = (BASE_DIR / "Estrategias" / "top_money_volume_assets.txt").resolve()
 DEFAULT_SIMULATED_OPERATIONS_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_estado.json").resolve()
+DEFAULT_V2_SIGNALS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "signals_v2.txt").resolve()
 DEFAULT_V2_DIAGNOSTICS_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.json").resolve()
+DEFAULT_V2_DIAGNOSTICS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.txt").resolve()
 STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 SCHEDULER_THREAD_STARTED = False
@@ -118,7 +121,214 @@ DEFAULT_STRATEGY_SCHEDULES = {
 }
 SIGNAL_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9./-]{0,14}$")
 SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
+
+
+def terminal_feed_payload(limit=None):
+    feed_path = terminal_feed_txt_path()
+    updated_line = ""
+    signal_count_line = ""
+    non_empty_lines = 0
+    detected_signals = 0
+    stats = None
+    if feed_path:
+        stats = feed_path.stat()
+        try:
+            with feed_path.open("r", encoding="utf-8", errors="replace") as handle:
+                for raw_line in handle:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    non_empty_lines += 1
+                    lower_line = line.lower()
+                    if lower_line.startswith("actualizado:"):
+                        updated_line = line
+                    elif lower_line.startswith("senales:") or lower_line.startswith("señales:"):
+                        signal_count_line = line
+                    elif terminal_line_is_signal(line):
+                        detected_signals += 1
+                    if limit is not None and non_empty_lines >= limit:
+                        break
+        except OSError as error:
+            return {
+                "signature": "read-error",
+                "lines": [
+                    "ERROR signals_v2.txt read failed",
+                    f"CategoryInfo : {error}",
+                    "ActionRequired : check file permissions",
+                ],
+            }
+
+    lines = terminal_database_event_lines()
+    if feed_path and stats:
+        lines.extend(
+            [
+                f"FILE PACKAGE :: {short_terminal_path(feed_path)}",
+                f"UPDATED :: {updated_line or 'timestamp not declared'}",
+                f"CONTROL COUNT :: {signal_count_line or f'signals detected: {detected_signals}'}",
+                f"READ COMPLETE :: physical_lines={non_empty_lines} :: bytes={stats.st_size}",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "ERROR signals_v2.txt not found",
+                "ActionRequired : run EstrategiasV2 engine or copy signals_v2.txt",
+            ]
+        )
+    lines.extend(terminal_local_file_event_lines())
+    lines.append("SYSTEM READY :: WAITING FOR NEXT DATA PACKAGE")
+    signature_parts = terminal_event_signature_parts(feed_path, stats)
+    return {
+        "signature": "industrial-events:" + ":".join(signature_parts),
+        "lines": lines,
+    }
+
+
+def terminal_database_event_lines():
+    lines = []
+    try:
+        dialect = engine.dialect.name.upper()
+        lines.append(f"POSTGRES LINK OK :: DATA CHANNEL OPEN :: dialect={dialect}")
+        lines.append(f"POSTGRES DATA RECEIVED :: strategies={terminal_scalar('SELECT COUNT(*) FROM strategies')}")
+        lines.append(f"POSTGRES DATA RECEIVED :: strategy_signals={terminal_scalar('SELECT COUNT(*) FROM strategy_signals')}")
+        lines.append(f"POSTGRES DATA RECEIVED :: simulated_operations={terminal_scalar('SELECT COUNT(*) FROM simulated_operations')}")
+        lines.append(f"POSTGRES DATA RECEIVED :: asset_universe={terminal_scalar('SELECT COUNT(*) FROM asset_universe')}")
+        lines.append(f"POSTGRES DATA RECEIVED :: asset_snapshots={terminal_scalar('SELECT COUNT(*) FROM asset_snapshots')}")
+        latest_signal = terminal_scalar("SELECT MAX(created_at) FROM strategy_signals")
+        latest_operation = terminal_scalar("SELECT MAX(updated_at) FROM simulated_operations")
+        latest_news = terminal_scalar("SELECT MAX(created_at) FROM market_news")
+        if latest_signal:
+            lines.append(f"UPDATE :: strategy_signals latest={latest_signal}")
+        if latest_operation:
+            lines.append(f"UPDATE :: simulated_operations latest={latest_operation}")
+        if latest_news:
+            lines.append(f"UPDATE :: market_news latest={latest_news}")
+        lines.extend(terminal_strategy_error_lines())
+    except Exception as error:
+        lines.append("ERROR POSTGRES LINK FAILED :: DATA CHANNEL CLOSED")
+        lines.append(f"CategoryInfo : {type(error).__name__}: {str(error)[:180]}")
+    return lines
+
+
+def terminal_scalar(sql):
+    try:
+        with engine.connect() as connection:
+            value = connection.execute(text(sql)).scalar()
+    except Exception:
+        return 0
+    return "" if value is None else value
+
+
+def terminal_strategy_error_lines(limit=8):
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT name, run_status, run_message, run_at, run_returncode
+                        FROM strategies
+                        WHERE COALESCE(run_status, '') IN ('ERROR', 'RUNNING')
+                           OR COALESCE(run_returncode, 0) <> 0
+                        ORDER BY run_at DESC, name ASC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                )
+                .mappings()
+                .fetchall()
+            )
+    except Exception:
+        return []
+
+    lines = []
+    for row in rows:
+        status = (row.get("run_status") or "UNKNOWN").upper()
+        name = row.get("name") or "strategy"
+        message = (row.get("run_message") or "").replace("\n", " ").strip()
+        if status == "ERROR":
+            lines.append(f"ERROR STRATEGY UNIT :: {name} :: returncode={row.get('run_returncode')}")
+        elif status == "RUNNING":
+            lines.append(f"UPDATE STRATEGY UNIT :: {name} :: status=RUNNING")
+        if message:
+            lines.append(f"DETAIL :: {name} :: {message[:160]}")
+    if not lines:
+        lines.append("POSTGRES STATUS OK :: no strategy errors reported")
+    return lines
+
+
+def terminal_local_file_event_lines():
+    files = [
+        ("LOCAL TXT", terminal_feed_txt_path()),
+        ("RUN STATUS", DEFAULT_STRATEGY_STATUS_FILE),
+        ("TOP VOLUME", DEFAULT_TOP_MONEY_VOLUME_FILE),
+        ("OPERATIONS", DEFAULT_SIMULATED_OPERATIONS_FILE),
+        ("ASSETS CSV", BASE_DIR / "data" / "assets.csv"),
+        ("MARKET CSV", BASE_DIR / "data" / "market_data.csv"),
+    ]
+    lines = []
+    for label, path in files:
+        if not path:
+            continue
+        try:
+            resolved = Path(path).resolve()
+            stats = resolved.stat()
+        except OSError:
+            lines.append(f"ERROR FILE MISSING :: {label}")
+            continue
+        updated_at = datetime.fromtimestamp(stats.st_mtime, MADRID_TZ).strftime("%d/%m/%Y %H:%M:%S")
+        lines.append(f"UPDATE FILE READ :: {label} :: bytes={stats.st_size} :: mtime={updated_at}")
+    return lines
+
+
+def terminal_event_signature_parts(feed_path, stats):
+    parts = []
+    if feed_path and stats:
+        parts.append(f"{feed_path.name}-{int(stats.st_mtime)}-{stats.st_size}")
+    for path in [DEFAULT_STRATEGY_STATUS_FILE, DEFAULT_TOP_MONEY_VOLUME_FILE, DEFAULT_SIMULATED_OPERATIONS_FILE]:
+        try:
+            resolved = Path(path).resolve()
+            file_stats = resolved.stat()
+        except OSError:
+            continue
+        parts.append(f"{resolved.name}-{int(file_stats.st_mtime)}-{file_stats.st_size}")
+    parts.append(datetime.now(MADRID_TZ).strftime("%Y%m%d%H%M"))
+    return parts or ["no-files"]
+
+
+def terminal_feed_txt_path():
+    candidates = [
+        os.environ.get("TRADING_V2_SIGNALS_TXT_FILE", "").strip(),
+        DEFAULT_V2_SIGNALS_TXT_FILE,
+        BASE_DIR / "EstrategiasV2" / "outputs" / "signals_v2.txt",
+        os.environ.get("TRADING_V2_DIAGNOSTICS_TXT_FILE", "").strip(),
+        DEFAULT_V2_DIAGNOSTICS_TXT_FILE,
+        BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.txt",
+    ]
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            resolved = Path(candidate).expanduser().resolve()
+        except OSError:
+            continue
+        if resolved.exists() and resolved.is_file():
+            return resolved
+    return None
+
+
+def short_terminal_path(path):
+    return "\\".join(path.parts[-5:])
+
+
+def terminal_line_is_signal(line):
+    parts = [part.strip() for part in line.split("|")]
+    return len(parts) >= 7 and ":" not in parts[0]
+
+
 TECHNICAL_TERM_HELP = [
+    ("ticker", "Simbolo del activo cotizado."),
     ("precio actual", "Ultimo precio usado por la estrategia cuando genero el aviso."),
     ("precio", "Precio de referencia del activo en el momento del calculo."),
     ("direccion", "Sentido de la operacion: LONG busca subida, SHORT busca caida."),
@@ -130,36 +340,60 @@ TECHNICAL_TERM_HELP = [
     ("stop", "Nivel defensivo para limitar la perdida si la operacion va en contra."),
     ("tp", "Take profit: objetivo de beneficio propuesto por la estrategia."),
     ("score", "Puntuacion interna para ordenar candidatos. Cuanto mayor, mejor segun la estrategia."),
+    ("rsi14 d", "RSI de 14 velas diarias. Mide sobrecompra/sobreventa en grafico diario."),
+    ("rsi5 1m", "RSI de 5 velas de 1 minuto. Se usa para detectar extremos intradia rapidos."),
     ("rs vs sector", "Fuerza relativa de la accion comparada con su sector."),
+    ("rs20d%", "Fuerza relativa de 20 dias frente al benchmark configurado."),
     ("rs ", "Fuerza relativa frente a un indice, sector o referencia."),
     ("rsi", "Indicador de fuerza relativa. Valores bajos suelen indicar sobreventa y altos sobrecompra."),
     ("vwap", "Precio medio ponderado por volumen durante la sesion."),
+    ("vwap 1m", "Precio medio ponderado por volumen de la ultima sesion intradia cargada."),
+    ("sma20 d", "Media movil simple de 20 sesiones diarias."),
+    ("sma50 d", "Media movil simple de 50 sesiones diarias."),
+    ("sma120 d", "Media movil simple de 120 sesiones diarias."),
+    ("sma180 d", "Media movil simple de 180 sesiones diarias."),
+    ("sma200 d", "Media movil simple de 200 sesiones diarias."),
+    ("sma120 w", "Media movil simple de 120 semanas."),
+    ("sma120 1m", "Media movil simple de las ultimas 120 velas de 1 minuto disponibles."),
     ("sma", "Media movil simple. Resume el precio medio de las ultimas velas o dias."),
     ("media 2h", "Media del precio de las ultimas dos horas. Sirve para medir cuanto se ha alejado el precio en intradia."),
     ("ema", "Media movil exponencial. Da mas peso a los precios recientes."),
     ("atr", "Rango medio real. Mide volatilidad y ayuda a colocar stops."),
+    ("vol$20d", "Volumen monetario medio de las ultimas 20 sesiones."),
+    ("vol$x20d", "Ratio entre el volumen monetario actual y el volumen monetario medio de 20 sesiones."),
     ("vol xmedia", "Volumen actual comparado con su volumen medio."),
     ("vol$", "Volumen monetario negociado: precio multiplicado por volumen."),
     ("vol", "Volumen negociado. Ayuda a medir liquidez e interes del mercado."),
+    ("mom20d%", "Rentabilidad del activo en las ultimas 20 sesiones."),
     ("momentum", "Fuerza del movimiento reciente del precio."),
+    ("res20d", "Resistencia previa de 20 sesiones, sin contar la vela actual."),
+    ("break%", "Distancia porcentual del precio respecto a la resistencia previa."),
     ("ruptura", "El precio supera una zona importante, como resistencia o rango previo."),
     ("breakout", "Ruptura de una resistencia o rango relevante."),
     ("resistencia", "Zona donde antes el precio tuvo dificultad para seguir subiendo."),
     ("soporte", "Zona donde antes el precio tuvo dificultad para seguir bajando."),
+    ("gap%", "Diferencia porcentual entre apertura diaria y cierre anterior."),
     ("gap", "Diferencia entre el precio de apertura y el cierre anterior."),
     ("zscore", "Distancia estadistica frente a la media. En pares mide si el spread esta extremo."),
     ("corr", "Correlacion entre activos. Cerca de 1 significa que suelen moverse parecido."),
     ("hedge", "Relacion aproximada entre dos activos para construir una posicion de pares."),
+    ("sector", "Sector al que pertenece la empresa segun la fuente de fundamentales."),
     ("per", "Precio dividido entre beneficio por accion. Mide valoracion relativa."),
     ("p/b", "Precio dividido entre valor contable. Mide cuanto paga el mercado por el patrimonio."),
     ("p/s", "Precio dividido entre ventas. Mide valoracion frente a ingresos."),
     ("roe", "Rentabilidad sobre fondos propios. Mide eficiencia del capital de la empresa."),
+    ("roe%", "Rentabilidad sobre recursos propios expresada en porcentaje."),
     ("roic", "Rentabilidad sobre capital invertido. Mide calidad del negocio."),
+    ("d/e", "Deuda sobre patrimonio. Mide apalancamiento financiero de la empresa."),
+    ("div%", "Rentabilidad por dividendo aproximada."),
     ("yield", "Rentabilidad por dividendo aproximada."),
     ("payout", "Porcentaje del beneficio que se destina a dividendos."),
     ("deuda", "Nivel de endeudamiento de la empresa."),
     ("margen", "Porcentaje de ventas que queda como beneficio o resultado operativo."),
     ("crec", "Crecimiento historico de ingresos, beneficios o dividendos."),
+    ("barrasd", "Numero de velas diarias cargadas para calcular indicadores."),
+    ("fecha1m", "Fecha de la sesion intradia usada para calcular indicadores de 1 minuto."),
+    ("barras1m", "Numero de velas intradia de 1 minuto cargadas."),
 ]
 DEFAULT_REAL_STRATEGIES = [
     {
@@ -1171,21 +1405,98 @@ def valid_txt_name(txt_name):
 
 
 def technical_term_help(term):
-    normalized = re.sub(r"\s+", " ", str(term).strip().lower())
+    raw = str(term).strip().lower()
+    normalized = normalize_help_key(raw)
     compact = normalized.replace(" ", "")
     for key, help_text in TECHNICAL_TERM_HELP:
-        key_normalized = key.strip().lower()
+        key_normalized = normalize_help_key(key)
         key_compact = key_normalized.replace(" ", "")
         if normalized == key_normalized or compact == key_compact:
             return help_text
     for key, help_text in TECHNICAL_TERM_HELP:
-        key_normalized = key.strip().lower()
+        key_normalized = normalize_help_key(key)
         key_compact = key_normalized.replace(" ", "")
         if (
             normalized.startswith(key_normalized)
             or compact.startswith(key_compact)
         ):
             return help_text
+    return inferred_technical_term_help(raw, normalized)
+
+
+def normalize_help_key(value):
+    text_value = str(value).strip().lower()
+    text_value = text_value.replace("_", " ")
+    text_value = text_value.replace("-", " ")
+    text_value = re.sub(r"\s+", " ", text_value)
+    return text_value
+
+
+def inferred_technical_term_help(raw, normalized):
+    if raw.endswith("_rank") or normalized.endswith(" rank"):
+        return "Posicion del activo dentro del universo ordenado por ese parametro. Rank 1 es el mejor valor."
+    if raw.endswith("_percentile") or normalized.endswith(" percentile"):
+        return "Percentil del activo dentro del universo para ese parametro. Valores altos indican que esta por encima de la mayoria."
+    if "dollar_volume_ratio_vs_prev" in raw:
+        return "Ratio entre el volumen monetario actual y el volumen monetario de un periodo anterior equivalente."
+    if "dollar_volume_ratio_vs" in raw:
+        return "Ratio entre el volumen monetario actual y su media del periodo indicado."
+    if "avg_dollar_volume" in raw:
+        return "Volumen monetario medio del periodo indicado: precio multiplicado por volumen."
+    if "current_dollar_volume" in raw or "intraday_day_dollar_volume" in raw:
+        return "Volumen monetario actual: precio multiplicado por volumen negociado."
+    if "volume_ratio" in raw:
+        return "Volumen actual comparado con el volumen medio del periodo indicado."
+    if raw.startswith("daily_sma") or raw.startswith("weekly_sma") or raw.startswith("intraday_1m_sma"):
+        return "Media movil simple del periodo indicado. Sirve para medir tendencia y distancia del precio a su media."
+    if "distance_daily_sma" in raw or "distance_weekly_sma" in raw or "distance_sma" in raw:
+        return "Distancia porcentual entre el precio actual y esa media movil."
+    if raw.startswith("daily_rsi") or raw.startswith("weekly_rsi") or raw.startswith("intraday_1m_rsi"):
+        return "RSI del periodo indicado. Mide sobrecompra/sobreventa: bajo suele indicar debilidad extrema; alto, fuerza o sobrecompra."
+    if raw.startswith("daily_atr"):
+        return "ATR del periodo indicado. Mide volatilidad media y ayuda a calcular stops."
+    if raw.startswith("daily_macd"):
+        return "MACD diario. Mide impulso y cruce entre medias exponenciales."
+    if "bollinger" in raw:
+        return "Banda de Bollinger. Compara el precio con una banda estadistica alrededor de la media."
+    if raw.startswith("momentum_"):
+        return "Rentabilidad del activo durante el periodo indicado."
+    if raw.startswith("benchmark_return"):
+        return "Rentabilidad del benchmark durante el periodo indicado."
+    if raw.startswith("relative_strength"):
+        return "Fuerza relativa frente al benchmark. Positivo significa que el activo lo hizo mejor que la referencia."
+    if raw.startswith("resistance"):
+        return "Resistencia previa del periodo indicado: zona donde el precio tuvo dificultad para superar maximos."
+    if raw.startswith("support"):
+        return "Soporte previo del periodo indicado: zona donde el precio tuvo dificultad para seguir cayendo."
+    if raw.startswith("breakout") or "breakout_high" in raw:
+        return "Distancia o ruptura por encima de una resistencia o maximo reciente."
+    if "breakdown" in raw:
+        return "Distancia o ruptura por debajo de un soporte o minimo reciente."
+    if raw.startswith("daily_gap"):
+        return "Diferencia porcentual entre la apertura diaria y el cierre anterior."
+    if raw.startswith("daily_return"):
+        return "Rentabilidad diaria acumulada en el periodo indicado."
+    if raw.startswith("daily_change_from_open"):
+        return "Movimiento porcentual desde la apertura diaria hasta el precio actual."
+    if raw.startswith("recent_high") or raw.startswith("high_"):
+        return "Maximo reciente usado como referencia tecnica."
+    if raw.startswith("recent_low") or raw.startswith("low") or raw.startswith("previous_low"):
+        return "Minimo reciente usado como referencia tecnica."
+    if raw.startswith("intraday_1m_vwap"):
+        return "VWAP intradia: precio medio ponderado por volumen de la sesion cargada."
+    if raw.startswith("intraday_1m_ema"):
+        return "Media movil exponencial intradia. Da mas peso a las velas recientes."
+    if raw.startswith("intraday_1m_momentum"):
+        return "Momentum intradia del periodo indicado, calculado con velas de 1 minuto."
+    if raw.startswith("opening_range_15m"):
+        return "Dato del rango inicial de 15 minutos: zona usada para rupturas de apertura."
+    if raw.startswith("fmp_"):
+        return "Dato fundamental de la empresa obtenido de la fuente de fundamentales."
+    if raw.endswith("_bars_loaded") or "bars_loaded" in raw:
+        return "Numero de velas cargadas para calcular indicadores."
+    if raw.endswith("_data_date") or raw.endswith("_last_timestamp"):
+        return "Fecha u hora del ultimo dato usado para calcular el indicador."
     return ""
 
 
@@ -1292,6 +1603,22 @@ def parse_operations_summary(value):
     return f"{match.group(1)} ops · {match.group(2)} abiertas · {match.group(3)} cerradas"
 
 
+def parse_operations_parts(value):
+    text_value = str(value or "")
+    match = re.search(r"(\d+)\s+ops,\s+(\d+)\s+abiertas,\s+(\d+)\s+cerradas", text_value, re.IGNORECASE)
+    if not match:
+        return {
+            "total": "",
+            "open": "",
+            "closed": "",
+        }
+    return {
+        "total": f"{match.group(1)} ops",
+        "open": f"{match.group(2)} abiertas",
+        "closed": f"{match.group(3)} cerradas",
+    }
+
+
 def format_duration_seconds(seconds):
     try:
         seconds = int(seconds)
@@ -1320,6 +1647,11 @@ def build_return_metrics(value):
             "percent": "Sin datos",
             "capital": "Sin datos",
             "operations": "Sin operaciones",
+            "operations_parts": {
+                "total": "Sin operaciones",
+                "open": "",
+                "closed": "",
+            },
             "result_class": "return-sos",
             "percent_class": "return-sos",
             "raw": clean_public_return_text(text_value),
@@ -1333,6 +1665,7 @@ def build_return_metrics(value):
         "percent": f"{return_pct:+.2f}%",
         "capital": format_money_usd(current_capital),
         "operations": parse_operations_summary(text_value) or "Operaciones registradas",
+        "operations_parts": parse_operations_parts(text_value),
         "result_class": profit_color_class(profit_usd),
         "percent_class": profit_color_class(return_pct),
         "raw": clean_public_return_text(text_value),
@@ -2351,6 +2684,10 @@ def create_app():
             user_totalizer_enabled=user is not None,
         )
 
+    @app.route("/terminal-feed")
+    def terminal_feed():
+        return jsonify(terminal_feed_payload())
+
     @app.route("/noticias")
     def market_news_page():
         news_data = relevant_market_news(limit=35)
@@ -2403,7 +2740,8 @@ def create_app():
             return redirect(url_for("user_login"))
         signals = read_strategy_signals(strategy["signals_txt_name"])
         attach_simulated_operations_to_signals(strategy, signals)
-        signal_groups = build_signal_groups(signals)
+        grouped_mode = strategy_uses_grouped_operations(strategy)
+        signal_groups = build_signal_groups(signals, grouped_mode=grouped_mode)
 
         selected_symbol = normalize_signal_symbol(request.args.get("symbol", ""))
         selected_key = request.args.get("key", "")
@@ -2436,13 +2774,14 @@ def create_app():
             attach_v2_diagnostics_to_signal(selected_signal)
             diagnostic = build_signal_diagnostic(strategy, selected_signal)
             operation = selected_signal.get("open_operation") or simulated_operation_for_signal(strategy, selected_signal)
-            selected_group = signal_group_for_symbol(signal_groups, selected_signal.get("symbol", ""))
+            selected_group = signal_group_for_signal(signal_groups, selected_signal, grouped_mode)
 
         return render_template(
             "strategy_signals.html",
             strategy=strategy,
             signals=signals,
             signal_groups=signal_groups,
+            grouped_mode=grouped_mode,
             selected_signal=selected_signal,
             selected_group=selected_group,
             selected_symbol=normalize_signal_symbol(selected_signal.get("symbol", "")) if selected_signal else "",
@@ -3665,7 +4004,15 @@ def create_app():
                 }
                 signal["is_new"] = signal.get("is_today_signal", False)
 
-    def build_signal_groups(signals):
+    def strategy_uses_grouped_operations(strategy):
+        strategy_name = str(strategy.get("name", "")).strip().lower()
+        txt_name = str(strategy.get("signals_txt_name", "")).strip().lower()
+        return strategy_name == "reversion rsi 5" or txt_name == "reversion_rsi_5.txt"
+
+    def build_signal_groups(signals, grouped_mode=False):
+        if not grouped_mode:
+            return [build_single_signal_group(signal) for signal in signals if signal.get("symbol")]
+
         groups_by_symbol = {}
         ordered_groups = []
         for signal in signals:
@@ -3697,6 +4044,31 @@ def create_app():
             group.update(build_operation_group_summary(group["operations"], group["signals"]))
         return ordered_groups
 
+    def build_single_signal_group(signal):
+        operation = signal.get("open_operation")
+        symbol = normalize_signal_symbol(signal.get("symbol", ""))
+        group = {
+            "symbol": symbol,
+            "display_symbol": signal.get("display_symbol") or signal.get("symbol", symbol),
+            "signals": [signal],
+            "operations": [operation] if operation else [],
+            "first_signal": signal,
+            "is_new": bool(signal.get("is_new")),
+            "notice_short_datetime": signal.get("notice_short_datetime", ""),
+            "single_key": signal.get("signal_key", ""),
+            "detail_url_args": {"key": signal.get("signal_key", "")},
+        }
+        group.update(build_operation_group_summary(group["operations"], group["signals"]))
+        return group
+
+    def signal_group_for_signal(signal_groups, signal, grouped_mode=False):
+        if grouped_mode:
+            return signal_group_for_symbol(signal_groups, signal.get("symbol", ""))
+        signal_key = signal.get("signal_key", "")
+        if signal_key:
+            return next((group for group in signal_groups if group.get("single_key") == signal_key), None)
+        return None
+
     def signal_group_for_symbol(signal_groups, symbol):
         normalized = normalize_signal_symbol(symbol)
         return next((group for group in signal_groups if group["symbol"] == normalized), None)
@@ -3719,11 +4091,14 @@ def create_app():
         direction = ""
         weighted_target = 0.0
         target_weight = 0.0
+        weighted_stop = 0.0
+        stop_weight = 0.0
         for operation in operations:
             shares = parse_display_float(operation.get("shares"))
             entry = parse_display_float(operation.get("entry_price"))
             current = parse_display_float(operation.get("current_price"))
             target = parse_display_float(operation.get("target_price"))
+            stop = parse_display_float(operation.get("stop_loss"))
             invested += entry * shares
             current_value += current * shares
             total_shares += shares
@@ -3732,6 +4107,9 @@ def create_app():
             if target > 0 and shares > 0:
                 weighted_target += target * shares
                 target_weight += shares
+            if stop > 0 and shares > 0:
+                weighted_stop += stop * shares
+                stop_weight += shares
 
         average_entry = invested / total_shares if total_shares else 0.0
         current_price = current_value / total_shares if total_shares else 0.0
@@ -3742,6 +4120,7 @@ def create_app():
         else:
             target_price = average_entry * (0.95 if direction == "SHORT" else 1.05) if average_entry else 0.0
             target_label = "Objetivo grupo"
+        stop_price = weighted_stop / stop_weight if stop_weight else 0.0
         operation_count = len(operations)
         signal_count = len(signals)
         first_signal = signals[0] if signals else {}
@@ -3759,7 +4138,10 @@ def create_app():
             "average_entry_display": f"{average_entry:.2f} USD" if average_entry else "Pendiente",
             "current_price_display": f"{current_price:.2f} USD" if current_price else "Pendiente",
             "target_label": target_label,
+            "target_price": target_price,
             "target_price_display": f"{target_price:.2f} USD" if target_price else "Pendiente",
+            "stop_loss": stop_price,
+            "stop_loss_display": f"{stop_price:.2f} USD" if stop_price else "Pendiente",
             "total_shares_display": f"{total_shares:.4f}" if total_shares else "Pendiente",
             "invested_display": format_money_usd(invested),
             "current_value_display": format_money_usd(current_value),
@@ -4207,7 +4589,6 @@ def create_app():
                 WHERE txt_name = :txt_name
                   AND signal_date = :signal_date
                 ORDER BY created_at DESC, id DESC
-                LIMIT 50
                 """
             ),
             {"txt_name": txt_name, "signal_date": today},
@@ -4225,7 +4606,7 @@ def create_app():
                 parse_signal_line(line.strip(), path.stat().st_mtime)
                 for line in path.read_text(encoding="utf-8").splitlines()
                 if line.strip() and signal_line_is_today(line.strip())
-            ])[:50])
+            ]))
         except OSError:
             return merge_open_operations_with_signals(txt_name, [])
 
@@ -4281,8 +4662,7 @@ def create_app():
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
                       AND status = 'OPEN'
-                    ORDER BY opened_at DESC
-                    LIMIT 100
+                    ORDER BY signal_date DESC, opened_at DESC, symbol ASC
                     """
                 ),
                 {"txt_name": txt_name},
@@ -4713,10 +5093,13 @@ def create_app():
         symbol = normalize_signal_symbol(signal.get("symbol", ""))
         if not symbol:
             signal["diagnostic_all_fields"] = []
+            signal["diagnostic_key_fields"] = []
             return
         metrics = v2_diagnostics_for_symbol(symbol)
         if not metrics:
-            signal["diagnostic_all_fields"] = []
+            fallback_rows = diagnostic_rows_from_detail_fields(signal)
+            signal["diagnostic_all_fields"] = fallback_rows
+            signal["diagnostic_key_fields"] = fallback_rows
             return
 
         strategy_keys = {
@@ -4724,17 +5107,35 @@ def create_app():
             for key in signal.get("detail_fields", {})
         }
         rows = []
+        key_rows = []
         for key, value in sorted(metrics.items()):
             if value is None:
                 continue
+            is_strategy_param = normalize_field_name(key) in strategy_keys
+            row = {
+                "key": key,
+                "value": format_diagnostic_metric(value),
+                "is_strategy_param": is_strategy_param,
+            }
+            if is_strategy_param:
+                key_rows.append(row)
+            rows.append(
+                row
+            )
+        signal["diagnostic_all_fields"] = rows
+        signal["diagnostic_key_fields"] = key_rows or diagnostic_rows_from_detail_fields(signal)
+
+    def diagnostic_rows_from_detail_fields(signal):
+        rows = []
+        for key, value in signal.get("detail_fields", {}).items():
             rows.append(
                 {
                     "key": key,
-                    "value": format_diagnostic_metric(value),
-                    "is_strategy_param": normalize_field_name(key) in strategy_keys,
+                    "value": value,
+                    "is_strategy_param": True,
                 }
             )
-        signal["diagnostic_all_fields"] = rows
+        return rows
 
     def v2_diagnostics_for_symbol(symbol):
         diagnostics_path = Path(os.environ.get("TRADING_V2_DIAGNOSTICS_FILE", DEFAULT_V2_DIAGNOSTICS_FILE)).resolve()

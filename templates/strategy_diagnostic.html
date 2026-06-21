@@ -17,10 +17,25 @@
     </div>
 
     <div class="row g-4">
-      <div class="col-lg-5">
+      <div class="col-lg-7">
         <div class="diagnostic-box h-100">
-          <h2 class="h5 mb-3">Parametros completos</h2>
-          <p class="text-secondary small mb-3">Los ovalos destacados corresponden a los datos usados por esta estrategia.</p>
+          <h2 class="h5 mb-3">Parametros usados</h2>
+          <p class="text-secondary small mb-3">Estos son los datos que esta estrategia mira primero para decidir el aviso.</p>
+          {% if signal.diagnostic_key_fields %}
+            <div class="diagnostic-param-pills diagnostic-param-pills-priority mb-4">
+              {% for item in signal.diagnostic_key_fields %}
+                {% set help_text = technical_term_help(item.key) %}
+                <span class="diagnostic-param-pill diagnostic-param-active" {% if help_text %}data-bs-toggle="tooltip" title="{{ help_text }}"{% endif %}>
+                  <span>{{ item.key }}</span>
+                  <strong>{{ item.value }}</strong>
+                </span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-secondary mb-4">No hay parametros especificos destacados para este aviso.</p>
+          {% endif %}
+
+          <h2 class="h6 mb-3">Parametros completos</h2>
           {% if signal.diagnostic_all_fields %}
             <div class="diagnostic-param-pills">
               {% for item in signal.diagnostic_all_fields %}
@@ -46,7 +61,7 @@
           {% endif %}
         </div>
       </div>
-      <div class="col-lg-7">
+      <div class="col-lg-5">
         <div class="diagnostic-box h-100">
           <h2 class="h5 mb-3">Lectura automatica</h2>
           <p class="text-secondary">{{ diagnostic.focus }}</p>

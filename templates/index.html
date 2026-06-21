@@ -1,20 +1,39 @@
 {% extends "base.html" %}
 
-{% block title %}Estrategias de trading{% endblock %}
+{% block title %}Code Markets Automatic Signals{% endblock %}
 
 {% block content %}
-<section class="hero-section">
+<section class="hero-section report-hero">
   <div class="container py-5">
     <div class="row align-items-center gy-4">
       <div class="col-lg-8">
         <div class="hero-kicker-row">
-          <p class="eyebrow mb-0">Estrategias activas para Telegram</p>
+          <p class="eyebrow mb-0">Automatic market signals terminal</p>
           <span class="page-refresh-chip">Ultimo refresh {{ page_refreshed_at }}</span>
         </div>
-        <h1 class="display-5 fw-bold mb-3">Senales organizadas por riesgo, frecuencia y estilo operativo.</h1>
-        <p class="lead text-secondary mb-4">Compara cada estrategia, revisa su enfoque y accede al canal correspondiente desde un unico panel profesional.</p>
+        <h1 class="display-4 fw-bold mb-3">Code Markets Automatic Signals.</h1>
+        <p class="lead text-secondary mb-4">Terminal operativo para modelos de mercado, avisos activos, rendimiento y estado de ejecucion.</p>
+        <div class="live-shell-panel" aria-label="Actividad automatica del sistema">
+          <div class="live-shell-titlebar">
+            <span>//market/signals/runtime</span>
+            <span class="live-shell-window-controls">status: live</span>
+          </div>
+          <div class="live-shell-body">
+            <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="shell-command">run automatic-signals --mode=live</span></div>
+            <div class="shell-line shell-ok">OK   database=postgres status=connected</div>
+            <div class="shell-line shell-info">INFO reading strategies={{ strategies|length }} refresh={{ page_refreshed_at }}</div>
+            <div class="shell-error-block" aria-label="Aviso de riesgo en formato consola">
+              <div><span class="shell-error-prefix">&gt;&gt;</span> WARNING: market risk active</div>
+              <div>CategoryInfo : TradingRisk: (automatic-signals:String) [], RiskWarning</div>
+              <div>ActionRequired : review signal, size position, protect capital</div>
+            </div>
+            <div class="shell-line shell-dynamic" id="live-shell-line">RUN  scanning signals...</div>
+            <div class="terminal-feed-lines" id="terminal-feed-lines" aria-live="polite"></div>
+            <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="terminal-cursor"></span></div>
+          </div>
+        </div>
         <div class="hero-actions d-flex gap-2 flex-wrap">
-          <a class="btn btn-info fw-semibold" href="#estrategias">Ver estrategias</a>
+          <a class="btn btn-info fw-semibold" href="#ranking">Ver modelos</a>
           <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
           <a class="btn btn-outline-warning fw-semibold" href="{{ url_for('market_news_page') }}" target="_blank" rel="noopener">Noticias relevantes</a>
           <a class="btn btn-outline-light" href="#riesgo">Aviso de riesgo</a>
@@ -22,15 +41,15 @@
         {% if is_public_view %}
           <div class="member-access-banner mt-3">
             <strong>Vista publica:</strong>
-            ahora ves solo las estrategias marcadas como publicas.
+            ahora ves solo los modelos marcados como publicos.
             <a href="{{ url_for('user_register') }}">Crea una cuenta gratis</a>
             para probar el acceso completo.
           </div>
         {% endif %}
       </div>
       <div class="col-lg-4">
-        <div class="stats-panel stats-panel-compact">
-          <span class="d-block text-secondary small">Canales disponibles</span>
+        <div class="stats-panel stats-panel-compact report-score-panel">
+          <span class="d-block text-secondary small">Modelos analizados</span>
           <strong>{{ strategies|length }}</strong>
           <div class="hero-metrics">
             <div>
@@ -45,6 +64,9 @@
               <span>Alto</span>
               <strong>{{ strategies|selectattr("risk_level", "equalto", "Alto")|list|length }}</strong>
             </div>
+          </div>
+          <div class="report-score-note">
+            Avisos ordenados por actividad y disponibles segun tu nivel de acceso.
           </div>
         </div>
       </div>
@@ -104,7 +126,7 @@
         </p>
       </div>
       <div class="top-assets-summary-side">
-        <span class="text-secondary small">Base usada por las estrategias fundamentales.</span>
+        <span class="text-secondary small">Base usada por los modelos fundamentales.</span>
         <span class="top-assets-toggle-text">Ver activos</span>
       </div>
     </summary>
@@ -136,140 +158,131 @@
   </details>
 </section>
 
-<section id="estrategias" class="container py-5">
-  <div class="section-heading mb-4">
-    <div>
-      <p class="eyebrow mb-2">Listado</p>
-      <h2 class="h1 fw-bold mb-0">Estrategias disponibles</h2>
-    </div>
-    <p class="text-secondary mb-0">Los datos historicos son editables desde el panel admin.</p>
-  </div>
-
-  {% if strategies %}
-    <div class="totalizer-box mb-3">
+<section id="ranking" class="container pt-4 pb-5">
+  <div class="report-ranking-card">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
       <div>
-        <span class="text-secondary small d-block">Totalizador</span>
-        <strong class="{{ totalizer.result_class }}">{{ totalizer.display }}</strong>
+        <p class="eyebrow mb-1">Modelos activos</p>
+        <h2 class="h4 fw-bold mb-1">Model registry</h2>
+        <p class="text-secondary small mb-0">Toda la informacion operativa concentrada en una tabla: senales, estado, rendimiento, horario y accesos.</p>
       </div>
-      <p class="mb-0 text-secondary">
-        {% if totalizer.count %}
-          Beneficio / perdida acumulado de {{ totalizer.count }} estrategias seleccionadas.
-          <span class="d-block small totalizer-return-line">Capital total: {{ totalizer.capital_display }} | Rentabilidad conjunta: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
-        {% else %}
-          Selecciona estrategias en sus tarjetas para incluirlas.
-        {% endif %}
-      </p>
+      <a class="btn btn-outline-light btn-sm align-self-start" href="#riesgo">Aviso de riesgo</a>
     </div>
-
-    <div class="strategy-return-summary mb-4">
-      {% for strategy in strategies %}
-        <a class="strategy-return-item" href="#strategy-{{ strategy.id }}">
-          <span title="{{ strategy.name }}">{{ strategy.short_name }}</span>
-          <strong class="{{ strategy.return_badge_class }}" title="{{ strategy.historical_return_public }}">{{ strategy.return_badge }}</strong>
-        </a>
-      {% endfor %}
-    </div>
-
-    <div class="row g-4">
-      {% for strategy in strategies %}
-        <div class="col-md-6 col-xl-4">
-          <article class="strategy-card strategy-card-compact h-100 {% if strategy.is_locked %}strategy-locked{% endif %}" id="strategy-{{ strategy.id }}">
-            {% if strategy.is_locked %}
-              <div class="locked-overlay">
-                <span class="locked-pill">Solo miembros</span>
-                <p class="mb-2">Crea una cuenta para desbloquear esta estrategia.</p>
-                <a class="btn btn-info btn-sm fw-semibold" href="{{ url_for('user_register') }}">Crear cuenta gratis</a>
-              </div>
-            {% endif %}
-            <form class="strategy-select-form mb-3" method="post" action="{% if current_user %}{{ url_for('user_select_strategy_totalizer', strategy_id=strategy.id) }}{% else %}{{ url_for('user_login') }}{% endif %}">
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="select_strategy_{{ strategy.id }}" name="selected" {% if strategy.selected_for_totalizer %}checked{% endif %} {% if strategy.is_locked %}disabled{% endif %} onchange="this.form.submit()">
-                <label class="form-check-label small" for="select_strategy_{{ strategy.id }}">Seleccionar estrategia</label>
-              </div>
-            </form>
-            <div class="d-flex justify-content-between gap-2 align-items-start mb-2">
-              <div class="strategy-card-title">
-                <span class="strategy-short-badge">{{ strategy.short_name }}</span>
-                <h2 class="h4 mb-0">
-                  <a class="strategy-title-button" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_details', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
-                    {{ strategy.name }}
-                  </a>
-                </h2>
-              </div>
-              <span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
-            </div>
-            <p class="text-secondary strategy-description">{{ strategy.description }}</p>
-            <dl class="strategy-meta">
-              <div>
-                <dt>Frecuencia</dt>
-                <dd class="strategy-frequency-cell">
-                  <span>{{ strategy.signal_frequency }}</span>
-                  <small>Cierre medio: {{ strategy.average_close_duration }}</small>
-                  <small>Aciertos: {{ strategy.success_rate }}</small>
-                </dd>
-              </div>
-              <div>
-                <dt>Horario</dt>
-                <dd>{{ strategy.schedule_start_time }} - {{ strategy.schedule_end_time }} | cada {{ strategy.schedule_interval_minutes }} min</dd>
-              </div>
-              <div>
-                <dt>Rentabilidad historica</dt>
-                <dd class="strategy-return-cell">
-                  <span class="return-main {{ strategy.return_metrics.result_class }}" title="{{ strategy.return_metrics.raw }}">
-                    {{ strategy.return_metrics.result }}
-                  </span>
-                  <span class="return-sub {{ strategy.return_metrics.percent_class }}">{{ strategy.return_metrics.percent }}</span>
-                </dd>
-              </div>
-              <div class="strategy-return-breakdown">
-                <dt>Capital / operaciones</dt>
-                <dd>
-                  <span>{{ strategy.return_metrics.capital }}</span>
-                  <small>{{ strategy.return_metrics.operations }}</small>
-                </dd>
-              </div>
-              <div>
-                <dt>Ultima incorporacion de tickets</dt>
-                <dd>{{ strategy.signals_updated_at or "Sin actualizar" }}</dd>
-              </div>
-              <div>
-                <dt>Estado</dt>
-                <dd>
+    {% if strategies %}
+      <div class="totalizer-box totalizer-box-table mb-3">
+        <div>
+          <span class="text-secondary small d-block">Totalizador</span>
+          <strong class="{{ totalizer.result_class }}">{{ totalizer.display }}</strong>
+        </div>
+        <p class="mb-0 text-secondary">
+          {% if totalizer.count %}
+            Beneficio / perdida acumulado de {{ totalizer.count }} modelos seleccionados.
+            <span class="d-block small totalizer-return-line">Capital total: {{ totalizer.capital_display }} | Rentabilidad conjunta: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
+          {% else %}
+            Selecciona modelos para incluirlos en el totalizador.
+          {% endif %}
+        </p>
+      </div>
+      <div class="table-responsive report-ranking-table-wrap">
+        <table class="table table-dark table-hover align-middle report-ranking-table mb-0">
+          <thead>
+            <tr>
+              <th>Sel.</th>
+              <th>Modelo</th>
+              <th>Riesgo</th>
+              <th>Frecuencia</th>
+              <th class="text-end">Rentabilidad</th>
+              <th class="text-end">Capital</th>
+              <th class="text-end">Avisos</th>
+              <th>Estado</th>
+              <th><span class="th-two-line">Ultima<span>incorporacion</span></span></th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for strategy in strategies %}
+              <tr class="{% if strategy.is_locked %}report-row-locked{% endif %}">
+                <td>
+                  <form class="strategy-select-form report-select-form" method="post" action="{% if current_user %}{{ url_for('user_select_strategy_totalizer', strategy_id=strategy.id) }}{% else %}{{ url_for('user_login') }}{% endif %}">
+                    <input class="form-check-input" type="checkbox" name="selected" aria-label="Seleccionar {{ strategy.name }}" {% if strategy.selected_for_totalizer %}checked{% endif %} {% if strategy.is_locked %}disabled{% endif %} onchange="this.form.submit()">
+                  </form>
+                </td>
+                <td>
+                  <div class="report-strategy-name">
+                    <a class="ranking-strategy-link" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_details', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                      <span>{{ strategy.short_name }}</span>
+                      {{ strategy.name }}
+                    </a>
+                    {% if strategy.is_locked %}
+                      <span class="locked-mini">Solo miembros</span>
+                    {% endif %}
+                  </div>
+                  <p class="report-strategy-description mb-0">{{ strategy.description }}</p>
+                </td>
+                <td><span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span></td>
+                <td>
+                  <div class="report-frequency">
+                    <strong>{{ strategy.signal_frequency }}</strong>
+                    <span>{{ strategy.schedule_start_time }} - {{ strategy.schedule_end_time }} | cada {{ strategy.schedule_interval_minutes }} min</span>
+                    <span>Cierre medio: {{ strategy.average_close_duration }} | Aciertos: {{ strategy.success_rate }}</span>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <span class="{{ strategy.return_metrics.result_class }}">{{ strategy.return_metrics.result }}</span>
+                  <small class="d-block {{ strategy.return_metrics.percent_class }}">{{ strategy.return_metrics.percent }}</small>
+                </td>
+                <td class="text-end">
+                  <div class="capital-breakdown">
+                    <span class="capital-breakdown-main">{{ strategy.return_metrics.capital }}</span>
+                    <small>{{ strategy.return_metrics.operations_parts.total }}</small>
+                    {% if strategy.return_metrics.operations_parts.open %}
+                      <small>{{ strategy.return_metrics.operations_parts.open }}</small>
+                    {% endif %}
+                    {% if strategy.return_metrics.operations_parts.closed %}
+                      <small>{{ strategy.return_metrics.operations_parts.closed }}</small>
+                    {% endif %}
+                  </div>
+                </td>
+                <td class="text-end">
+                  <strong>{{ strategy.signals_count or 0 }}</strong>
+                  {% if strategy.closed_operations_count %}
+                    <small class="d-block text-secondary">{{ strategy.closed_operations_count }} cerradas</small>
+                  {% endif %}
+                </td>
+                <td>
                   <span class="status-pill {% if strategy.run_status.running %}status-running{% elif strategy.run_status.ok %}status-ok{% elif strategy.run_status.pending %}status-pending{% else %}status-error{% endif %}" {% if strategy.run_status.error %}title="{{ strategy.run_status.error }}"{% endif %}>
                     <span class="status-dot"></span>
                     {{ strategy.run_status.label }}
                   </span>
                   {% if strategy.run_status.ran_at %}
-                    <span class="status-time">{{ strategy.run_status.ran_at }}</span>
+                    <small class="d-block text-secondary mt-1">{{ strategy.run_status.ran_at }}</small>
                   {% endif %}
-                </dd>
-              </div>
-            </dl>
-            <div class="strategy-actions">
-              <a class="btn btn-outline-light w-100 fw-semibold {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
-                Historial operaciones{% if strategy.closed_operations_count %} ({{ strategy.closed_operations_count }}){% endif %}
-              </a>
-              {% if strategy.signals_txt_name %}
-                <a class="btn btn-outline-info w-100 fw-semibold {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
-                  Ver avisos actuales{% if strategy.signals_count %} ({{ strategy.signals_count }}){% endif %}
-                </a>
-              {% endif %}
-              {% if strategy.has_telegram and strategy.telegram_url %}
-                <a class="btn btn-info w-100 fw-semibold {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ strategy.telegram_url }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
-                  Acceder al canal
-                </a>
-              {% endif %}
-            </div>
-          </article>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <div class="empty-state text-center py-5">
-      <h2 class="h4">No hay estrategias activas</h2>
-      <p class="text-secondary mb-0">Vuelve pronto o activa alguna estrategia desde el panel de administracion.</p>
-    </div>
-  {% endif %}
+                </td>
+                <td class="text-secondary small">{{ strategy.signals_updated_at or "Sin actualizar" }}</td>
+                <td>
+                  <div class="report-actions">
+                    <a class="btn btn-outline-info btn-sm report-signals-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                      Avisos
+                    </a>
+                    <a class="btn btn-outline-light btn-sm report-history-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                      Hist.
+                    </a>
+                    {% if strategy.has_telegram and strategy.telegram_url %}
+                      <a class="btn btn-info btn-sm {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ strategy.telegram_url }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                        TG
+                      </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-info border-0 mb-0">No hay modelos activos para mostrar.</div>
+    {% endif %}
+  </div>
 </section>
 
 <section id="riesgo" class="container pb-5">
@@ -285,10 +298,136 @@
 
 {% block scripts %}
 <script>
+  (() => {
+    const line = document.getElementById("live-shell-line");
+    if (!line) return;
+    const lines = [
+      "RUN  sync --source=postgres --signals=active",
+      "INFO load active_models && read latest alerts",
+      "OK   signal table refreshed",
+      "RUN  calculate totalizer --selected-models",
+      "ERROR risk-warning: market volatility active",
+      "OK   runtime console updated"
+    ];
+    let index = 0;
+    setInterval(() => {
+      index = (index + 1) % lines.length;
+      line.textContent = lines[index];
+      line.classList.toggle("shell-danger", lines[index].startsWith("ERROR"));
+      line.classList.toggle("shell-warn", lines[index].startsWith("WARN"));
+      line.classList.toggle("shell-ok", lines[index].startsWith("OK"));
+      line.classList.toggle("shell-info", lines[index].startsWith("INFO"));
+    }, 1400);
+  })();
+
+  (() => {
+    const output = document.getElementById("terminal-feed-lines");
+    if (!output) return;
+    window.terminalFeedRunning = true;
+    const fallback = [
+      "LOAD signals_v2.txt",
+      "RUN  parse signals --format=code",
+      "SIGNAL { strategy: \"Momentum\", ticker: \"NVDA\", side: \"LONG\" }",
+      "       Entrada 205.17 | SL 184.03 | Objetivo 242.10 | Score 88.21",
+      "OK   feed ready"
+    ];
+    let queue = fallback;
+    let index = 0;
+    let feedSignature = "fallback";
+    let positionKey = "terminal-feed-position:fallback";
+
+    const savedIndexFor = (signature) => {
+      const value = Number.parseInt(localStorage.getItem(`terminal-feed-position:${signature}`) || "0", 10);
+      return Number.isNaN(value) ? 0 : Math.max(0, value);
+    };
+
+    const saveIndex = () => {
+      localStorage.setItem(positionKey, String(index));
+    };
+
+    const renderContext = () => {
+      output.textContent = "";
+      const start = Math.max(0, index - 8);
+      for (let cursor = start; cursor < index; cursor += 1) {
+        paint(queue[cursor], false);
+      }
+    };
+
+    const paint = (line, autoScroll = true) => {
+      const row = document.createElement("div");
+      row.className = "terminal-feed-row";
+      if (line.startsWith("ERROR") || line.startsWith("WARNING")) row.classList.add("shell-danger");
+      if (line.startsWith("OK")) row.classList.add("shell-ok");
+      if (line.startsWith("SIGNAL")) row.classList.add("shell-signal");
+      if (line.startsWith("PARAM")) row.classList.add("shell-param");
+      if (line.startsWith("META")) row.classList.add("shell-meta");
+      if (line.startsWith("POSTGRES")) row.classList.add("shell-postgres");
+      if (line.startsWith("UPDATED")) row.classList.add("shell-updated");
+      if (line.startsWith("UPDATE")) row.classList.add("shell-updated");
+      if (line.startsWith("RESUME")) row.classList.add("shell-meta");
+      if (line.startsWith("SCAN")) row.classList.add("shell-info");
+      row.textContent = line;
+      output.appendChild(row);
+      if (autoScroll) {
+        output.scrollTop = output.scrollHeight;
+      }
+    };
+
+    fetch("{{ url_for('terminal_feed') }}", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((payload) => {
+        if (payload.lines && payload.lines.length) {
+          const previousSignature = localStorage.getItem("terminal-feed-last-signature") || "";
+          queue = payload.lines;
+          feedSignature = payload.signature || `lines:${queue.length}`;
+          positionKey = `terminal-feed-position:${feedSignature}`;
+          const isNewPayload = previousSignature !== feedSignature;
+          localStorage.setItem("terminal-feed-last-signature", feedSignature);
+          index = Math.min(savedIndexFor(feedSignature), queue.length);
+          renderContext();
+          paint("POSTGRES LINK OK :: DATA CHANNEL OPEN", true);
+          paint(`POSTGRES DATA RECEIVED :: lines=${queue.length} :: signature=${feedSignature}`, true);
+          paint(
+            isNewPayload
+              ? "UPDATED :: NEW DATA PACKAGE DETECTED :: RESET/START REQUIRED BY FILE SIGNATURE"
+              : `RESUME :: CONTINUING FROM LINE ${index}/${queue.length}`,
+            true
+          );
+          if (isNewPayload) {
+            index = 0;
+            saveIndex();
+          }
+        }
+      })
+      .catch(() => {});
+
+    const nextDelay = () => 200 + Math.floor(Math.random() * 1800);
+
+    const tick = () => {
+      if (!queue.length) return;
+      if (index >= queue.length) {
+        if (index === queue.length) {
+          paint("OK   DATA PACKAGE STATUS COMPLETE");
+          index += 1;
+          saveIndex();
+          window.terminalFeedRunning = false;
+        }
+        return;
+      }
+      paint(queue[index]);
+      index += 1;
+      saveIndex();
+      window.setTimeout(tick, nextDelay());
+    };
+
+    window.setTimeout(tick, nextDelay());
+  })();
+
   setInterval(() => {
     if (document.hidden) return;
+    if (window.terminalFeedRunning) return;
     sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY || 0));
     window.location.reload();
-  }, 60000);
+  }, 600000);
 </script>
 {% endblock %}

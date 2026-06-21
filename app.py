@@ -162,19 +162,14 @@ def terminal_feed_payload(limit=None):
     if feed_path and stats:
         lines.extend(
             [
-                f"FILE PACKAGE :: {short_terminal_path(feed_path)}",
-                f"UPDATED :: {updated_line or 'timestamp not declared'}",
-                f"CONTROL COUNT :: {signal_count_line or f'signals detected: {detected_signals}'}",
-                f"READ COMPLETE :: physical_lines={non_empty_lines} :: bytes={stats.st_size}",
+                f"LOCAL TXT RECEIVED :: {short_terminal_path(feed_path)}",
+                f"LOCAL TXT LOAD OK :: {updated_line or 'timestamp not declared'}",
+                f"LOCAL TXT CONTROL COUNT :: {signal_count_line or f'signals detected: {detected_signals}'}",
+                f"LOCAL TXT READ COMPLETE :: physical_lines={non_empty_lines} :: bytes={stats.st_size}",
             ]
         )
     else:
-        lines.extend(
-            [
-                "ERROR signals_v2.txt not found",
-                "ActionRequired : run EstrategiasV2 engine or copy signals_v2.txt",
-            ]
-        )
+        lines.append("REMOTE DISPLAY MODE :: local TXT package not mounted in this runtime")
     lines.extend(terminal_local_file_event_lines())
     lines.append("SYSTEM READY :: WAITING FOR NEXT DATA PACKAGE")
     signature_parts = terminal_event_signature_parts(feed_path, stats)
@@ -187,27 +182,63 @@ def terminal_feed_payload(limit=None):
 def terminal_database_event_lines():
     lines = []
     try:
-        dialect = engine.dialect.name.upper()
-        lines.append(f"POSTGRES LINK OK :: DATA CHANNEL OPEN :: dialect={dialect}")
-        lines.append(f"POSTGRES DATA RECEIVED :: strategies={terminal_scalar('SELECT COUNT(*) FROM strategies')}")
-        lines.append(f"POSTGRES DATA RECEIVED :: strategy_signals={terminal_scalar('SELECT COUNT(*) FROM strategy_signals')}")
-        lines.append(f"POSTGRES DATA RECEIVED :: simulated_operations={terminal_scalar('SELECT COUNT(*) FROM simulated_operations')}")
-        lines.append(f"POSTGRES DATA RECEIVED :: asset_universe={terminal_scalar('SELECT COUNT(*) FROM asset_universe')}")
-        lines.append(f"POSTGRES DATA RECEIVED :: asset_snapshots={terminal_scalar('SELECT COUNT(*) FROM asset_snapshots')}")
+        dialect = terminal_database_dialect()
+        channel = terminal_database_channel()
+        lines.append(f"{channel} LINK OK :: DATA CHANNEL OPEN :: dialect={dialect}")
+
+        counts = [
+            ("strategies", "SELECT COUNT(*) FROM strategies"),
+            ("active_strategies", "SELECT COUNT(*) FROM strategies WHERE COALESCE(is_active, 0) = 1"),
+            ("visible_free", "SELECT COUNT(*) FROM strategies WHERE COALESCE(public_visible, 0) = 1"),
+            ("strategy_signals", "SELECT COUNT(*) FROM strategy_signals"),
+            ("simulated_operations", "SELECT COUNT(*) FROM simulated_operations"),
+            ("open_operations", "SELECT COUNT(*) FROM simulated_operations WHERE status = 'OPEN'"),
+            ("closed_operations", "SELECT COUNT(*) FROM simulated_operations WHERE status = 'CLOSED'"),
+            ("asset_universe", "SELECT COUNT(*) FROM asset_universe"),
+            ("asset_snapshots", "SELECT COUNT(*) FROM asset_snapshots"),
+            ("top_money_volume_assets", "SELECT COUNT(*) FROM top_money_volume_assets"),
+            ("strategy_diagnostics", "SELECT COUNT(*) FROM strategy_diagnostics"),
+            ("market_news", "SELECT COUNT(*) FROM market_news"),
+        ]
+        for label, sql in counts:
+            value = terminal_scalar(sql)
+            lines.append(f"{channel} LOAD OK :: {label} rows={value}")
+
         latest_signal = terminal_scalar("SELECT MAX(created_at) FROM strategy_signals")
         latest_operation = terminal_scalar("SELECT MAX(updated_at) FROM simulated_operations")
+        latest_top_volume = terminal_scalar("SELECT MAX(updated_at) FROM top_money_volume_assets")
+        latest_market = terminal_scalar("SELECT MAX(updated_at) FROM asset_snapshots")
+        latest_diagnostics = terminal_scalar("SELECT MAX(updated_at) FROM strategy_diagnostics")
         latest_news = terminal_scalar("SELECT MAX(created_at) FROM market_news")
         if latest_signal:
-            lines.append(f"UPDATE :: strategy_signals latest={latest_signal}")
+            lines.append(f"UPDATE RECEIVED :: strategy_signals latest={latest_signal}")
+        else:
+            lines.append("WARNING :: strategy_signals empty :: waiting for local engine sync")
         if latest_operation:
-            lines.append(f"UPDATE :: simulated_operations latest={latest_operation}")
+            lines.append(f"UPDATE RECEIVED :: simulated_operations latest={latest_operation}")
+        else:
+            lines.append("WARNING :: simulated_operations empty :: no operations loaded yet")
+        if latest_top_volume:
+            lines.append(f"UPDATE RECEIVED :: top_volume latest={latest_top_volume}")
+        if latest_market:
+            lines.append(f"UPDATE RECEIVED :: market_snapshot latest={latest_market}")
+        if latest_diagnostics:
+            lines.append(f"UPDATE RECEIVED :: strategy_diagnostics latest={latest_diagnostics}")
         if latest_news:
-            lines.append(f"UPDATE :: market_news latest={latest_news}")
+            lines.append(f"UPDATE RECEIVED :: market_news latest={latest_news}")
         lines.extend(terminal_strategy_error_lines())
     except Exception as error:
-        lines.append("ERROR POSTGRES LINK FAILED :: DATA CHANNEL CLOSED")
+        lines.append(f"ERROR {terminal_database_channel()} LINK FAILED :: DATA CHANNEL CLOSED")
         lines.append(f"CategoryInfo : {type(error).__name__}: {str(error)[:180]}")
     return lines
+
+
+def terminal_database_channel():
+    return "POSTGRES" if engine.dialect.name == "postgresql" else "LOCAL DB"
+
+
+def terminal_database_dialect():
+    return engine.dialect.name.upper()
 
 
 def terminal_scalar(sql):
@@ -250,11 +281,11 @@ def terminal_strategy_error_lines(limit=8):
         if status == "ERROR":
             lines.append(f"ERROR STRATEGY UNIT :: {name} :: returncode={row.get('run_returncode')}")
         elif status == "RUNNING":
-            lines.append(f"UPDATE STRATEGY UNIT :: {name} :: status=RUNNING")
+            lines.append(f"WARNING STRATEGY UNIT :: {name} :: status=RUNNING")
         if message:
             lines.append(f"DETAIL :: {name} :: {message[:160]}")
     if not lines:
-        lines.append("POSTGRES STATUS OK :: no strategy errors reported")
+        lines.append("RUN ACCEPTED :: strategy status clean")
     return lines
 
 
@@ -275,15 +306,17 @@ def terminal_local_file_event_lines():
             resolved = Path(path).resolve()
             stats = resolved.stat()
         except OSError:
-            lines.append(f"ERROR FILE MISSING :: {label}")
             continue
         updated_at = datetime.fromtimestamp(stats.st_mtime, MADRID_TZ).strftime("%d/%m/%Y %H:%M:%S")
-        lines.append(f"UPDATE FILE READ :: {label} :: bytes={stats.st_size} :: mtime={updated_at}")
+        lines.append(f"LOCAL UPDATE RECEIVED :: {label} :: bytes={stats.st_size} :: mtime={updated_at}")
+        lines.append(f"LOCAL LOAD OK :: {label}")
+    if not lines:
+        lines.append("LOCAL FILE WATCH :: optional files not mounted in this runtime")
     return lines
 
 
 def terminal_event_signature_parts(feed_path, stats):
-    parts = []
+    parts = terminal_database_signature_parts()
     if feed_path and stats:
         parts.append(f"{feed_path.name}-{int(stats.st_mtime)}-{stats.st_size}")
     for path in [DEFAULT_STRATEGY_STATUS_FILE, DEFAULT_TOP_MONEY_VOLUME_FILE, DEFAULT_SIMULATED_OPERATIONS_FILE]:
@@ -295,6 +328,31 @@ def terminal_event_signature_parts(feed_path, stats):
         parts.append(f"{resolved.name}-{int(file_stats.st_mtime)}-{file_stats.st_size}")
     parts.append(datetime.now(MADRID_TZ).strftime("%Y%m%d%H%M"))
     return parts or ["no-files"]
+
+
+def terminal_database_signature_parts():
+    queries = [
+        ("strategy_signals", "SELECT COUNT(*), MAX(created_at) FROM strategy_signals"),
+        ("simulated_operations", "SELECT COUNT(*), MAX(updated_at) FROM simulated_operations"),
+        ("top_money_volume_assets", "SELECT COUNT(*), MAX(updated_at) FROM top_money_volume_assets"),
+        ("asset_snapshots", "SELECT COUNT(*), MAX(updated_at) FROM asset_snapshots"),
+        ("strategy_diagnostics", "SELECT COUNT(*), MAX(updated_at) FROM strategy_diagnostics"),
+        ("market_news", "SELECT COUNT(*), MAX(created_at) FROM market_news"),
+        ("strategies", "SELECT COUNT(*), MAX(run_at) FROM strategies"),
+    ]
+    parts = [terminal_database_channel()]
+    try:
+        with engine.connect() as connection:
+            for label, sql in queries:
+                try:
+                    row = connection.execute(text(sql)).first()
+                except Exception:
+                    continue
+                if row:
+                    parts.append(f"{label}-{row[0]}-{row[1] or ''}")
+    except Exception:
+        parts.append("database-unavailable")
+    return parts
 
 
 def terminal_feed_txt_path():
@@ -1433,6 +1491,33 @@ def normalize_help_key(value):
 
 
 def inferred_technical_term_help(raw, normalized):
+    compact = normalized.replace(" ", "")
+    if raw in {"symbol", "ticker"} or normalized in {"symbol", "simbolo"}:
+        return "Simbolo de cotizacion del activo."
+    if raw in {"name", "company", "company_name"} or normalized in {"nombre", "empresa"}:
+        return "Nombre de la empresa o activo analizado."
+    if raw in {"market", "exchange"} or normalized in {"mercado", "bolsa"}:
+        return "Mercado o bolsa donde cotiza el activo."
+    if raw in {"sector", "fmp_sector"} or normalized == "sector":
+        return "Sector economico al que pertenece la empresa."
+    if raw in {"price", "current_price"} or normalized in {"precio", "precio actual"}:
+        return "Precio usado como referencia en el calculo del aviso."
+    if raw in {"open", "daily_open", "intraday_1m_open"} or normalized == "apertura":
+        return "Precio de apertura del periodo analizado."
+    if raw in {"high", "daily_high"}:
+        return "Precio maximo alcanzado en el periodo analizado."
+    if raw in {"low", "daily_low"}:
+        return "Precio minimo alcanzado en el periodo analizado."
+    if raw in {"close", "daily_close"}:
+        return "Precio de cierre del periodo analizado."
+    if raw in {"previous_close", "prev_close", "intraday_1m_previous_close"}:
+        return "Cierre anterior usado para comparar gaps, retornos o cambios de sesion."
+    if raw in {"previous_low", "prev_low"}:
+        return "Minimo anterior usado como referencia tecnica de soporte o riesgo."
+    if raw == "volume" or normalized == "volumen":
+        return "Numero de acciones o contratos negociados en el periodo analizado."
+    if raw.startswith("avg_volume"):
+        return "Volumen medio del periodo indicado. Sirve para comparar si el volumen actual es alto o bajo."
     if raw.endswith("_rank") or normalized.endswith(" rank"):
         return "Posicion del activo dentro del universo ordenado por ese parametro. Rank 1 es el mejor valor."
     if raw.endswith("_percentile") or normalized.endswith(" percentile"):
@@ -1445,13 +1530,15 @@ def inferred_technical_term_help(raw, normalized):
         return "Volumen monetario medio del periodo indicado: precio multiplicado por volumen."
     if "current_dollar_volume" in raw or "intraday_day_dollar_volume" in raw:
         return "Volumen monetario actual: precio multiplicado por volumen negociado."
+    if "dollar_volume" in raw:
+        return "Volumen monetario: precio multiplicado por volumen negociado."
     if "volume_ratio" in raw:
         return "Volumen actual comparado con el volumen medio del periodo indicado."
-    if raw.startswith("daily_sma") or raw.startswith("weekly_sma") or raw.startswith("intraday_1m_sma"):
+    if raw.startswith("daily_sma") or raw.startswith("weekly_sma") or raw.startswith("intraday_1m_sma") or compact.startswith("sma"):
         return "Media movil simple del periodo indicado. Sirve para medir tendencia y distancia del precio a su media."
-    if "distance_daily_sma" in raw or "distance_weekly_sma" in raw or "distance_sma" in raw:
+    if "distance_daily_sma" in raw or "distance_weekly_sma" in raw or "distance_sma" in raw or "distance" in raw and "sma" in raw:
         return "Distancia porcentual entre el precio actual y esa media movil."
-    if raw.startswith("daily_rsi") or raw.startswith("weekly_rsi") or raw.startswith("intraday_1m_rsi"):
+    if raw.startswith("daily_rsi") or raw.startswith("weekly_rsi") or raw.startswith("intraday_1m_rsi") or compact.startswith("rsi"):
         return "RSI del periodo indicado. Mide sobrecompra/sobreventa: bajo suele indicar debilidad extrema; alto, fuerza o sobrecompra."
     if raw.startswith("daily_atr"):
         return "ATR del periodo indicado. Mide volatilidad media y ayuda a calcular stops."
@@ -1477,8 +1564,12 @@ def inferred_technical_term_help(raw, normalized):
         return "Diferencia porcentual entre la apertura diaria y el cierre anterior."
     if raw.startswith("daily_return"):
         return "Rentabilidad diaria acumulada en el periodo indicado."
+    if raw.startswith("return") or normalized.startswith("rentabilidad"):
+        return "Rentabilidad calculada para el periodo indicado."
     if raw.startswith("daily_change_from_open"):
         return "Movimiento porcentual desde la apertura diaria hasta el precio actual."
+    if "change" in raw:
+        return "Cambio porcentual o absoluto frente a una referencia previa."
     if raw.startswith("recent_high") or raw.startswith("high_"):
         return "Maximo reciente usado como referencia tecnica."
     if raw.startswith("recent_low") or raw.startswith("low") or raw.startswith("previous_low"):
@@ -1489,15 +1580,55 @@ def inferred_technical_term_help(raw, normalized):
         return "Media movil exponencial intradia. Da mas peso a las velas recientes."
     if raw.startswith("intraday_1m_momentum"):
         return "Momentum intradia del periodo indicado, calculado con velas de 1 minuto."
+    if raw.startswith("intraday_1m_recent_high"):
+        return "Maximo reciente calculado con velas intradia de 1 minuto."
+    if raw.startswith("intraday_1m_recent_low"):
+        return "Minimo reciente calculado con velas intradia de 1 minuto."
     if raw.startswith("opening_range_15m"):
         return "Dato del rango inicial de 15 minutos: zona usada para rupturas de apertura."
+    if raw.startswith("fmp_pe"):
+        return "PER: precio dividido entre beneficio por accion. Ayuda a valorar si una empresa parece cara o barata."
+    if raw.startswith("fmp_pb"):
+        return "Precio sobre valor contable. Compara precio de mercado con patrimonio contable."
+    if raw.startswith("fmp_ps"):
+        return "Precio sobre ventas. Compara valoracion de mercado con ingresos."
+    if raw.startswith("fmp_roe"):
+        return "ROE: rentabilidad sobre fondos propios. Mide eficiencia del capital de la empresa."
+    if raw.startswith("fmp_roic"):
+        return "ROIC: rentabilidad sobre capital invertido. Mide calidad y eficiencia del negocio."
+    if raw.startswith("fmp_operating_margin"):
+        return "Margen operativo. Porcentaje de ingresos que queda como resultado operativo."
+    if raw.startswith("fmp_net_margin"):
+        return "Margen neto. Porcentaje de ingresos que queda como beneficio neto."
+    if raw.startswith("fmp_debt_to_equity"):
+        return "Deuda sobre patrimonio. Mide apalancamiento financiero."
+    if raw.startswith("fmp_revenue_growth"):
+        return "Crecimiento de ingresos. Mide expansion o contraccion del negocio."
+    if raw.startswith("fmp_eps_growth"):
+        return "Crecimiento del beneficio por accion."
+    if raw.startswith("fmp_dividend_yield"):
+        return "Rentabilidad por dividendo estimada."
+    if raw.startswith("fmp_payout"):
+        return "Porcentaje del beneficio destinado a dividendos."
+    if raw.startswith("fmp_dividend_growth"):
+        return "Crecimiento historico del dividendo."
     if raw.startswith("fmp_"):
         return "Dato fundamental de la empresa obtenido de la fuente de fundamentales."
     if raw.endswith("_bars_loaded") or "bars_loaded" in raw:
         return "Numero de velas cargadas para calcular indicadores."
     if raw.endswith("_data_date") or raw.endswith("_last_timestamp"):
         return "Fecha u hora del ultimo dato usado para calcular el indicador."
-    return ""
+    if "score" in raw:
+        return "Puntuacion interna usada para ordenar o priorizar candidatos."
+    if "target" in raw or "objetivo" in normalized:
+        return "Precio objetivo o zona teorica de salida con beneficio."
+    if "stop" in raw:
+        return "Nivel defensivo usado para controlar el riesgo de la operacion."
+    if "signal" in raw or "aviso" in normalized:
+        return "Dato relacionado con la senal generada por la estrategia."
+    if "date" in raw or "fecha" in normalized or "time" in raw or "hora" in normalized:
+        return "Fecha u hora asociada al dato mostrado."
+    return f"Parametro calculado por el motor de analisis: {str(raw or normalized)}."
 
 
 def format_money_usd(value):
@@ -2721,7 +2852,7 @@ def create_app():
         if signal is None:
             abort(404)
 
-        attach_v2_diagnostics_to_signal(signal)
+        attach_v2_diagnostics_to_signal(signal, strategy)
         diagnostic = build_signal_diagnostic(strategy, signal)
         operation = signal.get("open_operation") or simulated_operation_for_signal(strategy, signal)
         return render_template(
@@ -2771,7 +2902,7 @@ def create_app():
         operation = None
         selected_group = None
         if selected_signal is not None:
-            attach_v2_diagnostics_to_signal(selected_signal)
+            attach_v2_diagnostics_to_signal(selected_signal, strategy)
             diagnostic = build_signal_diagnostic(strategy, selected_signal)
             operation = selected_signal.get("open_operation") or simulated_operation_for_signal(strategy, selected_signal)
             selected_group = signal_group_for_signal(signal_groups, selected_signal, grouped_mode)
@@ -5089,23 +5220,19 @@ def create_app():
             "warning": "Lectura automatica informativa. No es asesoramiento financiero ni recomendacion de compra o venta.",
         }
 
-    def attach_v2_diagnostics_to_signal(signal):
+    def attach_v2_diagnostics_to_signal(signal, strategy=None):
         symbol = normalize_signal_symbol(signal.get("symbol", ""))
         if not symbol:
             signal["diagnostic_all_fields"] = []
             signal["diagnostic_key_fields"] = []
             return
         metrics = v2_diagnostics_for_symbol(symbol)
+        strategy_keys = diagnostic_strategy_keys(strategy, signal)
         if not metrics:
-            fallback_rows = diagnostic_rows_from_detail_fields(signal)
-            signal["diagnostic_all_fields"] = fallback_rows
-            signal["diagnostic_key_fields"] = fallback_rows
+            signal["diagnostic_all_fields"] = diagnostic_all_rows_from_signal(signal, strategy_keys)
+            signal["diagnostic_key_fields"] = diagnostic_rows_from_detail_fields(signal, strategy_keys)
             return
 
-        strategy_keys = {
-            normalize_field_name(key)
-            for key in signal.get("detail_fields", {})
-        }
         rows = []
         key_rows = []
         for key, value in sorted(metrics.items()):
@@ -5123,9 +5250,103 @@ def create_app():
                 row
             )
         signal["diagnostic_all_fields"] = rows
-        signal["diagnostic_key_fields"] = key_rows or diagnostic_rows_from_detail_fields(signal)
+        signal["diagnostic_key_fields"] = key_rows or diagnostic_rows_from_detail_fields(signal, strategy_keys)
 
-    def diagnostic_rows_from_detail_fields(signal):
+    def diagnostic_strategy_keys(strategy, signal):
+        keys = {
+            normalize_field_name(key)
+            for key in signal.get("detail_fields", {})
+        }
+        strategy_name = normalize_field_name((strategy or {}).get("name", ""))
+        strategy_metric_keys = {
+            "momentum": [
+                "daily_sma20", "daily_sma50", "momentum_20d_pct", "momentum_60d_pct",
+                "relative_strength_60d_pct", "avg_dollar_volume_20d",
+            ],
+            "swing_trading": [
+                "daily_sma20", "daily_sma50", "daily_rsi14", "momentum_50d_pct",
+                "high_20d_including_current", "recent_high_10d", "recent_low_5d",
+            ],
+            "breakout": [
+                "resistance_20d", "breakout_20d_pct", "daily_sma20", "daily_sma50",
+                "volume_ratio_vs_20d", "avg_dollar_volume_20d",
+            ],
+            "mean_reversion": [
+                "daily_rsi14", "daily_sma20", "daily_sma100", "distance_daily_sma20_pct",
+                "distance_daily_sma100_pct", "daily_bollinger_lower20", "daily_bollinger_mid20",
+                "daily_atr14",
+            ],
+            "value_trading": [
+                "fmp_pe_ratio", "fmp_pb_ratio", "fmp_ps_ratio", "fmp_roe_pct",
+                "fmp_debt_to_equity", "fmp_revenue_growth_pct", "daily_sma20", "daily_sma50",
+            ],
+            "dividend_growth": [
+                "fmp_dividend_yield_pct", "fmp_payout_ratio_pct", "fmp_dividend_growth_3y_pct",
+                "fmp_roe_pct", "fmp_debt_to_equity", "fmp_revenue_growth_pct",
+                "daily_sma50", "daily_sma100",
+            ],
+            "trend_following": [
+                "daily_sma50", "daily_sma200", "daily_sma200_slope_20d_pct",
+                "resistance_55d", "daily_atr14", "momentum_60d_pct",
+            ],
+            "sector_rotation": [
+                "fmp_sector", "relative_strength_60d_pct", "relative_strength_60d_pct_percentile",
+                "avg_dollar_volume_20d_percentile", "daily_sma50",
+            ],
+            "quality_investing": [
+                "fmp_roe_pct", "fmp_roic_pct", "fmp_operating_margin_pct",
+                "fmp_net_margin_pct", "fmp_debt_to_equity", "fmp_revenue_growth_pct",
+                "fmp_eps_growth_pct", "fmp_pe_ratio", "fmp_ps_ratio", "daily_sma50", "daily_sma100",
+            ],
+            "opening_range_breakout": [
+                "opening_range_15m_high", "opening_range_15m_low",
+                "opening_range_15m_breakout_pct", "opening_range_15m_breakdown_pct",
+                "opening_range_15m_dollar_volume", "intraday_1m_volume_ratio_20m",
+            ],
+            "vwap_reversion": [
+                "intraday_1m_vwap", "intraday_1m_distance_vwap_pct", "intraday_1m_rsi14",
+                "intraday_1m_volume_ratio_20m", "intraday_day_dollar_volume",
+            ],
+            "momentum_intradia": [
+                "intraday_1m_vwap", "intraday_1m_momentum_15m_pct",
+                "intraday_1m_volume_ratio_20m", "intraday_day_dollar_volume",
+                "intraday_1m_recent_high_20m", "intraday_1m_recent_low_20m",
+            ],
+            "scalping_the_pullbacks": [
+                "intraday_1m_ema9", "intraday_1m_ema21", "intraday_1m_vwap",
+                "intraday_1m_rsi14", "intraday_1m_volume_ratio_20m", "intraday_day_dollar_volume",
+            ],
+            "gap_and_go": [
+                "daily_gap_pct", "previous_close", "opening_range_15m_high",
+                "opening_range_15m_low", "opening_range_15m_dollar_volume",
+                "opening_range_15m_breakout_pct", "opening_range_15m_breakdown_pct",
+                "intraday_1m_volume_ratio_20m",
+            ],
+            "follow_the_money": [
+                "current_dollar_volume", "prev_avg_dollar_volume_21d",
+                "prev_avg_dollar_volume_42d", "prev_avg_dollar_volume_63d",
+                "dollar_volume_ratio_vs_prev_21d", "dollar_volume_ratio_vs_prev_42d",
+                "dollar_volume_ratio_vs_prev_63d", "dollar_volume_ratio_vs_prev_21d_rank",
+            ],
+            "acumula_metales": [
+                "daily_sma180", "weekly_sma120", "daily_rsi14",
+                "distance_daily_sma180_pct", "distance_weekly_sma120_pct",
+            ],
+            "acumulacion": [
+                "daily_sma180", "weekly_sma120", "daily_rsi14",
+                "distance_daily_sma180_pct", "distance_weekly_sma120_pct",
+            ],
+            "reversion_rsi_5": [
+                "intraday_1m_rsi5", "intraday_1m_rsi14", "intraday_1m_distance_sma120_pct",
+                "intraday_1m_sma120",
+            ],
+        }
+        for name, metric_keys in strategy_metric_keys.items():
+            if strategy_name == name or name in strategy_name:
+                keys.update(normalize_field_name(key) for key in metric_keys)
+        return keys
+
+    def diagnostic_rows_from_detail_fields(signal, strategy_keys=None):
         rows = []
         for key, value in signal.get("detail_fields", {}).items():
             rows.append(
@@ -5137,18 +5358,152 @@ def create_app():
             )
         return rows
 
+    def diagnostic_all_rows_from_signal(signal, strategy_keys=None):
+        strategy_keys = strategy_keys or set()
+        rows = []
+        common = signal.get("common", {})
+        base_fields = {
+            "Ticker": signal.get("symbol", ""),
+            "Direccion": common.get("direccion", ""),
+            "Precio actual": common.get("precio_actual", ""),
+            "Entrada": common.get("apertura", ""),
+            "Cierre objetivo": common.get("cierre", ""),
+            "Stop loss": common.get("stop", ""),
+            "Fecha aviso": signal.get("notice_datetime", ""),
+        }
+        for key, value in base_fields.items():
+            if value:
+                rows.append(
+                    {
+                        "key": key,
+                        "value": value,
+                        "is_strategy_param": normalize_field_name(key) in strategy_keys,
+                    }
+                )
+        for key, value in signal.get("fields", {}).items():
+            if value:
+                rows.append(
+                    {
+                        "key": key,
+                        "value": value,
+                        "is_strategy_param": normalize_field_name(key) in strategy_keys,
+                    }
+                )
+        if signal.get("line"):
+            rows.append(
+                {
+                    "key": "Linea original",
+                    "value": signal["line"],
+                    "is_strategy_param": False,
+                }
+            )
+        return rows
+
     def v2_diagnostics_for_symbol(symbol):
         diagnostics_path = Path(os.environ.get("TRADING_V2_DIAGNOSTICS_FILE", DEFAULT_V2_DIAGNOSTICS_FILE)).resolve()
+        if diagnostics_path.exists() and diagnostics_path.is_file():
+            try:
+                payload = json.loads(diagnostics_path.read_text(encoding="utf-8", errors="replace"))
+            except (OSError, json.JSONDecodeError):
+                payload = {}
+            tickers = payload.get("tickers", {}) if isinstance(payload, dict) else {}
+            if isinstance(tickers, dict):
+                metrics = diagnostics_metrics_from_mapping(tickers, symbol)
+                if metrics:
+                    return metrics
+        txt_metrics = v2_diagnostics_from_txt(symbol)
+        if txt_metrics:
+            return txt_metrics
+        return v2_diagnostics_from_database(symbol)
+
+    def diagnostics_metrics_from_mapping(tickers, symbol):
+        normalized_symbol = symbol.upper()
+        metrics = tickers.get(normalized_symbol, {}) or {}
+        if metrics:
+            return metrics
+        base_symbol = re.split(r"[/,]", normalized_symbol, maxsplit=1)[0].strip()
+        if base_symbol and base_symbol != normalized_symbol:
+            return tickers.get(base_symbol, {}) or {}
+        return {}
+
+    def v2_diagnostics_from_txt(symbol):
+        diagnostics_path = Path(os.environ.get("TRADING_V2_DIAGNOSTICS_TXT_FILE", DEFAULT_V2_DIAGNOSTICS_TXT_FILE)).resolve()
         if not diagnostics_path.exists() or not diagnostics_path.is_file():
             return {}
+        normalized_symbol = symbol.upper()
+        candidates = [normalized_symbol]
+        base_symbol = re.split(r"[/,]", normalized_symbol, maxsplit=1)[0].strip()
+        if base_symbol and base_symbol not in candidates:
+            candidates.append(base_symbol)
         try:
-            payload = json.loads(diagnostics_path.read_text(encoding="utf-8", errors="replace"))
-        except (OSError, json.JSONDecodeError):
+            return diagnostics_txt_metrics_for_symbols(diagnostics_path, candidates)
+        except OSError:
             return {}
-        tickers = payload.get("tickers", {}) if isinstance(payload, dict) else {}
-        if not isinstance(tickers, dict):
+
+    def diagnostics_txt_metrics_for_symbols(path, symbols):
+        current_symbol = ""
+        metrics = {}
+        wanted = set(symbols)
+        for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw_line.strip()
+            if not line:
+                if current_symbol and metrics:
+                    break
+                continue
+            match = re.fullmatch(r"\[([A-Z0-9./-]+)\]", line)
+            if match:
+                current_symbol = match.group(1).upper()
+                metrics = {}
+                continue
+            if current_symbol not in wanted or ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            key = key.strip()
+            value = value.strip()
+            if key:
+                metrics[key] = parse_diagnostic_txt_value(value)
+        return metrics if current_symbol in wanted else {}
+
+    def parse_diagnostic_txt_value(value):
+        text_value = str(value or "").strip()
+        if text_value.lower() in {"null", "none", "nan", ""}:
+            return ""
+        try:
+            return float(text_value)
+        except ValueError:
+            return text_value
+
+    def v2_diagnostics_from_database(symbol):
+        normalized_symbol = symbol.upper()
+        candidates = [normalized_symbol]
+        base_symbol = re.split(r"[/,]", normalized_symbol, maxsplit=1)[0].strip()
+        if base_symbol and base_symbol not in candidates:
+            candidates.append(base_symbol)
+        try:
+            with engine.connect() as connection:
+                for candidate in candidates:
+                    row = connection.execute(
+                        text(
+                            """
+                            SELECT metrics_json
+                            FROM strategy_diagnostics
+                            WHERE symbol = :symbol
+                            LIMIT 1
+                            """
+                        ),
+                        {"symbol": candidate},
+                    ).mappings().fetchone()
+                    if not row:
+                        continue
+                    try:
+                        metrics = json.loads(row["metrics_json"] or "{}")
+                    except json.JSONDecodeError:
+                        metrics = {}
+                    if isinstance(metrics, dict):
+                        return metrics
+        except Exception:
             return {}
-        return tickers.get(symbol.upper(), {}) or {}
+        return {}
 
     def normalize_field_name(value):
         return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
@@ -5357,6 +5712,7 @@ def init_db():
         ensure_strategy_signals_table(connection)
         ensure_simulated_operations_table(connection)
         ensure_top_money_volume_table(connection)
+        ensure_strategy_diagnostics_table(connection)
         ensure_market_news_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
@@ -5704,6 +6060,20 @@ def ensure_top_money_volume_table(connection):
                 market TEXT NOT NULL DEFAULT '',
                 price FLOAT NOT NULL DEFAULT 0,
                 money_volume FLOAT NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def ensure_strategy_diagnostics_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_diagnostics (
+                symbol TEXT PRIMARY KEY,
+                metrics_json TEXT NOT NULL,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """

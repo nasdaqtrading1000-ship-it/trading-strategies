@@ -4045,6 +4045,307 @@ html[data-bs-theme="light"] .report-signals-btn:focus {
   background: rgba(18, 96, 222, 0.14) !important;
 }
 
+.history-page-panel {
+  background:
+    linear-gradient(180deg, rgba(16, 53, 92, 0.98), rgba(10, 37, 70, 0.98)) !important;
+  border: 1px solid rgba(132, 198, 255, 0.48) !important;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.26), 0 0 0 1px rgba(158, 210, 255, 0.1) inset !important;
+}
+
+.history-page-panel .eyebrow,
+.history-page-panel h1,
+.history-page-panel p,
+.history-page-panel .text-secondary {
+  color: #eef8ff !important;
+}
+
+.history-page-panel .history-totalizer div {
+  background:
+    linear-gradient(135deg, rgba(30, 91, 145, 0.96), rgba(16, 61, 112, 0.94)) !important;
+  border-color: rgba(158, 210, 255, 0.58) !important;
+}
+
+.history-page-panel .history-totalizer span {
+  color: #cfe9ff !important;
+}
+
+.history-page-panel .history-totalizer strong {
+  color: #ffffff !important;
+}
+
+.history-page-panel .history-table {
+  --bs-table-bg: #123e73 !important;
+  --bs-table-color: #f4fbff !important;
+  --bs-table-striped-bg: #174a86 !important;
+  --bs-table-striped-color: #f4fbff !important;
+  --bs-table-hover-bg: #1f62a8 !important;
+  --bs-table-hover-color: #ffffff !important;
+  background: #123e73 !important;
+  border-color: rgba(158, 210, 255, 0.46) !important;
+}
+
+.history-page-panel .history-table thead th {
+  background: #1c5f9f !important;
+  color: #ffffff !important;
+  border-color: rgba(205, 235, 255, 0.52) !important;
+}
+
+.history-page-panel .history-table tbody td {
+  background: #123e73 !important;
+  color: #eef8ff !important;
+  border-color: rgba(158, 210, 255, 0.28) !important;
+}
+
+.history-page-panel .history-table tbody tr:nth-child(even) td {
+  background: #164a84 !important;
+}
+
+.history-page-panel .history-table tbody tr:hover td {
+  background: #246fb8 !important;
+}
+
+.history-page-panel .table-responsive {
+  border: 1px solid rgba(158, 210, 255, 0.42);
+  background: #123e73;
+}
+
+/* Global blue interface pass: filters, account, membership, login, news and admin */
+:root {
+  --ui-blue-bg: #071323;
+  --ui-blue-panel: #0b1d34;
+  --ui-blue-panel-2: #0f2a4c;
+  --ui-blue-border: rgba(86, 165, 255, 0.34);
+  --ui-blue-border-strong: rgba(158, 210, 255, 0.72);
+  --ui-blue-text: #f2f9ff;
+  --ui-blue-muted: #9fbfe0;
+  --ui-blue-accent: #56a5ff;
+  --ui-blue-accent-soft: #9ed2ff;
+}
+
+html[data-bs-theme="dark"] body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(18, 96, 222, 0.18), transparent 34rem),
+    linear-gradient(180deg, #06111f 0%, #081827 46%, #040b14 100%) !important;
+  color: var(--ui-blue-text) !important;
+}
+
+html[data-bs-theme="dark"] .app-navbar,
+html[data-bs-theme="dark"] .site-footer {
+  background: rgba(4, 11, 20, 0.96) !important;
+  border-color: var(--ui-blue-border) !important;
+}
+
+html[data-bs-theme="dark"] .filter-panel,
+html[data-bs-theme="dark"] .scanner-summary,
+html[data-bs-theme="dark"] .scanner-table,
+html[data-bs-theme="dark"] .account-header,
+html[data-bs-theme="dark"] .account-section,
+html[data-bs-theme="dark"] .account-card,
+html[data-bs-theme="dark"] .membership-hero,
+html[data-bs-theme="dark"] .membership-card,
+html[data-bs-theme="dark"] .login-panel,
+html[data-bs-theme="dark"] .form-panel,
+html[data-bs-theme="dark"] .admin-table,
+html[data-bs-theme="dark"] .market-news-card,
+html[data-bs-theme="dark"] .market-news-item,
+html[data-bs-theme="dark"] .market-news-row,
+html[data-bs-theme="dark"] .report-ranking-card,
+html[data-bs-theme="dark"] .report-ranking-table-wrap,
+html[data-bs-theme="dark"] .stats-panel,
+html[data-bs-theme="dark"] .strategy-card,
+html[data-bs-theme="dark"] .top-assets-card,
+html[data-bs-theme="dark"] .totalizer-box,
+html[data-bs-theme="dark"] .risk-notice,
+html[data-bs-theme="dark"] .member-access-banner,
+html[data-bs-theme="dark"] .empty-state {
+  background:
+    linear-gradient(180deg, rgba(11, 29, 52, 0.98), rgba(7, 19, 35, 0.98)) !important;
+  border-color: var(--ui-blue-border) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(86, 165, 255, 0.06) inset !important;
+}
+
+html[data-bs-theme="dark"] .filter-panel:hover,
+html[data-bs-theme="dark"] .account-card:hover,
+html[data-bs-theme="dark"] .membership-card:hover,
+html[data-bs-theme="dark"] .market-news-row:hover,
+html[data-bs-theme="dark"] .top-asset-item:hover {
+  border-color: var(--ui-blue-border-strong) !important;
+  background:
+    linear-gradient(180deg, rgba(15, 42, 76, 0.98), rgba(8, 24, 42, 0.98)) !important;
+}
+
+html[data-bs-theme="dark"] .eyebrow,
+html[data-bs-theme="dark"] .form-label,
+html[data-bs-theme="dark"] .form-text,
+html[data-bs-theme="dark"] .account-status-list span,
+html[data-bs-theme="dark"] .market-news-meta span,
+html[data-bs-theme="dark"] .news-row-time span,
+html[data-bs-theme="dark"] .news-row-affected span,
+html[data-bs-theme="dark"] .top-assets-toggle-text,
+html[data-bs-theme="dark"] .scanner-summary span,
+html[data-bs-theme="dark"] .history-totalizer span,
+html[data-bs-theme="dark"] .text-secondary {
+  color: var(--ui-blue-muted) !important;
+}
+
+html[data-bs-theme="dark"] h1,
+html[data-bs-theme="dark"] h2,
+html[data-bs-theme="dark"] h3,
+html[data-bs-theme="dark"] h4,
+html[data-bs-theme="dark"] h5,
+html[data-bs-theme="dark"] h6,
+html[data-bs-theme="dark"] .account-card strong,
+html[data-bs-theme="dark"] .membership-card strong,
+html[data-bs-theme="dark"] .scanner-summary strong,
+html[data-bs-theme="dark"] .market-news-affected strong,
+html[data-bs-theme="dark"] .news-row-affected strong,
+html[data-bs-theme="dark"] .top-asset-item strong {
+  color: var(--ui-blue-text) !important;
+}
+
+html[data-bs-theme="dark"] .form-control,
+html[data-bs-theme="dark"] .form-select,
+html[data-bs-theme="dark"] textarea.form-control,
+html[data-bs-theme="dark"] .admin-inline-control {
+  background: rgba(4, 12, 23, 0.94) !important;
+  border-color: rgba(86, 165, 255, 0.36) !important;
+  color: var(--ui-blue-text) !important;
+}
+
+html[data-bs-theme="dark"] .form-control:focus,
+html[data-bs-theme="dark"] .form-select:focus,
+html[data-bs-theme="dark"] textarea.form-control:focus,
+html[data-bs-theme="dark"] .admin-inline-control:focus {
+  background: rgba(6, 18, 33, 0.98) !important;
+  border-color: var(--ui-blue-accent-soft) !important;
+  box-shadow: 0 0 0 0.18rem rgba(86, 165, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .form-check-input {
+  background-color: rgba(4, 12, 23, 0.94) !important;
+  border-color: rgba(86, 165, 255, 0.52) !important;
+}
+
+html[data-bs-theme="dark"] .form-check-input:checked {
+  background-color: var(--ui-blue-accent) !important;
+  border-color: var(--ui-blue-accent-soft) !important;
+}
+
+html[data-bs-theme="dark"] .btn-info,
+html[data-bs-theme="dark"] .btn-warning {
+  background: rgba(46, 145, 255, 0.88) !important;
+  border-color: var(--ui-blue-accent-soft) !important;
+  color: #03101e !important;
+}
+
+html[data-bs-theme="dark"] .btn-info:hover,
+html[data-bs-theme="dark"] .btn-info:focus,
+html[data-bs-theme="dark"] .btn-warning:hover,
+html[data-bs-theme="dark"] .btn-warning:focus {
+  background: var(--ui-blue-accent-soft) !important;
+  border-color: #d8edff !important;
+  color: #020a12 !important;
+}
+
+html[data-bs-theme="dark"] .btn-outline-info,
+html[data-bs-theme="dark"] .btn-outline-warning,
+html[data-bs-theme="dark"] .btn-outline-light {
+  background: rgba(18, 96, 222, 0.12) !important;
+  border-color: rgba(158, 210, 255, 0.56) !important;
+  color: #cfe9ff !important;
+}
+
+html[data-bs-theme="dark"] .btn-outline-info:hover,
+html[data-bs-theme="dark"] .btn-outline-info:focus,
+html[data-bs-theme="dark"] .btn-outline-warning:hover,
+html[data-bs-theme="dark"] .btn-outline-warning:focus,
+html[data-bs-theme="dark"] .btn-outline-light:hover,
+html[data-bs-theme="dark"] .btn-outline-light:focus {
+  background: rgba(46, 145, 255, 0.3) !important;
+  border-color: var(--ui-blue-accent-soft) !important;
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .alert-info,
+html[data-bs-theme="dark"] .alert-warning,
+html[data-bs-theme="dark"] .alert {
+  background: rgba(18, 96, 222, 0.14) !important;
+  border-color: rgba(86, 165, 255, 0.34) !important;
+  color: #d8edff !important;
+}
+
+html[data-bs-theme="dark"] .table,
+html[data-bs-theme="dark"] .table-dark,
+html[data-bs-theme="dark"] .scanner-table table,
+html[data-bs-theme="dark"] .admin-table table {
+  --bs-table-bg: rgba(7, 19, 35, 0.82) !important;
+  --bs-table-color: var(--ui-blue-text) !important;
+  --bs-table-border-color: rgba(86, 165, 255, 0.18) !important;
+  --bs-table-hover-bg: rgba(18, 96, 222, 0.16) !important;
+  --bs-table-hover-color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .table th,
+html[data-bs-theme="dark"] .scanner-table th,
+html[data-bs-theme="dark"] .admin-table th {
+  color: var(--ui-blue-accent-soft) !important;
+  border-color: rgba(86, 165, 255, 0.24) !important;
+}
+
+html[data-bs-theme="dark"] .table td,
+html[data-bs-theme="dark"] .scanner-table td,
+html[data-bs-theme="dark"] .admin-table td {
+  border-color: rgba(86, 165, 255, 0.14) !important;
+}
+
+html[data-bs-theme="dark"] .scanner-summary {
+  display: grid;
+  gap: 0.65rem;
+}
+
+html[data-bs-theme="dark"] .market-news-affected,
+html[data-bs-theme="dark"] .news-row-affected,
+html[data-bs-theme="dark"] .market-news-meta span,
+html[data-bs-theme="dark"] .top-asset-item,
+html[data-bs-theme="dark"] .account-access-pill,
+html[data-bs-theme="dark"] .locked-mini,
+html[data-bs-theme="dark"] .badge,
+html[data-bs-theme="dark"] .risk-bajo,
+html[data-bs-theme="dark"] .risk-medio,
+html[data-bs-theme="dark"] .risk-alto,
+html[data-bs-theme="dark"] .text-bg-info,
+html[data-bs-theme="dark"] .text-bg-warning {
+  background: rgba(18, 96, 222, 0.16) !important;
+  border-color: rgba(86, 165, 255, 0.36) !important;
+  color: #d8edff !important;
+}
+
+html[data-bs-theme="dark"] .account-access-ok,
+html[data-bs-theme="dark"] .text-success,
+html[data-bs-theme="dark"] .return-positive {
+  color: #4ade80 !important;
+}
+
+html[data-bs-theme="dark"] .text-danger,
+html[data-bs-theme="dark"] .return-negative {
+  color: #fb7185 !important;
+}
+
+html[data-bs-theme="dark"] .membership-price,
+html[data-bs-theme="dark"] .link-info,
+html[data-bs-theme="dark"] .link-warning,
+html[data-bs-theme="dark"] .text-info,
+html[data-bs-theme="dark"] .text-warning {
+  color: var(--ui-blue-accent-soft) !important;
+}
+
+html[data-bs-theme="dark"] .admin-table tbody tr:hover > *,
+html[data-bs-theme="dark"] .scanner-table tbody tr:hover > *,
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover > * {
+  background: rgba(18, 96, 222, 0.16) !important;
+}
+
 html[data-bs-theme="dark"] .report-ranking-table {
   --bs-table-bg: #001331 !important;
   --bs-table-striped-bg: #062958 !important;
@@ -4097,4 +4398,157 @@ html[data-bs-theme="dark"] .top-asset-item {
 html[data-bs-theme="dark"] ::selection {
   background: var(--ps-cyan);
   color: #001331;
+}
+
+/* History view must stay visibly blue, not terminal-black. Keep this after global table rules. */
+html[data-bs-theme="dark"] .history-page-panel {
+  background:
+    linear-gradient(180deg, rgba(16, 58, 104, 0.98), rgba(13, 47, 88, 0.98)) !important;
+  border-color: rgba(158, 210, 255, 0.58) !important;
+}
+
+html[data-bs-theme="dark"] .history-page-panel .history-totalizer div {
+  background:
+    linear-gradient(135deg, rgba(35, 106, 174, 0.96), rgba(20, 74, 134, 0.94)) !important;
+  border-color: rgba(205, 235, 255, 0.52) !important;
+}
+
+html[data-bs-theme="dark"] .history-page-panel .table-responsive {
+  background: #164a84 !important;
+  border-color: rgba(205, 235, 255, 0.48) !important;
+}
+
+html[data-bs-theme="dark"] .history-page-panel .history-table,
+html[data-bs-theme="dark"] .history-page-panel table.history-table.table-dark {
+  --bs-table-bg: #164a84 !important;
+  --bs-table-color: #f4fbff !important;
+  --bs-table-striped-bg: #1a5598 !important;
+  --bs-table-striped-color: #f4fbff !important;
+  --bs-table-hover-bg: #2879c6 !important;
+  --bs-table-hover-color: #ffffff !important;
+  background-color: #164a84 !important;
+  color: #f4fbff !important;
+}
+
+html[data-bs-theme="dark"] .history-page-panel .history-table thead th {
+  background-color: #2871b8 !important;
+  color: #ffffff !important;
+  border-color: rgba(220, 242, 255, 0.56) !important;
+}
+
+html[data-bs-theme="dark"] .history-page-panel .history-table tbody td {
+  background-color: #164a84 !important;
+  color: #f4fbff !important;
+  border-color: rgba(205, 235, 255, 0.28) !important;
+}
+
+html[data-bs-theme="dark"] .history-page-panel .history-table tbody tr:nth-child(even) td {
+  background-color: #1b5799 !important;
+}
+
+html[data-bs-theme="dark"] .history-page-panel .history-table tbody tr:hover td {
+  background-color: #2d83d2 !important;
+  color: #ffffff !important;
+}
+
+/* Asset filter view: keep scanner panels and table in readable blue, not terminal-black. */
+html[data-bs-theme="dark"] .asset-filter-page .section-heading,
+html[data-bs-theme="dark"] .asset-filter-page .filter-panel,
+html[data-bs-theme="dark"] .asset-filter-page .scanner-summary,
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table,
+html[data-bs-theme="dark"] .asset-filter-page .risk-notice {
+  background:
+    linear-gradient(180deg, rgba(16, 58, 104, 0.98), rgba(13, 47, 88, 0.98)) !important;
+  border: 1px solid rgba(158, 210, 255, 0.5) !important;
+  color: #f4fbff !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(158, 210, 255, 0.08) inset !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .section-heading {
+  padding: 1rem 1.15rem;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .eyebrow,
+html[data-bs-theme="dark"] .asset-filter-page h1,
+html[data-bs-theme="dark"] .asset-filter-page h2,
+html[data-bs-theme="dark"] .asset-filter-page p,
+html[data-bs-theme="dark"] .asset-filter-page label,
+html[data-bs-theme="dark"] .asset-filter-page .text-secondary {
+  color: #eef8ff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .form-control,
+html[data-bs-theme="dark"] .asset-filter-page .form-select {
+  background-color: #123e73 !important;
+  border-color: rgba(205, 235, 255, 0.46) !important;
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .form-control:focus,
+html[data-bs-theme="dark"] .asset-filter-page .form-select:focus {
+  background-color: #174f8e !important;
+  border-color: #cdeeff !important;
+  box-shadow: 0 0 0 0.18rem rgba(86, 165, 255, 0.28) !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-summary {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-summary > div {
+  background:
+    linear-gradient(135deg, rgba(35, 106, 174, 0.96), rgba(20, 74, 134, 0.94)) !important;
+  border: 1px solid rgba(205, 235, 255, 0.42) !important;
+  padding: 0.75rem 0.85rem;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-summary span {
+  color: #cfe9ff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-summary strong {
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table .table-responsive {
+  background: #164a84 !important;
+  border: 1px solid rgba(205, 235, 255, 0.48) !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table table,
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table table.table-dark {
+  --bs-table-bg: #164a84 !important;
+  --bs-table-color: #f4fbff !important;
+  --bs-table-striped-bg: #1a5598 !important;
+  --bs-table-striped-color: #f4fbff !important;
+  --bs-table-hover-bg: #2879c6 !important;
+  --bs-table-hover-color: #ffffff !important;
+  background-color: #164a84 !important;
+  color: #f4fbff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table thead th {
+  background-color: #2871b8 !important;
+  border-color: rgba(220, 242, 255, 0.56) !important;
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody td {
+  background-color: #164a84 !important;
+  border-color: rgba(205, 235, 255, 0.28) !important;
+  color: #f4fbff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody tr:nth-child(even) td {
+  background-color: #1b5799 !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody tr:hover td {
+  background-color: #2d83d2 !important;
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table .text-secondary,
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table small {
+  color: #cfe9ff !important;
 }

@@ -28,6 +28,8 @@ SIGNALS_DIR = BASE_DIR / "Estrategias" / "salidas_txt"
 STATUS_FILE = BASE_DIR / "Estrategias" / "strategy_run_status.json"
 SELECTION_FILE = BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"
 TOP_MONEY_VOLUME_FILE = BASE_DIR / "Estrategias" / "top_money_volume_assets.txt"
+V2_DIAGNOSTICS_JSON_FILE = BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.json"
+V2_DIAGNOSTICS_TXT_FILE = BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.txt"
 TXT_RE = re.compile(r"^[^\\/]+\.txt$", re.IGNORECASE)
 
 STRATEGIES = [
@@ -63,6 +65,7 @@ def main():
     ensure_strategy_signals_table()
     ensure_strategy_status_columns()
     ensure_top_money_volume_table()
+    ensure_strategy_diagnostics_table()
     pruned = prune_old_signals()
     if pruned:
         print(f"Senales antiguas limpiadas de PostgreSQL: {pruned}")
@@ -91,6 +94,8 @@ def main():
     print(f"Sincronizacion terminada: {total_files} TXT, {total_lines} lineas, {inserted} nuevas.")
     top_count = sync_top_money_volume_assets()
     print(f"Top volumen monetario actualizado en PostgreSQL: {top_count}")
+    diagnostics_count = sync_strategy_diagnostics()
+    print(f"Diagnosticos V2 actualizados en PostgreSQL: {diagnostics_count}")
     status_count = sync_strategy_status()
     print(f"Estados de estrategias actualizados en PostgreSQL: {status_count}")
     mirror_postgres_to_sqlite()
@@ -247,6 +252,114 @@ def ensure_top_money_volume_table():
                 """
             )
         )
+
+
+def ensure_strategy_diagnostics_table():
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS strategy_diagnostics (
+                    symbol TEXT PRIMARY KEY,
+                    metrics_json TEXT NOT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+        )
+
+
+def sync_strategy_diagnostics():
+    tickers = read_strategy_diagnostics_json()
+    if not tickers:
+        tickers = read_strategy_diagnostics_txt()
+    if not isinstance(tickers, dict) or not tickers:
+        return 0
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    rows = []
+    for symbol, metrics in tickers.items():
+        if not symbol or not isinstance(metrics, dict):
+            continue
+        rows.append(
+            {
+                "symbol": str(symbol).upper(),
+                "metrics_json": json.dumps(metrics, ensure_ascii=False, separators=(",", ":")),
+                "updated_at": now,
+            }
+        )
+
+    if not rows:
+        return 0
+
+    with engine.begin() as connection:
+        connection.execute(text("DELETE FROM strategy_diagnostics"))
+        connection.execute(
+            text(
+                """
+                INSERT INTO strategy_diagnostics (symbol, metrics_json, updated_at)
+                VALUES (:symbol, :metrics_json, :updated_at)
+                """
+            ),
+            rows,
+        )
+    return len(rows)
+
+
+def read_strategy_diagnostics_json():
+    if not V2_DIAGNOSTICS_JSON_FILE.exists() or not V2_DIAGNOSTICS_JSON_FILE.is_file():
+        return {}
+
+    try:
+        payload = json.loads(V2_DIAGNOSTICS_JSON_FILE.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    tickers = payload.get("tickers", {}) if isinstance(payload, dict) else {}
+    return tickers if isinstance(tickers, dict) else {}
+
+
+def read_strategy_diagnostics_txt():
+    if not V2_DIAGNOSTICS_TXT_FILE.exists() or not V2_DIAGNOSTICS_TXT_FILE.is_file():
+        return {}
+
+    tickers = {}
+    current_symbol = ""
+    current_metrics = {}
+    try:
+        lines = V2_DIAGNOSTICS_TXT_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return {}
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        match = re.fullmatch(r"\[([A-Z0-9./-]+)\]", line)
+        if match:
+            if current_symbol and current_metrics:
+                tickers[current_symbol] = current_metrics
+            current_symbol = match.group(1).upper()
+            current_metrics = {}
+            continue
+        if not current_symbol or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        if key:
+            current_metrics[key] = parse_diagnostic_value(value.strip())
+
+    if current_symbol and current_metrics:
+        tickers[current_symbol] = current_metrics
+    return tickers
+
+
+def parse_diagnostic_value(value):
+    text_value = str(value or "").strip()
+    if text_value.lower() in {"null", "none", "nan", ""}:
+        return ""
+    try:
+        return float(text_value)
+    except ValueError:
+        return text_value
 
 
 def sync_top_money_volume_assets():

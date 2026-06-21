@@ -29,6 +29,7 @@ TABLES_TO_COPY = [
     "asset_universe",
     "asset_snapshots",
     "top_money_volume_assets",
+    "strategy_diagnostics",
     "market_news",
 ]
 

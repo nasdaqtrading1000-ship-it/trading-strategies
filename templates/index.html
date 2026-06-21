@@ -335,6 +335,14 @@
     let index = 0;
     let feedSignature = "fallback";
     let positionKey = "terminal-feed-position:fallback";
+    let tickTimer = null;
+    const feedVersion = "industrial-feed-v2-2026-06-21";
+    if (localStorage.getItem("terminal-feed-version") !== feedVersion) {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("terminal-feed-"))
+        .forEach((key) => localStorage.removeItem(key));
+      localStorage.setItem("terminal-feed-version", feedVersion);
+    }
 
     const savedIndexFor = (signature) => {
       const value = Number.parseInt(localStorage.getItem(`terminal-feed-position:${signature}`) || "0", 10);
@@ -358,10 +366,14 @@
       row.className = "terminal-feed-row";
       if (line.startsWith("ERROR") || line.startsWith("WARNING")) row.classList.add("shell-danger");
       if (line.startsWith("OK")) row.classList.add("shell-ok");
+      if (line.startsWith("LOAD OK")) row.classList.add("shell-ok");
+      if (line.startsWith("RUN ACCEPTED")) row.classList.add("shell-ok");
       if (line.startsWith("SIGNAL")) row.classList.add("shell-signal");
       if (line.startsWith("PARAM")) row.classList.add("shell-param");
       if (line.startsWith("META")) row.classList.add("shell-meta");
       if (line.startsWith("POSTGRES")) row.classList.add("shell-postgres");
+      if (line.startsWith("LOCAL DB")) row.classList.add("shell-postgres");
+      if (line.startsWith("LOCAL")) row.classList.add("shell-meta");
       if (line.startsWith("UPDATED")) row.classList.add("shell-updated");
       if (line.startsWith("UPDATE")) row.classList.add("shell-updated");
       if (line.startsWith("RESUME")) row.classList.add("shell-meta");
@@ -373,35 +385,46 @@
       }
     };
 
-    fetch("{{ url_for('terminal_feed') }}", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : Promise.reject())
-      .then((payload) => {
-        if (payload.lines && payload.lines.length) {
+    const nextDelay = () => 200 + Math.floor(Math.random() * 1800);
+
+    const scheduleTick = (delay = nextDelay()) => {
+      if (tickTimer !== null) return;
+      tickTimer = window.setTimeout(() => {
+        tickTimer = null;
+        tick();
+      }, delay);
+    };
+
+    const loadFeed = () => {
+      fetch("{{ url_for('terminal_feed') }}", { cache: "no-store" })
+        .then((response) => response.ok ? response.json() : Promise.reject())
+        .then((payload) => {
+          if (!payload.lines || !payload.lines.length) return;
           const previousSignature = localStorage.getItem("terminal-feed-last-signature") || "";
+          const incomingSignature = payload.signature || `lines:${payload.lines.length}`;
+          const isNewPayload = previousSignature !== incomingSignature;
+          if (!isNewPayload && incomingSignature === feedSignature) return;
+
           queue = payload.lines;
-          feedSignature = payload.signature || `lines:${queue.length}`;
+          feedSignature = incomingSignature;
           positionKey = `terminal-feed-position:${feedSignature}`;
-          const isNewPayload = previousSignature !== feedSignature;
           localStorage.setItem("terminal-feed-last-signature", feedSignature);
-          index = Math.min(savedIndexFor(feedSignature), queue.length);
+          index = isNewPayload ? 0 : Math.min(savedIndexFor(feedSignature), queue.length);
+          saveIndex();
           renderContext();
-          paint("POSTGRES LINK OK :: DATA CHANNEL OPEN", true);
-          paint(`POSTGRES DATA RECEIVED :: lines=${queue.length} :: signature=${feedSignature}`, true);
+          paint("UPDATE RECEIVED :: runtime event package refreshed", true);
+          paint(`LOAD OK :: terminal lines=${queue.length} :: signature=${feedSignature}`, true);
           paint(
             isNewPayload
-              ? "UPDATED :: NEW DATA PACKAGE DETECTED :: RESET/START REQUIRED BY FILE SIGNATURE"
+              ? "RUN ACCEPTED :: new data package queued"
               : `RESUME :: CONTINUING FROM LINE ${index}/${queue.length}`,
             true
           );
-          if (isNewPayload) {
-            index = 0;
-            saveIndex();
-          }
-        }
-      })
-      .catch(() => {});
-
-    const nextDelay = () => 200 + Math.floor(Math.random() * 1800);
+          window.terminalFeedRunning = true;
+          scheduleTick();
+        })
+        .catch(() => {});
+    };
 
     const tick = () => {
       if (!queue.length) return;
@@ -417,10 +440,12 @@
       paint(queue[index]);
       index += 1;
       saveIndex();
-      window.setTimeout(tick, nextDelay());
+      scheduleTick();
     };
 
-    window.setTimeout(tick, nextDelay());
+    loadFeed();
+    scheduleTick();
+    window.setInterval(loadFeed, 45000);
   })();
 
   setInterval(() => {

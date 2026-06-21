@@ -124,7 +124,8 @@ SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
 
 
 def terminal_feed_payload(limit=None):
-    feed_path = terminal_feed_txt_path()
+    include_local_files = engine.dialect.name != "postgresql"
+    feed_path = terminal_feed_txt_path() if include_local_files else None
     updated_line = ""
     signal_count_line = ""
     non_empty_lines = 0
@@ -159,19 +160,17 @@ def terminal_feed_payload(limit=None):
             }
 
     lines = terminal_database_event_lines()
-    if feed_path and stats:
+    if include_local_files and feed_path and stats:
         lines.extend(
             [
-                f"LOCAL TXT RECEIVED :: {short_terminal_path(feed_path)}",
-                f"LOCAL TXT LOAD OK :: {updated_line or 'timestamp not declared'}",
-                f"LOCAL TXT CONTROL COUNT :: {signal_count_line or f'signals detected: {detected_signals}'}",
-                f"LOCAL TXT READ COMPLETE :: physical_lines={non_empty_lines} :: bytes={stats.st_size}",
+                f"READ :: LOCAL TXT {short_terminal_path(feed_path)}",
+                f"LOAD OK :: LOCAL TXT {updated_line or 'timestamp not declared'}",
+                f"CHECK :: LOCAL TXT {signal_count_line or f'signals detected: {detected_signals}'}",
+                f"ACCEPTED :: LOCAL TXT physical_lines={non_empty_lines} bytes={stats.st_size}",
             ]
         )
-    else:
-        lines.append("REMOTE DISPLAY MODE :: local TXT package not mounted in this runtime")
-    lines.extend(terminal_local_file_event_lines())
-    lines.append("SYSTEM READY :: WAITING FOR NEXT DATA PACKAGE")
+        lines.extend(terminal_local_file_event_lines())
+    lines.append("WAIT :: next database update")
     signature_parts = terminal_event_signature_parts(feed_path, stats)
     return {
         "signature": "industrial-events:" + ":".join(signature_parts),
@@ -184,51 +183,58 @@ def terminal_database_event_lines():
     try:
         dialect = terminal_database_dialect()
         channel = terminal_database_channel()
-        lines.append(f"{channel} LINK OK :: DATA CHANNEL OPEN :: dialect={dialect}")
+        lines.append(f"READ :: {channel} connection OK dialect={dialect}")
 
-        counts = [
-            ("strategies", "SELECT COUNT(*) FROM strategies"),
-            ("active_strategies", "SELECT COUNT(*) FROM strategies WHERE COALESCE(is_active, 0) = 1"),
-            ("visible_free", "SELECT COUNT(*) FROM strategies WHERE COALESCE(public_visible, 0) = 1"),
-            ("strategy_signals", "SELECT COUNT(*) FROM strategy_signals"),
-            ("simulated_operations", "SELECT COUNT(*) FROM simulated_operations"),
-            ("open_operations", "SELECT COUNT(*) FROM simulated_operations WHERE status = 'OPEN'"),
-            ("closed_operations", "SELECT COUNT(*) FROM simulated_operations WHERE status = 'CLOSED'"),
-            ("asset_universe", "SELECT COUNT(*) FROM asset_universe"),
-            ("asset_snapshots", "SELECT COUNT(*) FROM asset_snapshots"),
-            ("top_money_volume_assets", "SELECT COUNT(*) FROM top_money_volume_assets"),
-            ("strategy_diagnostics", "SELECT COUNT(*) FROM strategy_diagnostics"),
-            ("market_news", "SELECT COUNT(*) FROM market_news"),
-        ]
-        for label, sql in counts:
-            value = terminal_scalar(sql)
-            lines.append(f"{channel} LOAD OK :: {label} rows={value}")
-
+        strategies = terminal_scalar("SELECT COUNT(*) FROM strategies")
+        active_strategies = terminal_scalar("SELECT COUNT(*) FROM strategies WHERE COALESCE(is_active, 0) = 1")
+        visible_free = terminal_scalar("SELECT COUNT(*) FROM strategies WHERE COALESCE(public_visible, 0) = 1")
+        strategy_signals = terminal_scalar("SELECT COUNT(*) FROM strategy_signals")
+        simulated_operations = terminal_scalar("SELECT COUNT(*) FROM simulated_operations")
+        open_operations = terminal_scalar("SELECT COUNT(*) FROM simulated_operations WHERE status = 'OPEN'")
+        closed_operations = terminal_scalar("SELECT COUNT(*) FROM simulated_operations WHERE status = 'CLOSED'")
+        asset_universe = terminal_scalar("SELECT COUNT(*) FROM asset_universe")
+        asset_snapshots = terminal_scalar("SELECT COUNT(*) FROM asset_snapshots")
+        top_volume = terminal_scalar("SELECT COUNT(*) FROM top_money_volume_assets")
+        diagnostics = terminal_scalar("SELECT COUNT(*) FROM strategy_diagnostics")
+        market_news = terminal_scalar("SELECT COUNT(*) FROM market_news")
         latest_signal = terminal_scalar("SELECT MAX(created_at) FROM strategy_signals")
         latest_operation = terminal_scalar("SELECT MAX(updated_at) FROM simulated_operations")
         latest_top_volume = terminal_scalar("SELECT MAX(updated_at) FROM top_money_volume_assets")
         latest_market = terminal_scalar("SELECT MAX(updated_at) FROM asset_snapshots")
         latest_diagnostics = terminal_scalar("SELECT MAX(updated_at) FROM strategy_diagnostics")
         latest_news = terminal_scalar("SELECT MAX(created_at) FROM market_news")
+
+        lines.extend(
+            [
+                f"CHECK :: strategies total={strategies} active={active_strategies} public={visible_free}",
+                f"LOAD OK :: strategy_signals rows={strategy_signals}",
+                f"LOAD OK :: simulated_operations rows={simulated_operations} open={open_operations} closed={closed_operations}",
+                f"LOAD OK :: asset_universe rows={asset_universe}",
+                f"LOAD OK :: asset_snapshots rows={asset_snapshots}",
+                f"LOAD OK :: top_volume rows={top_volume}",
+                f"LOAD OK :: strategy_diagnostics rows={diagnostics}",
+                f"LOAD OK :: market_news rows={market_news}",
+            ]
+        )
         if latest_signal:
-            lines.append(f"UPDATE RECEIVED :: strategy_signals latest={latest_signal}")
+            lines.append(f"UPDATE :: strategy_signals latest={latest_signal}")
         else:
             lines.append("WARNING :: strategy_signals empty :: waiting for local engine sync")
         if latest_operation:
-            lines.append(f"UPDATE RECEIVED :: simulated_operations latest={latest_operation}")
+            lines.append(f"UPDATE :: simulated_operations latest={latest_operation}")
         else:
             lines.append("WARNING :: simulated_operations empty :: no operations loaded yet")
         if latest_top_volume:
-            lines.append(f"UPDATE RECEIVED :: top_volume latest={latest_top_volume}")
+            lines.append(f"UPDATE :: top_volume latest={latest_top_volume}")
         if latest_market:
-            lines.append(f"UPDATE RECEIVED :: market_snapshot latest={latest_market}")
+            lines.append(f"UPDATE :: market_snapshot latest={latest_market}")
         if latest_diagnostics:
-            lines.append(f"UPDATE RECEIVED :: strategy_diagnostics latest={latest_diagnostics}")
+            lines.append(f"UPDATE :: strategy_diagnostics latest={latest_diagnostics}")
         if latest_news:
-            lines.append(f"UPDATE RECEIVED :: market_news latest={latest_news}")
+            lines.append(f"UPDATE :: market_news latest={latest_news}")
         lines.extend(terminal_strategy_error_lines())
     except Exception as error:
-        lines.append(f"ERROR {terminal_database_channel()} LINK FAILED :: DATA CHANNEL CLOSED")
+        lines.append(f"ERROR :: {terminal_database_channel()} connection failed")
         lines.append(f"CategoryInfo : {type(error).__name__}: {str(error)[:180]}")
     return lines
 
@@ -285,7 +291,7 @@ def terminal_strategy_error_lines(limit=8):
         if message:
             lines.append(f"DETAIL :: {name} :: {message[:160]}")
     if not lines:
-        lines.append("RUN ACCEPTED :: strategy status clean")
+        lines.append("ACCEPTED :: strategy status clean")
     return lines
 
 
@@ -308,10 +314,10 @@ def terminal_local_file_event_lines():
         except OSError:
             continue
         updated_at = datetime.fromtimestamp(stats.st_mtime, MADRID_TZ).strftime("%d/%m/%Y %H:%M:%S")
-        lines.append(f"LOCAL UPDATE RECEIVED :: {label} :: bytes={stats.st_size} :: mtime={updated_at}")
+        lines.append(f"UPDATE :: LOCAL FILE {label} bytes={stats.st_size} mtime={updated_at}")
         lines.append(f"LOCAL LOAD OK :: {label}")
     if not lines:
-        lines.append("LOCAL FILE WATCH :: optional files not mounted in this runtime")
+        lines.append("CHECK :: LOCAL FILES optional watch empty")
     return lines
 
 
@@ -326,7 +332,6 @@ def terminal_event_signature_parts(feed_path, stats):
         except OSError:
             continue
         parts.append(f"{resolved.name}-{int(file_stats.st_mtime)}-{file_stats.st_size}")
-    parts.append(datetime.now(MADRID_TZ).strftime("%Y%m%d%H%M"))
     return parts or ["no-files"]
 
 
@@ -1669,6 +1674,16 @@ def format_one_decimal(value):
         return text_value
 
 
+def format_compact_count(value):
+    try:
+        count = int(value or 0)
+    except (TypeError, ValueError):
+        count = 0
+    if count >= 1000:
+        return "+1K"
+    return str(count)
+
+
 def profit_color_class(value):
     try:
         amount = float(value or 0)
@@ -2433,6 +2448,7 @@ def create_app():
     app.jinja_env.globals["technical_term_help"] = technical_term_help
     app.jinja_env.filters["money_usd"] = format_money_usd
     app.jinja_env.filters["one_decimal"] = format_one_decimal
+    app.jinja_env.filters["compact_count"] = format_compact_count
 
     @app.before_request
     def before_request():

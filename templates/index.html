@@ -20,14 +20,7 @@
           </div>
           <div class="live-shell-body">
             <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="shell-command">run automatic-signals --mode=live</span></div>
-            <div class="shell-line shell-ok">OK   database=postgres status=connected</div>
-            <div class="shell-line shell-info">INFO reading strategies={{ strategies|length }} refresh={{ page_refreshed_at }}</div>
-            <div class="shell-error-block" aria-label="Aviso de riesgo en formato consola">
-              <div><span class="shell-error-prefix">&gt;&gt;</span> WARNING: market risk active</div>
-              <div>CategoryInfo : TradingRisk: (automatic-signals:String) [], RiskWarning</div>
-              <div>ActionRequired : review signal, size position, protect capital</div>
-            </div>
-            <div class="shell-line shell-dynamic" id="live-shell-line">RUN  scanning signals...</div>
+            <div class="shell-line shell-info" id="live-shell-line">WAIT database event stream</div>
             <div class="terminal-feed-lines" id="terminal-feed-lines" aria-live="polite"></div>
             <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="terminal-cursor"></span></div>
           </div>
@@ -193,7 +186,6 @@
               <th>Frecuencia</th>
               <th class="text-end">Rentabilidad</th>
               <th class="text-end">Capital</th>
-              <th class="text-end">Avisos</th>
               <th>Estado</th>
               <th><span class="th-two-line">Ultima<span>incorporacion</span></span></th>
               <th>Acciones</th>
@@ -243,12 +235,6 @@
                     {% endif %}
                   </div>
                 </td>
-                <td class="text-end">
-                  <strong>{{ strategy.signals_count or 0 }}</strong>
-                  {% if strategy.closed_operations_count %}
-                    <small class="d-block text-secondary">{{ strategy.closed_operations_count }} cerradas</small>
-                  {% endif %}
-                </td>
                 <td>
                   <span class="status-pill {% if strategy.run_status.running %}status-running{% elif strategy.run_status.ok %}status-ok{% elif strategy.run_status.pending %}status-pending{% else %}status-error{% endif %}" {% if strategy.run_status.error %}title="{{ strategy.run_status.error }}"{% endif %}>
                     <span class="status-dot"></span>
@@ -262,10 +248,10 @@
                 <td>
                   <div class="report-actions">
                     <a class="btn btn-outline-info btn-sm report-signals-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
-                      Avisos
+                      Avisos {{ strategy.signals_count|compact_count }}
                     </a>
                     <a class="btn btn-outline-light btn-sm report-history-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
-                      Hist.
+                      Hist. {{ strategy.closed_operations_count|compact_count }}
                     </a>
                     {% if strategy.has_telegram and strategy.telegram_url %}
                       <a class="btn btn-info btn-sm {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ strategy.telegram_url }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
@@ -299,44 +285,11 @@
 {% block scripts %}
 <script>
   (() => {
-    const line = document.getElementById("live-shell-line");
-    if (!line) return;
-    const lines = [
-      "RUN  sync --source=postgres --signals=active",
-      "INFO load active_models && read latest alerts",
-      "OK   signal table refreshed",
-      "RUN  calculate totalizer --selected-models",
-      "ERROR risk-warning: market volatility active",
-      "OK   runtime console updated"
-    ];
-    let index = 0;
-    setInterval(() => {
-      index = (index + 1) % lines.length;
-      line.textContent = lines[index];
-      line.classList.toggle("shell-danger", lines[index].startsWith("ERROR"));
-      line.classList.toggle("shell-warn", lines[index].startsWith("WARN"));
-      line.classList.toggle("shell-ok", lines[index].startsWith("OK"));
-      line.classList.toggle("shell-info", lines[index].startsWith("INFO"));
-    }, 1400);
-  })();
-
-  (() => {
     const output = document.getElementById("terminal-feed-lines");
+    const statusLine = document.getElementById("live-shell-line");
     if (!output) return;
-    window.terminalFeedRunning = true;
-    const fallback = [
-      "LOAD signals_v2.txt",
-      "RUN  parse signals --format=code",
-      "SIGNAL { strategy: \"Momentum\", ticker: \"NVDA\", side: \"LONG\" }",
-      "       Entrada 205.17 | SL 184.03 | Objetivo 242.10 | Score 88.21",
-      "OK   feed ready"
-    ];
-    let queue = fallback;
-    let index = 0;
     let feedSignature = "fallback";
-    let positionKey = "terminal-feed-position:fallback";
-    let tickTimer = null;
-    const feedVersion = "industrial-feed-v2-2026-06-21";
+    const feedVersion = "industrial-feed-v3-2026-06-21";
     if (localStorage.getItem("terminal-feed-version") !== feedVersion) {
       Object.keys(localStorage)
         .filter((key) => key.startsWith("terminal-feed-"))
@@ -344,21 +297,10 @@
       localStorage.setItem("terminal-feed-version", feedVersion);
     }
 
-    const savedIndexFor = (signature) => {
-      const value = Number.parseInt(localStorage.getItem(`terminal-feed-position:${signature}`) || "0", 10);
-      return Number.isNaN(value) ? 0 : Math.max(0, value);
-    };
-
-    const saveIndex = () => {
-      localStorage.setItem(positionKey, String(index));
-    };
-
-    const renderContext = () => {
+    const renderLines = (lines) => {
       output.textContent = "";
-      const start = Math.max(0, index - 8);
-      for (let cursor = start; cursor < index; cursor += 1) {
-        paint(queue[cursor], false);
-      }
+      lines.forEach((line) => paint(line, false));
+      output.scrollTop = output.scrollHeight;
     };
 
     const paint = (line, autoScroll = true) => {
@@ -367,11 +309,13 @@
       if (line.startsWith("ERROR") || line.startsWith("WARNING")) row.classList.add("shell-danger");
       if (line.startsWith("OK")) row.classList.add("shell-ok");
       if (line.startsWith("LOAD OK")) row.classList.add("shell-ok");
-      if (line.startsWith("RUN ACCEPTED")) row.classList.add("shell-ok");
+      if (line.startsWith("ACCEPTED")) row.classList.add("shell-ok");
       if (line.startsWith("SIGNAL")) row.classList.add("shell-signal");
       if (line.startsWith("PARAM")) row.classList.add("shell-param");
       if (line.startsWith("META")) row.classList.add("shell-meta");
       if (line.startsWith("POSTGRES")) row.classList.add("shell-postgres");
+      if (line.startsWith("READ")) row.classList.add("shell-info");
+      if (line.startsWith("CHECK")) row.classList.add("shell-info");
       if (line.startsWith("LOCAL DB")) row.classList.add("shell-postgres");
       if (line.startsWith("LOCAL")) row.classList.add("shell-meta");
       if (line.startsWith("UPDATED")) row.classList.add("shell-updated");
@@ -385,16 +329,6 @@
       }
     };
 
-    const nextDelay = () => 200 + Math.floor(Math.random() * 1800);
-
-    const scheduleTick = (delay = nextDelay()) => {
-      if (tickTimer !== null) return;
-      tickTimer = window.setTimeout(() => {
-        tickTimer = null;
-        tick();
-      }, delay);
-    };
-
     const loadFeed = () => {
       fetch("{{ url_for('terminal_feed') }}", { cache: "no-store" })
         .then((response) => response.ok ? response.json() : Promise.reject())
@@ -405,47 +339,21 @@
           const isNewPayload = previousSignature !== incomingSignature;
           if (!isNewPayload && incomingSignature === feedSignature) return;
 
-          queue = payload.lines;
           feedSignature = incomingSignature;
-          positionKey = `terminal-feed-position:${feedSignature}`;
           localStorage.setItem("terminal-feed-last-signature", feedSignature);
-          index = isNewPayload ? 0 : Math.min(savedIndexFor(feedSignature), queue.length);
-          saveIndex();
-          renderContext();
-          paint("UPDATE RECEIVED :: runtime event package refreshed", true);
-          paint(`LOAD OK :: terminal lines=${queue.length} :: signature=${feedSignature}`, true);
-          paint(
-            isNewPayload
-              ? "RUN ACCEPTED :: new data package queued"
-              : `RESUME :: CONTINUING FROM LINE ${index}/${queue.length}`,
-            true
-          );
-          window.terminalFeedRunning = true;
-          scheduleTick();
+          renderLines(payload.lines);
+          if (statusLine) {
+            statusLine.textContent = isNewPayload ? "ACCEPTED database package updated" : "WAIT database event stream";
+            statusLine.classList.toggle("shell-ok", isNewPayload);
+            statusLine.classList.toggle("shell-info", !isNewPayload);
+          }
+          window.terminalFeedRunning = false;
         })
         .catch(() => {});
     };
 
-    const tick = () => {
-      if (!queue.length) return;
-      if (index >= queue.length) {
-        if (index === queue.length) {
-          paint("OK   DATA PACKAGE STATUS COMPLETE");
-          index += 1;
-          saveIndex();
-          window.terminalFeedRunning = false;
-        }
-        return;
-      }
-      paint(queue[index]);
-      index += 1;
-      saveIndex();
-      scheduleTick();
-    };
-
     loadFeed();
-    scheduleTick();
-    window.setInterval(loadFeed, 45000);
+    window.setInterval(loadFeed, 60000);
   })();
 
   setInterval(() => {

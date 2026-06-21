@@ -4451,21 +4451,21 @@ html[data-bs-theme="dark"] .history-page-panel .history-table tbody tr:hover td 
   color: #ffffff !important;
 }
 
-/* Asset filter view: keep scanner panels and table in readable blue, not terminal-black. */
+/* Asset filter view: PowerShell blue, no black panels. */
 html[data-bs-theme="dark"] .asset-filter-page .section-heading,
 html[data-bs-theme="dark"] .asset-filter-page .filter-panel,
 html[data-bs-theme="dark"] .asset-filter-page .scanner-summary,
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table,
 html[data-bs-theme="dark"] .asset-filter-page .risk-notice {
-  background:
-    linear-gradient(180deg, rgba(16, 58, 104, 0.98), rgba(13, 47, 88, 0.98)) !important;
-  border: 1px solid rgba(158, 210, 255, 0.5) !important;
+  background: #012456 !important;
+  border: 1px solid rgba(117, 215, 255, 0.42) !important;
   color: #f4fbff !important;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(158, 210, 255, 0.08) inset !important;
+  box-shadow: none !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .section-heading {
   padding: 1rem 1.15rem;
+  background: #07356f !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .eyebrow,
@@ -4477,18 +4477,24 @@ html[data-bs-theme="dark"] .asset-filter-page .text-secondary {
   color: #eef8ff !important;
 }
 
+html[data-bs-theme="dark"] .asset-filter-page .eyebrow,
+html[data-bs-theme="dark"] .asset-filter-page label,
+html[data-bs-theme="dark"] .asset-filter-page .scanner-summary span {
+  color: #75d7ff !important;
+}
+
 html[data-bs-theme="dark"] .asset-filter-page .form-control,
 html[data-bs-theme="dark"] .asset-filter-page .form-select {
-  background-color: #123e73 !important;
-  border-color: rgba(205, 235, 255, 0.46) !important;
+  background-color: #062958 !important;
+  border-color: rgba(117, 215, 255, 0.5) !important;
   color: #ffffff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .form-control:focus,
 html[data-bs-theme="dark"] .asset-filter-page .form-select:focus {
-  background-color: #174f8e !important;
-  border-color: #cdeeff !important;
-  box-shadow: 0 0 0 0.18rem rgba(86, 165, 255, 0.28) !important;
+  background-color: #07356f !important;
+  border-color: #75d7ff !important;
+  box-shadow: 0 0 0 0.16rem rgba(117, 215, 255, 0.22) !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-summary {
@@ -4496,59 +4502,289 @@ html[data-bs-theme="dark"] .asset-filter-page .scanner-summary {
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-summary > div {
-  background:
-    linear-gradient(135deg, rgba(35, 106, 174, 0.96), rgba(20, 74, 134, 0.94)) !important;
-  border: 1px solid rgba(205, 235, 255, 0.42) !important;
+  background: #062958 !important;
+  border: 1px solid rgba(117, 215, 255, 0.35) !important;
   padding: 0.75rem 0.85rem;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-summary span {
-  color: #cfe9ff !important;
+  color: #75d7ff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-summary strong {
-  color: #ffffff !important;
+  color: #16ff7a !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table .table-responsive {
-  background: #164a84 !important;
-  border: 1px solid rgba(205, 235, 255, 0.48) !important;
+  background: #012456 !important;
+  border: 1px solid rgba(117, 215, 255, 0.42) !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table table,
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table table.table-dark {
-  --bs-table-bg: #164a84 !important;
+  --bs-table-bg: #012456 !important;
   --bs-table-color: #f4fbff !important;
-  --bs-table-striped-bg: #1a5598 !important;
+  --bs-table-striped-bg: #062958 !important;
   --bs-table-striped-color: #f4fbff !important;
-  --bs-table-hover-bg: #2879c6 !important;
+  --bs-table-hover-bg: #07356f !important;
   --bs-table-hover-color: #ffffff !important;
-  background-color: #164a84 !important;
+  background-color: #012456 !important;
   color: #f4fbff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table thead th {
-  background-color: #2871b8 !important;
-  border-color: rgba(220, 242, 255, 0.56) !important;
-  color: #ffffff !important;
+  background-color: #07356f !important;
+  border-color: rgba(117, 215, 255, 0.52) !important;
+  color: #75d7ff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody td {
-  background-color: #164a84 !important;
-  border-color: rgba(205, 235, 255, 0.28) !important;
+  background-color: #012456 !important;
+  border-color: rgba(117, 215, 255, 0.2) !important;
   color: #f4fbff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody tr:nth-child(even) td {
-  background-color: #1b5799 !important;
+  background-color: #062958 !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody tr:hover td {
-  background-color: #2d83d2 !important;
+  background-color: #07356f !important;
   color: #ffffff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table .text-secondary,
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table small {
-  color: #cfe9ff !important;
+  color: #b9d4f7 !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table strong {
+  color: #16ff7a !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .btn-info {
+  background: #07356f !important;
+  border-color: #75d7ff !important;
+  color: #f4fbff !important;
+}
+
+html[data-bs-theme="dark"] .asset-filter-page .btn-info:hover,
+html[data-bs-theme="dark"] .asset-filter-page .btn-info:focus {
+  background: #0b478f !important;
+  border-color: #16ff7a !important;
+  color: #ffffff !important;
+}
+
+/* Main report action buttons: same PowerShell blue as the rest of the shell. */
+html[data-bs-theme="dark"] .report-actions .report-signals-btn,
+html[data-bs-theme="dark"] .report-actions .report-history-btn,
+html[data-bs-theme="light"] .report-actions .report-signals-btn,
+html[data-bs-theme="light"] .report-actions .report-history-btn {
+  background: #062958 !important;
+  border-color: rgba(117, 215, 255, 0.48) !important;
+  color: #f4fbff !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .report-actions .report-signals-btn:hover,
+html[data-bs-theme="dark"] .report-actions .report-signals-btn:focus,
+html[data-bs-theme="dark"] .report-actions .report-history-btn:hover,
+html[data-bs-theme="dark"] .report-actions .report-history-btn:focus,
+html[data-bs-theme="light"] .report-actions .report-signals-btn:hover,
+html[data-bs-theme="light"] .report-actions .report-signals-btn:focus,
+html[data-bs-theme="light"] .report-actions .report-history-btn:hover,
+html[data-bs-theme="light"] .report-actions .report-history-btn:focus {
+  background: #07356f !important;
+  border-color: #75d7ff !important;
+  color: #ffffff !important;
+}
+
+/* Final PowerShell-blue unifier: backgrounds blue, text remains readable. */
+html[data-bs-theme="dark"] body,
+html[data-bs-theme="dark"] .hero-section,
+html[data-bs-theme="dark"] .app-navbar,
+html[data-bs-theme="dark"] .site-footer {
+  background: #012456 !important;
+  color: #f4f8ff !important;
+}
+
+html[data-bs-theme="dark"] .strategy-card,
+html[data-bs-theme="dark"] .market-news-card,
+html[data-bs-theme="dark"] .market-news-item,
+html[data-bs-theme="dark"] .market-news-row,
+html[data-bs-theme="dark"] .stats-panel,
+html[data-bs-theme="dark"] .totalizer-box,
+html[data-bs-theme="dark"] .top-assets-card,
+html[data-bs-theme="dark"] .report-ranking-card,
+html[data-bs-theme="dark"] .report-ranking-table-wrap,
+html[data-bs-theme="dark"] .filter-panel,
+html[data-bs-theme="dark"] .scanner-summary,
+html[data-bs-theme="dark"] .scanner-table,
+html[data-bs-theme="dark"] .risk-notice,
+html[data-bs-theme="dark"] .diagnostic-panel,
+html[data-bs-theme="dark"] .diagnostic-box,
+html[data-bs-theme="dark"] .signals-sidebar,
+html[data-bs-theme="dark"] .strategy-detail-panel,
+html[data-bs-theme="dark"] .history-page-panel,
+html[data-bs-theme="dark"] .account-panel,
+html[data-bs-theme="dark"] .membership-panel,
+html[data-bs-theme="dark"] .login-panel,
+html[data-bs-theme="dark"] .admin-panel,
+html[data-bs-theme="dark"] .admin-card,
+html[data-bs-theme="dark"] .member-access-banner,
+html[data-bs-theme="dark"] .live-shell-panel,
+html[data-bs-theme="dark"] .live-shell-titlebar,
+html[data-bs-theme="dark"] .live-shell-body,
+html[data-bs-theme="dark"] .terminal-feed-lines,
+html[data-bs-theme="dark"] .empty-state,
+html[data-bs-theme="dark"] .alert {
+  background: #012456 !important;
+  border-color: rgba(117, 215, 255, 0.38) !important;
+  color: #f4f8ff !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .strategy-card:nth-child(even),
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:nth-child(even) > *,
+html[data-bs-theme="dark"] .table tbody tr:nth-child(even) > *,
+html[data-bs-theme="dark"] .scanner-table tbody tr:nth-child(even) td,
+html[data-bs-theme="dark"] .history-table tbody tr:nth-child(even) td,
+html[data-bs-theme="dark"] .diagnostic-summary-grid div,
+html[data-bs-theme="dark"] .history-totalizer div,
+html[data-bs-theme="dark"] .scanner-summary > div,
+html[data-bs-theme="dark"] .top-asset-item,
+html[data-bs-theme="dark"] .signal-mini-card,
+html[data-bs-theme="dark"] .diagnostic-param-pill,
+html[data-bs-theme="dark"] .market-news-meta span,
+html[data-bs-theme="dark"] .market-news-affected,
+html[data-bs-theme="dark"] .badge,
+html[data-bs-theme="dark"] .locked-mini,
+html[data-bs-theme="dark"] .account-access-pill {
+  background: #062958 !important;
+  border-color: rgba(117, 215, 255, 0.34) !important;
+  color: #f4f8ff !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .table,
+html[data-bs-theme="dark"] .table-dark,
+html[data-bs-theme="dark"] .report-ranking-table,
+html[data-bs-theme="dark"] .history-table,
+html[data-bs-theme="dark"] .scanner-table table {
+  --bs-table-bg: #012456 !important;
+  --bs-table-color: #f4f8ff !important;
+  --bs-table-striped-bg: #062958 !important;
+  --bs-table-striped-color: #f4f8ff !important;
+  --bs-table-hover-bg: #07356f !important;
+  --bs-table-hover-color: #ffffff !important;
+  background: #012456 !important;
+  color: #f4f8ff !important;
+  border-color: rgba(117, 215, 255, 0.28) !important;
+}
+
+html[data-bs-theme="dark"] .table thead th,
+html[data-bs-theme="dark"] .report-ranking-table thead th,
+html[data-bs-theme="dark"] .history-table thead th,
+html[data-bs-theme="dark"] .scanner-table thead th {
+  background: #07356f !important;
+  color: #75d7ff !important;
+  border-color: rgba(117, 215, 255, 0.42) !important;
+}
+
+html[data-bs-theme="dark"] .table td,
+html[data-bs-theme="dark"] .table th,
+html[data-bs-theme="dark"] .report-ranking-table td,
+html[data-bs-theme="dark"] .history-table td,
+html[data-bs-theme="dark"] .scanner-table td {
+  border-color: rgba(117, 215, 255, 0.22) !important;
+}
+
+html[data-bs-theme="dark"] .table tbody tr:hover > *,
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover > *,
+html[data-bs-theme="dark"] .history-table tbody tr:hover td,
+html[data-bs-theme="dark"] .scanner-table tbody tr:hover td,
+html[data-bs-theme="dark"] .signal-mini-card:hover,
+html[data-bs-theme="dark"] .signal-mini-card.active {
+  background: #07356f !important;
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .form-control,
+html[data-bs-theme="dark"] .form-select,
+html[data-bs-theme="dark"] textarea,
+html[data-bs-theme="dark"] .form-check-input {
+  background: #062958 !important;
+  border-color: rgba(117, 215, 255, 0.5) !important;
+  color: #f4f8ff !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .form-control:focus,
+html[data-bs-theme="dark"] .form-select:focus,
+html[data-bs-theme="dark"] textarea:focus {
+  background: #07356f !important;
+  border-color: #75d7ff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 0.16rem rgba(117, 215, 255, 0.2) !important;
+}
+
+html[data-bs-theme="dark"] .btn,
+html[data-bs-theme="dark"] .btn-info,
+html[data-bs-theme="dark"] .btn-warning,
+html[data-bs-theme="dark"] .btn-outline-info,
+html[data-bs-theme="dark"] .btn-outline-warning,
+html[data-bs-theme="dark"] .btn-outline-light,
+html[data-bs-theme="dark"] .report-actions .btn {
+  background: #062958 !important;
+  border-color: rgba(117, 215, 255, 0.48) !important;
+  color: #f4f8ff !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .btn:hover,
+html[data-bs-theme="dark"] .btn:focus,
+html[data-bs-theme="dark"] .report-actions .btn:hover,
+html[data-bs-theme="dark"] .report-actions .btn:focus {
+  background: #07356f !important;
+  border-color: #75d7ff !important;
+  color: #ffffff !important;
+}
+
+html[data-bs-theme="dark"] .eyebrow,
+html[data-bs-theme="dark"] label,
+html[data-bs-theme="dark"] .text-info,
+html[data-bs-theme="dark"] .link-info,
+html[data-bs-theme="dark"] .shell-path,
+html[data-bs-theme="dark"] .shell-command,
+html[data-bs-theme="dark"] .terminal-feed-row::before,
+html[data-bs-theme="dark"] .history-totalizer span,
+html[data-bs-theme="dark"] .scanner-summary span,
+html[data-bs-theme="dark"] .diagnostic-param-pill span,
+html[data-bs-theme="dark"] .signal-param-pill span {
+  color: #75d7ff !important;
+}
+
+html[data-bs-theme="dark"] h1,
+html[data-bs-theme="dark"] h2,
+html[data-bs-theme="dark"] h3,
+html[data-bs-theme="dark"] h4,
+html[data-bs-theme="dark"] h5,
+html[data-bs-theme="dark"] h6,
+html[data-bs-theme="dark"] p,
+html[data-bs-theme="dark"] td,
+html[data-bs-theme="dark"] .text-secondary,
+html[data-bs-theme="dark"] small {
+  color: #f4f8ff !important;
+}
+
+html[data-bs-theme="dark"] .text-success,
+html[data-bs-theme="dark"] .return-positive,
+html[data-bs-theme="dark"] .shell-ok {
+  color: #16ff7a !important;
+}
+
+html[data-bs-theme="dark"] .text-danger,
+html[data-bs-theme="dark"] .return-negative,
+html[data-bs-theme="dark"] .shell-danger {
+  color: #ff4d4d !important;
 }

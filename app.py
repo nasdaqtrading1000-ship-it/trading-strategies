@@ -2831,6 +2831,102 @@ def create_app():
             user_totalizer_enabled=user is not None,
         )
 
+    @app.route("/mobile")
+    def mobile_index():
+        user = current_user()
+        has_full_access = member_has_full_access(user)
+        query = """
+        SELECT id, name, description, risk_level, signal_frequency,
+               historical_return, telegram_url, has_telegram, signals_txt_name,
+               python_file, auto_execute, schedule_start_time, schedule_end_time,
+               schedule_interval_minutes, run_status, run_message, run_at,
+               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active
+        FROM strategies
+        WHERE is_active = 1
+        ORDER BY created_at DESC
+        """
+        rows = g.db.execute(text(query)).mappings().fetchall()
+        user_totalizer_selection = load_user_totalizer_selection(user["id"]) if user else None
+        strategies = []
+        for row in rows:
+            strategy = strategy_with_signals(row)
+            strategy["is_locked"] = not has_full_access and not int(strategy.get("public_visible") or 0)
+            if user_totalizer_selection is None:
+                strategy["selected_for_totalizer"] = int(strategy.get("include_in_totalizer") or 0)
+            else:
+                strategy["selected_for_totalizer"] = 1 if strategy["id"] in user_totalizer_selection else 0
+            strategies.append(strategy)
+        strategies.sort(
+            key=lambda strategy: (
+                -int(strategy.get("public_visible") or 0),
+                -int(strategy.get("signals_count") or 0),
+                strategy.get("name", ""),
+            )
+        )
+        top_assets = top_money_volume_assets()
+        news_preview = relevant_market_news(limit=5)
+        totalizer = build_totalizer(strategies)
+        return render_template(
+            "mobile/index.html",
+            strategies=strategies,
+            totalizer=totalizer,
+            top_money_volume_assets=top_assets["rows"],
+            top_money_volume_updated_at=top_assets["updated_at"],
+            market_news=news_preview["rows"],
+            market_news_updated_at=news_preview["updated_at"],
+            page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
+            is_public_view=not has_full_access,
+        )
+
+    @app.route("/mobile/estrategia/<int:strategy_id>/avisos")
+    def mobile_strategy_signals(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        if not can_view_strategy(strategy):
+            flash("Crea una cuenta para ver los avisos completos.", "warning")
+            return redirect(url_for("user_login"))
+        signals = read_strategy_signals(strategy["signals_txt_name"])
+        attach_simulated_operations_to_signals(strategy, signals)
+        grouped_mode = strategy_uses_grouped_operations(strategy)
+        signal_groups = build_signal_groups(signals, grouped_mode=grouped_mode)
+        return render_template(
+            "mobile/signals.html",
+            strategy=strategy,
+            signals=signals,
+            signal_groups=signal_groups,
+            grouped_mode=grouped_mode,
+            page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
+        )
+
+    @app.route("/mobile/manifest.json")
+    def mobile_manifest():
+        return jsonify(
+            {
+                "name": "Code Markets Mobile",
+                "short_name": "CodeMarkets",
+                "start_url": url_for("mobile_index"),
+                "scope": "/mobile",
+                "display": "standalone",
+                "background_color": "#012456",
+                "theme_color": "#012456",
+                "description": "Vista movil de modelos de mercado y avisos automaticos.",
+            }
+        )
+
+    @app.route("/mobile/service-worker.js")
+    def mobile_service_worker():
+        body = """
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("fetch", () => {});
+""".strip()
+        return app.response_class(body, mimetype="application/javascript")
+
     @app.route("/terminal-feed")
     def terminal_feed():
         return jsonify(terminal_feed_payload())

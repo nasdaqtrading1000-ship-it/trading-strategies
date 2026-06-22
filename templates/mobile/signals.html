@@ -1,0 +1,62 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Avisos {{ strategy.name }}{% endblock %}
+
+{% block content %}
+<section class="mobile-hero compact">
+  <a class="mobile-back" href="{{ url_for('mobile_index') }}">Volver</a>
+  <p class="mobile-eyebrow">avisos actuales</p>
+  <h1>{{ strategy.name }}</h1>
+  <p>{{ signals|length }} avisos. Refresh {{ page_refreshed_at }}</p>
+</section>
+
+<section class="mobile-signals">
+  {% if grouped_mode and signal_groups %}
+    {% for group in signal_groups %}
+      <article class="mobile-signal-card">
+        <div class="mobile-signal-head">
+          <div>
+            <strong>{{ group.symbol }}</strong>
+            {% if group.count > 1 %}
+              <span>{{ group.count }} operaciones</span>
+            {% endif %}
+          </div>
+          <span>{{ group.latest_signal.signal_date_display or group.latest_signal.created_display or "Sin fecha" }}</span>
+        </div>
+        <div class="mobile-signal-prices">
+          <span>Entrada <strong>{{ group.latest_signal.entry_price_display or group.latest_signal.entry_price or "-" }}</strong></span>
+          <span>Salida <strong>{{ group.latest_signal.exit_price_display or group.latest_signal.exit_price or "-" }}</strong></span>
+          <span>SL <strong>{{ group.latest_signal.stop_loss_display or group.latest_signal.stop_loss or "-" }}</strong></span>
+        </div>
+        <a href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=group.symbol, key=group.latest_signal.signal_key) }}">Diagnostico</a>
+      </article>
+    {% endfor %}
+  {% elif signals %}
+    {% for signal in signals %}
+      <article class="mobile-signal-card {% if signal.is_today %}is-today{% endif %}">
+        <div class="mobile-signal-head">
+          <div>
+            <strong>{{ signal.symbol }}</strong>
+            <span>{{ signal.direction or "-" }}</span>
+          </div>
+          <span>{{ signal.signal_date_display or signal.created_display or "Sin fecha" }}</span>
+        </div>
+        <div class="mobile-signal-prices">
+          <span>Entrada <strong>{{ signal.entry_price_display or signal.entry_price or "-" }}</strong></span>
+          <span>Salida <strong>{{ signal.exit_price_display or signal.exit_price or "-" }}</strong></span>
+          <span>SL <strong>{{ signal.stop_loss_display or signal.stop_loss or "-" }}</strong></span>
+        </div>
+        {% if signal.open_operation %}
+          <div class="mobile-operation-line">
+            <span>PA {{ signal.open_operation.current_price or "-" }}</span>
+            <strong class="{{ signal.open_operation.profit_class }}">{{ signal.open_operation.profit_pct or "0.00%" }}</strong>
+          </div>
+        {% endif %}
+        <a href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=signal.symbol, key=signal.signal_key) }}">Diagnostico</a>
+      </article>
+    {% endfor %}
+  {% else %}
+    <p class="mobile-empty">No hay avisos actuales.</p>
+  {% endif %}
+</section>
+{% endblock %}

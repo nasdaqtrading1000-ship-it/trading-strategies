@@ -1,0 +1,144 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Code Markets Mobile{% endblock %}
+
+{% block content %}
+<section class="mobile-hero">
+  <p class="mobile-eyebrow">automatic signals</p>
+  <h1>Modelos de mercado</h1>
+  <p>Vista rapida para movil con avisos, estado, riesgo y rendimiento.</p>
+  <div class="mobile-refresh">Refresh {{ page_refreshed_at }}</div>
+</section>
+
+{% if is_public_view %}
+  <section class="mobile-panel mobile-access">
+    <strong>Vista publica</strong>
+    <span>Algunos modelos estan bloqueados hasta crear cuenta.</span>
+    <a href="{{ url_for('user_register') }}">Crear cuenta</a>
+  </section>
+{% endif %}
+
+<section class="mobile-metrics">
+  <div>
+    <span>Modelos</span>
+    <strong>{{ strategies|length }}</strong>
+  </div>
+  <div>
+    <span>Totalizador</span>
+    <strong class="{{ totalizer.result_class }}">{{ totalizer.display }}</strong>
+  </div>
+  <div>
+    <span>%</span>
+    <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong>
+  </div>
+</section>
+
+<section class="mobile-panel">
+  <div class="mobile-section-head">
+    <div>
+      <p class="mobile-eyebrow">noticias</p>
+      <h2>Resumen de mercado</h2>
+    </div>
+    <a href="{{ url_for('market_news_page') }}">Ver</a>
+  </div>
+  <p class="mobile-updated">Actualizado: {{ market_news_updated_at or "Sin actualizar" }}</p>
+  {% if market_news %}
+    <div class="mobile-news-list">
+      {% for item in market_news %}
+        <article class="mobile-news-item">
+          <div>
+            <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
+            <span>{{ item.published_display or item.created_display }}</span>
+          </div>
+          <h3>{{ item.title_es }}</h3>
+          <p>{{ item.summary_es }}</p>
+          <small>{{ item.symbols or item.sector_tags or "Mercado general" }}</small>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="mobile-empty">No hay noticias cargadas.</p>
+  {% endif %}
+</section>
+
+<section class="mobile-panel">
+  <details>
+    <summary>
+      <div>
+        <p class="mobile-eyebrow">universo</p>
+        <h2>20 activos liquidos</h2>
+        <span>{{ top_money_volume_updated_at or "Sin actualizar" }}</span>
+      </div>
+    </summary>
+    {% if top_money_volume_assets %}
+      <div class="mobile-assets-list">
+        {% for asset in top_money_volume_assets %}
+          <div>
+            <strong>{{ asset.symbol }}</strong>
+            <span>{{ asset.name }}</span>
+            {% if asset.money_volume_display %}
+              <em>{{ asset.money_volume_display }}</em>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mobile-empty">Sin activos cargados.</p>
+    {% endif %}
+  </details>
+</section>
+
+<section class="mobile-models" id="modelos">
+  <div class="mobile-section-title">
+    <p class="mobile-eyebrow">modelos</p>
+    <h2>Activos</h2>
+  </div>
+  {% for strategy in strategies %}
+    <article class="mobile-strategy {% if strategy.is_locked %}is-locked{% endif %}">
+      <div class="mobile-strategy-top">
+        <div>
+          <span class="mobile-short">{{ strategy.short_name }}</span>
+          <h3>{{ strategy.name }}</h3>
+        </div>
+        <span class="mobile-risk risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
+      </div>
+      <p>{{ strategy.description }}</p>
+      <div class="mobile-strategy-grid">
+        <div>
+          <span>Avisos</span>
+          <strong>{{ strategy.signals_count|compact_count }}</strong>
+        </div>
+        <div>
+          <span>Hist.</span>
+          <strong>{{ strategy.closed_operations_count|compact_count }}</strong>
+        </div>
+        <div>
+          <span>Rent.</span>
+          <strong class="{{ strategy.return_metrics.result_class }}">{{ strategy.return_metrics.result }}</strong>
+        </div>
+        <div>
+          <span>Estado</span>
+          <strong>{{ strategy.run_status.label }}</strong>
+        </div>
+      </div>
+      <div class="mobile-strategy-meta">
+        <span>{{ strategy.signal_frequency }}</span>
+        <span>{{ strategy.signals_updated_at or "Sin actualizar" }}</span>
+      </div>
+      <div class="mobile-actions">
+        {% if strategy.is_locked %}
+          <a href="{{ url_for('user_register') }}">Desbloquear</a>
+        {% else %}
+          <a href="{{ url_for('mobile_strategy_signals', strategy_id=strategy.id) }}">Avisos</a>
+          <a href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}">Historial</a>
+          {% if strategy.has_telegram and strategy.telegram_url %}
+            <a href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">Telegram</a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </article>
+  {% else %}
+    <p class="mobile-empty">No hay modelos activos.</p>
+  {% endfor %}
+</section>
+{% endblock %}

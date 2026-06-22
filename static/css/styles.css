@@ -2343,6 +2343,11 @@ html {
   font-size: 0.68rem;
 }
 
+.report-frequency div {
+  color: #9dadbc;
+  font-size: 0.68rem;
+}
+
 .report-actions {
   display: grid;
   gap: 0.18rem;
@@ -3505,9 +3510,9 @@ html[data-bs-theme="dark"] .site-footer span:first-child::before {
 /* Full terminal pass: hard edges, command colors and live shell feel. */
 html[data-bs-theme="dark"] {
   --ps-bg: #012456;
-  --ps-bg-2: #001331;
-  --ps-panel: #062958;
-  --ps-panel-2: #07356f;
+  --ps-bg-2: #012456;
+  --ps-panel: #012456;
+  --ps-panel-2: #012456;
   --ps-line: rgba(126, 215, 255, 0.34);
   --ps-text: #f4f8ff;
   --ps-muted: #b9d4f7;
@@ -4060,8 +4065,7 @@ html[data-bs-theme="light"] .report-signals-btn:focus {
 }
 
 .history-page-panel .history-totalizer div {
-  background:
-    linear-gradient(135deg, rgba(30, 91, 145, 0.96), rgba(16, 61, 112, 0.94)) !important;
+  background: #012456 !important;
   border-color: rgba(158, 210, 255, 0.58) !important;
 }
 
@@ -4074,39 +4078,39 @@ html[data-bs-theme="light"] .report-signals-btn:focus {
 }
 
 .history-page-panel .history-table {
-  --bs-table-bg: #123e73 !important;
+  --bs-table-bg: #012456 !important;
   --bs-table-color: #f4fbff !important;
-  --bs-table-striped-bg: #174a86 !important;
+  --bs-table-striped-bg: #012456 !important;
   --bs-table-striped-color: #f4fbff !important;
-  --bs-table-hover-bg: #1f62a8 !important;
+  --bs-table-hover-bg: #012456 !important;
   --bs-table-hover-color: #ffffff !important;
-  background: #123e73 !important;
+  background: #012456 !important;
   border-color: rgba(158, 210, 255, 0.46) !important;
 }
 
 .history-page-panel .history-table thead th {
-  background: #1c5f9f !important;
+  background: #012456 !important;
   color: #ffffff !important;
   border-color: rgba(205, 235, 255, 0.52) !important;
 }
 
 .history-page-panel .history-table tbody td {
-  background: #123e73 !important;
+  background: #012456 !important;
   color: #eef8ff !important;
   border-color: rgba(158, 210, 255, 0.28) !important;
 }
 
 .history-page-panel .history-table tbody tr:nth-child(even) td {
-  background: #164a84 !important;
+  background: #012456 !important;
 }
 
 .history-page-panel .history-table tbody tr:hover td {
-  background: #246fb8 !important;
+  background: #012456 !important;
 }
 
 .history-page-panel .table-responsive {
   border: 1px solid rgba(158, 210, 255, 0.42);
-  background: #123e73;
+  background: #012456;
 }
 
 /* Global blue interface pass: filters, account, membership, login, news and admin */
@@ -4347,15 +4351,15 @@ html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover > * {
 }
 
 html[data-bs-theme="dark"] .report-ranking-table {
-  --bs-table-bg: #001331 !important;
-  --bs-table-striped-bg: #062958 !important;
+  --bs-table-bg: #012456 !important;
+  --bs-table-striped-bg: #012456 !important;
   --bs-table-hover-bg: rgba(117, 215, 255, 0.12) !important;
   --bs-table-color: var(--ps-text) !important;
   border: 1px solid var(--ps-line);
 }
 
 html[data-bs-theme="dark"] .report-ranking-table thead th {
-  background: #07356f !important;
+  background: #012456 !important;
   color: var(--ps-green) !important;
   border-color: var(--ps-line) !important;
 }
@@ -4391,7 +4395,7 @@ html[data-bs-theme="dark"] .top-asset-item strong {
 
 html[data-bs-theme="dark"] .market-news-row,
 html[data-bs-theme="dark"] .top-asset-item {
-  background: rgba(6, 41, 88, 0.72) !important;
+  background: #012456 !important;
   border-color: rgba(117, 215, 255, 0.22) !important;
 }
 
@@ -4402,52 +4406,50 @@ html[data-bs-theme="dark"] ::selection {
 
 /* History view must stay visibly blue, not terminal-black. Keep this after global table rules. */
 html[data-bs-theme="dark"] .history-page-panel {
-  background:
-    linear-gradient(180deg, rgba(16, 58, 104, 0.98), rgba(13, 47, 88, 0.98)) !important;
+  background: #012456 !important;
   border-color: rgba(158, 210, 255, 0.58) !important;
 }
 
 html[data-bs-theme="dark"] .history-page-panel .history-totalizer div {
-  background:
-    linear-gradient(135deg, rgba(35, 106, 174, 0.96), rgba(20, 74, 134, 0.94)) !important;
+  background: #012456 !important;
   border-color: rgba(205, 235, 255, 0.52) !important;
 }
 
 html[data-bs-theme="dark"] .history-page-panel .table-responsive {
-  background: #164a84 !important;
+  background: #012456 !important;
   border-color: rgba(205, 235, 255, 0.48) !important;
 }
 
 html[data-bs-theme="dark"] .history-page-panel .history-table,
 html[data-bs-theme="dark"] .history-page-panel table.history-table.table-dark {
-  --bs-table-bg: #164a84 !important;
+  --bs-table-bg: #012456 !important;
   --bs-table-color: #f4fbff !important;
-  --bs-table-striped-bg: #1a5598 !important;
+  --bs-table-striped-bg: #012456 !important;
   --bs-table-striped-color: #f4fbff !important;
-  --bs-table-hover-bg: #2879c6 !important;
+  --bs-table-hover-bg: #012456 !important;
   --bs-table-hover-color: #ffffff !important;
-  background-color: #164a84 !important;
+  background-color: #012456 !important;
   color: #f4fbff !important;
 }
 
 html[data-bs-theme="dark"] .history-page-panel .history-table thead th {
-  background-color: #2871b8 !important;
+  background-color: #012456 !important;
   color: #ffffff !important;
   border-color: rgba(220, 242, 255, 0.56) !important;
 }
 
 html[data-bs-theme="dark"] .history-page-panel .history-table tbody td {
-  background-color: #164a84 !important;
+  background-color: #012456 !important;
   color: #f4fbff !important;
   border-color: rgba(205, 235, 255, 0.28) !important;
 }
 
 html[data-bs-theme="dark"] .history-page-panel .history-table tbody tr:nth-child(even) td {
-  background-color: #1b5799 !important;
+  background-color: #012456 !important;
 }
 
 html[data-bs-theme="dark"] .history-page-panel .history-table tbody tr:hover td {
-  background-color: #2d83d2 !important;
+  background-color: #012456 !important;
   color: #ffffff !important;
 }
 
@@ -4465,7 +4467,7 @@ html[data-bs-theme="dark"] .asset-filter-page .risk-notice {
 
 html[data-bs-theme="dark"] .asset-filter-page .section-heading {
   padding: 1rem 1.15rem;
-  background: #07356f !important;
+  background: #012456 !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .eyebrow,
@@ -4485,14 +4487,14 @@ html[data-bs-theme="dark"] .asset-filter-page .scanner-summary span {
 
 html[data-bs-theme="dark"] .asset-filter-page .form-control,
 html[data-bs-theme="dark"] .asset-filter-page .form-select {
-  background-color: #062958 !important;
+  background-color: #012456 !important;
   border-color: rgba(117, 215, 255, 0.5) !important;
   color: #ffffff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .form-control:focus,
 html[data-bs-theme="dark"] .asset-filter-page .form-select:focus {
-  background-color: #07356f !important;
+  background-color: #012456 !important;
   border-color: #75d7ff !important;
   box-shadow: 0 0 0 0.16rem rgba(117, 215, 255, 0.22) !important;
 }
@@ -4502,7 +4504,7 @@ html[data-bs-theme="dark"] .asset-filter-page .scanner-summary {
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-summary > div {
-  background: #062958 !important;
+  background: #012456 !important;
   border: 1px solid rgba(117, 215, 255, 0.35) !important;
   padding: 0.75rem 0.85rem;
 }
@@ -4524,16 +4526,16 @@ html[data-bs-theme="dark"] .asset-filter-page .scanner-table table,
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table table.table-dark {
   --bs-table-bg: #012456 !important;
   --bs-table-color: #f4fbff !important;
-  --bs-table-striped-bg: #062958 !important;
+  --bs-table-striped-bg: #012456 !important;
   --bs-table-striped-color: #f4fbff !important;
-  --bs-table-hover-bg: #07356f !important;
+  --bs-table-hover-bg: #012456 !important;
   --bs-table-hover-color: #ffffff !important;
   background-color: #012456 !important;
   color: #f4fbff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table thead th {
-  background-color: #07356f !important;
+  background-color: #012456 !important;
   border-color: rgba(117, 215, 255, 0.52) !important;
   color: #75d7ff !important;
 }
@@ -4545,11 +4547,11 @@ html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody td {
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody tr:nth-child(even) td {
-  background-color: #062958 !important;
+  background-color: #012456 !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .scanner-table tbody tr:hover td {
-  background-color: #07356f !important;
+  background-color: #012456 !important;
   color: #ffffff !important;
 }
 
@@ -4563,14 +4565,14 @@ html[data-bs-theme="dark"] .asset-filter-page .scanner-table strong {
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .btn-info {
-  background: #07356f !important;
+  background: #012456 !important;
   border-color: #75d7ff !important;
   color: #f4fbff !important;
 }
 
 html[data-bs-theme="dark"] .asset-filter-page .btn-info:hover,
 html[data-bs-theme="dark"] .asset-filter-page .btn-info:focus {
-  background: #0b478f !important;
+  background: #012456 !important;
   border-color: #16ff7a !important;
   color: #ffffff !important;
 }
@@ -4580,7 +4582,7 @@ html[data-bs-theme="dark"] .report-actions .report-signals-btn,
 html[data-bs-theme="dark"] .report-actions .report-history-btn,
 html[data-bs-theme="light"] .report-actions .report-signals-btn,
 html[data-bs-theme="light"] .report-actions .report-history-btn {
-  background: #062958 !important;
+  background: #012456 !important;
   border-color: rgba(117, 215, 255, 0.48) !important;
   color: #f4fbff !important;
   box-shadow: none !important;
@@ -4594,7 +4596,7 @@ html[data-bs-theme="light"] .report-actions .report-signals-btn:hover,
 html[data-bs-theme="light"] .report-actions .report-signals-btn:focus,
 html[data-bs-theme="light"] .report-actions .report-history-btn:hover,
 html[data-bs-theme="light"] .report-actions .report-history-btn:focus {
-  background: #07356f !important;
+  background: #012456 !important;
   border-color: #75d7ff !important;
   color: #ffffff !important;
 }
@@ -4660,7 +4662,7 @@ html[data-bs-theme="dark"] .market-news-affected,
 html[data-bs-theme="dark"] .badge,
 html[data-bs-theme="dark"] .locked-mini,
 html[data-bs-theme="dark"] .account-access-pill {
-  background: #062958 !important;
+  background: #012456 !important;
   border-color: rgba(117, 215, 255, 0.34) !important;
   color: #f4f8ff !important;
   box-shadow: none !important;
@@ -4673,9 +4675,9 @@ html[data-bs-theme="dark"] .history-table,
 html[data-bs-theme="dark"] .scanner-table table {
   --bs-table-bg: #012456 !important;
   --bs-table-color: #f4f8ff !important;
-  --bs-table-striped-bg: #062958 !important;
+  --bs-table-striped-bg: #012456 !important;
   --bs-table-striped-color: #f4f8ff !important;
-  --bs-table-hover-bg: #07356f !important;
+  --bs-table-hover-bg: #012456 !important;
   --bs-table-hover-color: #ffffff !important;
   background: #012456 !important;
   color: #f4f8ff !important;
@@ -4686,7 +4688,7 @@ html[data-bs-theme="dark"] .table thead th,
 html[data-bs-theme="dark"] .report-ranking-table thead th,
 html[data-bs-theme="dark"] .history-table thead th,
 html[data-bs-theme="dark"] .scanner-table thead th {
-  background: #07356f !important;
+  background: #012456 !important;
   color: #75d7ff !important;
   border-color: rgba(117, 215, 255, 0.42) !important;
 }
@@ -4705,7 +4707,7 @@ html[data-bs-theme="dark"] .history-table tbody tr:hover td,
 html[data-bs-theme="dark"] .scanner-table tbody tr:hover td,
 html[data-bs-theme="dark"] .signal-mini-card:hover,
 html[data-bs-theme="dark"] .signal-mini-card.active {
-  background: #07356f !important;
+  background: #012456 !important;
   color: #ffffff !important;
 }
 
@@ -4713,7 +4715,7 @@ html[data-bs-theme="dark"] .form-control,
 html[data-bs-theme="dark"] .form-select,
 html[data-bs-theme="dark"] textarea,
 html[data-bs-theme="dark"] .form-check-input {
-  background: #062958 !important;
+  background: #012456 !important;
   border-color: rgba(117, 215, 255, 0.5) !important;
   color: #f4f8ff !important;
   box-shadow: none !important;
@@ -4722,7 +4724,7 @@ html[data-bs-theme="dark"] .form-check-input {
 html[data-bs-theme="dark"] .form-control:focus,
 html[data-bs-theme="dark"] .form-select:focus,
 html[data-bs-theme="dark"] textarea:focus {
-  background: #07356f !important;
+  background: #012456 !important;
   border-color: #75d7ff !important;
   color: #ffffff !important;
   box-shadow: 0 0 0 0.16rem rgba(117, 215, 255, 0.2) !important;
@@ -4735,7 +4737,7 @@ html[data-bs-theme="dark"] .btn-outline-info,
 html[data-bs-theme="dark"] .btn-outline-warning,
 html[data-bs-theme="dark"] .btn-outline-light,
 html[data-bs-theme="dark"] .report-actions .btn {
-  background: #062958 !important;
+  background: #012456 !important;
   border-color: rgba(117, 215, 255, 0.48) !important;
   color: #f4f8ff !important;
   box-shadow: none !important;
@@ -4745,7 +4747,7 @@ html[data-bs-theme="dark"] .btn:hover,
 html[data-bs-theme="dark"] .btn:focus,
 html[data-bs-theme="dark"] .report-actions .btn:hover,
 html[data-bs-theme="dark"] .report-actions .btn:focus {
-  background: #07356f !important;
+  background: #012456 !important;
   border-color: #75d7ff !important;
   color: #ffffff !important;
 }
@@ -5022,4 +5024,454 @@ html[data-bs-theme="dark"] .shell-danger {
   html[data-bs-theme="dark"] .hero-actions {
     gap: 0.25rem !important;
   }
+}
+
+/* PowerShell screenshot polish: flat background, no exterior gradients, no darker hover fills. */
+html[data-bs-theme="dark"] body,
+html[data-bs-theme="dark"] main,
+html[data-bs-theme="dark"] .hero-section,
+html[data-bs-theme="dark"] .report-hero,
+html[data-bs-theme="dark"] .strategy-signals-page,
+html[data-bs-theme="dark"] .asset-filter-page,
+html[data-bs-theme="dark"] .site-footer,
+html[data-bs-theme="dark"] .app-navbar {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+}
+
+html[data-bs-theme="dark"] body::before,
+html[data-bs-theme="dark"] body::after,
+html[data-bs-theme="dark"] .report-hero::before,
+html[data-bs-theme="dark"] .report-hero::after {
+  background: transparent !important;
+  background-image: none !important;
+  opacity: 0 !important;
+}
+
+html[data-bs-theme="dark"] .market-news-card,
+html[data-bs-theme="dark"] .market-news-item,
+html[data-bs-theme="dark"] .market-news-row,
+html[data-bs-theme="dark"] .market-news-affected,
+html[data-bs-theme="dark"] .news-row-affected,
+html[data-bs-theme="dark"] .market-news-meta span,
+html[data-bs-theme="dark"] .top-assets-card,
+html[data-bs-theme="dark"] .top-asset-item,
+html[data-bs-theme="dark"] .report-ranking-card,
+html[data-bs-theme="dark"] .report-ranking-table-wrap,
+html[data-bs-theme="dark"] .risk-notice,
+html[data-bs-theme="dark"] .filter-panel,
+html[data-bs-theme="dark"] .scanner-summary,
+html[data-bs-theme="dark"] .scanner-summary > div,
+html[data-bs-theme="dark"] .scanner-table,
+html[data-bs-theme="dark"] .signals-sidebar,
+html[data-bs-theme="dark"] .diagnostic-panel,
+html[data-bs-theme="dark"] .diagnostic-box,
+html[data-bs-theme="dark"] .diagnostic-side,
+html[data-bs-theme="dark"] .diagnostic-param-pills-priority,
+html[data-bs-theme="dark"] .diagnostic-param-pill,
+html[data-bs-theme="dark"] .diagnostic-summary-grid div,
+html[data-bs-theme="dark"] .history-page-panel,
+html[data-bs-theme="dark"] .history-totalizer div,
+html[data-bs-theme="dark"] .history-page-panel .table-responsive,
+html[data-bs-theme="dark"] .form-control,
+html[data-bs-theme="dark"] .form-select,
+html[data-bs-theme="dark"] textarea,
+html[data-bs-theme="dark"] .btn,
+html[data-bs-theme="dark"] .report-actions .btn {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .market-news-row:hover,
+html[data-bs-theme="dark"] .top-asset-item:hover,
+html[data-bs-theme="dark"] .signal-mini-card:hover,
+html[data-bs-theme="dark"] .signal-mini-card.active,
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover > *,
+html[data-bs-theme="dark"] .history-table tbody tr:hover td,
+html[data-bs-theme="dark"] .scanner-table tbody tr:hover > *,
+html[data-bs-theme="dark"] .btn:hover,
+html[data-bs-theme="dark"] .btn:focus,
+html[data-bs-theme="dark"] .form-control:focus,
+html[data-bs-theme="dark"] .form-select:focus,
+html[data-bs-theme="dark"] textarea:focus {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+  border-color: #75d7ff !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .table,
+html[data-bs-theme="dark"] .table-dark,
+html[data-bs-theme="dark"] .report-ranking-table,
+html[data-bs-theme="dark"] .history-table,
+html[data-bs-theme="dark"] .scanner-table table {
+  --bs-table-bg: #012456 !important;
+  --bs-table-striped-bg: #012456 !important;
+  --bs-table-hover-bg: #012456 !important;
+  --bs-table-active-bg: #012456 !important;
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+}
+
+html[data-bs-theme="dark"] .table > :not(caption) > * > *,
+html[data-bs-theme="dark"] .report-ranking-table > :not(caption) > * > *,
+html[data-bs-theme="dark"] .history-table > :not(caption) > * > *,
+html[data-bs-theme="dark"] .scanner-table table > :not(caption) > * > * {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+}
+
+/* Avisos actuales: diagnostic panel must use the same PowerShell blue, never a darker fill. */
+html[data-bs-theme="dark"] .strategy-signals-page,
+html[data-bs-theme="dark"] .strategy-signals-page .signals-diagnostic,
+html[data-bs-theme="dark"] .strategy-signals-page .signals-diagnostic .diagnostic-panel,
+html[data-bs-theme="dark"] .strategy-signals-page .diagnostic-panel,
+html[data-bs-theme="dark"] .strategy-signals-page .diagnostic-box,
+html[data-bs-theme="dark"] .strategy-signals-page .diagnostic-param-pills,
+html[data-bs-theme="dark"] .strategy-signals-page .diagnostic-param-pills-priority,
+html[data-bs-theme="dark"] .strategy-signals-page .diagnostic-summary-grid div,
+html[data-bs-theme="dark"] .strategy-signals-page .diagnostic-side,
+html[data-bs-theme="dark"] .strategy-signals-page .alert,
+html[data-bs-theme="dark"] .strategy-signals-page .signal-date-chip,
+html[data-bs-theme="dark"] .strategy-signals-page .signal-count-chip,
+html[data-bs-theme="dark"] .strategy-signals-page .signal-price-chip,
+html[data-bs-theme="dark"] .strategy-signals-page .diagnostic-param-pill {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* Modelos activos: flat rows, full-box hover like news cards. */
+html[data-bs-theme="dark"] .report-ranking-table tbody tr > *,
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:nth-child(odd) > *,
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:nth-child(even) > * {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table tbody tr {
+  outline: 1px solid rgba(117, 215, 255, 0.18);
+  outline-offset: -1px;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover {
+  outline-color: #75d7ff;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover > * {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  border-top-color: #75d7ff !important;
+  border-bottom-color: #75d7ff !important;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover > *:first-child {
+  border-left-color: #75d7ff !important;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table tbody tr:hover > *:last-child {
+  border-right-color: #75d7ff !important;
+}
+
+/* Navigation and scroll bars: same flat PowerShell blue. */
+html[data-bs-theme="dark"] .navbar,
+html[data-bs-theme="dark"] .app-navbar,
+html[data-bs-theme="dark"] .sticky-top,
+html[data-bs-theme="dark"] .site-footer,
+html[data-bs-theme="dark"] .live-shell-panel,
+html[data-bs-theme="dark"] .live-shell-titlebar,
+html[data-bs-theme="dark"] .live-shell-body,
+html[data-bs-theme="dark"] .terminal-feed-lines {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-bs-theme="dark"] .shell-danger,
+html[data-bs-theme="dark"] .shell-error-block {
+  background: #012456 !important;
+  background-color: #012456 !important;
+  background-image: none !important;
+}
+
+html[data-bs-theme="dark"] {
+  scrollbar-color: #b7b7b7 #f1f1f1;
+}
+
+html[data-bs-theme="dark"] ::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: #f1f1f1 !important;
+}
+
+html[data-bs-theme="dark"] ::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+}
+
+html[data-bs-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #b7b7b7 !important;
+  border: 2px solid #f1f1f1 !important;
+  border-radius: 0;
+}
+
+/* Asset filter: narrower controls, wider results, no horizontal table scroll on desktop. */
+@media (min-width: 992px) {
+  html[data-bs-theme="dark"] .asset-filter-page .filter-panel {
+    padding: 0.56rem !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .filter-panel .mb-3,
+  html[data-bs-theme="dark"] .asset-filter-page .filter-panel .mb-4 {
+    margin-bottom: 0.48rem !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .filter-panel label {
+    font-size: 0.66rem !important;
+    line-height: 1.08 !important;
+    margin-bottom: 0.18rem !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .filter-panel .form-select,
+  html[data-bs-theme="dark"] .asset-filter-page .filter-panel .form-control {
+    font-size: 0.68rem !important;
+    padding: 0.18rem 1.35rem 0.18rem 0.32rem !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-summary {
+    padding: 0.58rem !important;
+    margin-bottom: 0.68rem !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table .table-responsive {
+    overflow-x: visible !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table table {
+    table-layout: fixed;
+    width: 100%;
+    font-size: 0.78rem !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table th,
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table td {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    padding: 0.28rem 0.32rem !important;
+    line-height: 1.14 !important;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table th:nth-child(1),
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table td:nth-child(1) {
+    width: 23%;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table th:nth-child(2),
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table td:nth-child(2) {
+    width: 9%;
+  }
+
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table th:nth-child(3),
+  html[data-bs-theme="dark"] .asset-filter-page .scanner-table td:nth-child(3) {
+    width: 12%;
+  }
+
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table th:nth-child(4),
+html[data-bs-theme="dark"] .asset-filter-page .scanner-table td:nth-child(4) {
+    width: 10%;
+  }
+}
+
+/* Avisos actuales: give Entrada/Salida/SL enough room in the listing. */
+@media (min-width: 992px) {
+  .signals-workspace {
+    grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  }
+}
+
+.signal-mini-card {
+  padding: 0.3rem 0.32rem;
+}
+
+.signal-line-preview {
+  -webkit-line-clamp: 1;
+  font-size: 0.78rem;
+  line-height: 1.12;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.signal-title-tools {
+  gap: 0.22rem;
+}
+
+.signal-market-links {
+  gap: 0.16rem;
+}
+
+.signal-date-chip,
+.signal-price-chip,
+.signal-count-chip,
+.signal-market-links a {
+  font-size: 0.62rem;
+  padding: 0.14rem 0.28rem;
+}
+
+/* Terminal density: larger text, less empty air. */
+html[data-bs-theme="dark"] .market-news-card,
+html[data-bs-theme="dark"] .top-assets-card,
+html[data-bs-theme="dark"] .report-ranking-card,
+html[data-bs-theme="dark"] .risk-notice {
+  padding: 0.62rem !important;
+}
+
+html[data-bs-theme="dark"] .market-news-card h2,
+html[data-bs-theme="dark"] .top-assets-card h2,
+html[data-bs-theme="dark"] .report-ranking-card h2 {
+  font-size: 1.08rem !important;
+  line-height: 1.14 !important;
+  margin-bottom: 0.18rem !important;
+}
+
+html[data-bs-theme="dark"] .market-news-row,
+html[data-bs-theme="dark"] .top-asset-item {
+  padding: 0.34rem 0.45rem !important;
+  font-size: 0.86rem !important;
+}
+
+html[data-bs-theme="dark"] .market-news-summary,
+html[data-bs-theme="dark"] .report-strategy-description,
+html[data-bs-theme="dark"] .report-frequency span,
+html[data-bs-theme="dark"] .report-frequency div,
+html[data-bs-theme="dark"] .capital-breakdown small,
+html[data-bs-theme="dark"] .report-score-note {
+  font-size: 0.82rem !important;
+  line-height: 1.18 !important;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table {
+  font-size: 0.9rem !important;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table td,
+html[data-bs-theme="dark"] .report-ranking-table th {
+  padding: 0.32rem 0.38rem !important;
+}
+
+html[data-bs-theme="dark"] .report-ranking-table thead th {
+  font-size: 0.72rem !important;
+  line-height: 1.1 !important;
+}
+
+html[data-bs-theme="dark"] .ranking-strategy-link {
+  font-size: 0.92rem !important;
+  line-height: 1.12 !important;
+}
+
+html[data-bs-theme="dark"] .ranking-strategy-link span {
+  font-size: 0.68rem !important;
+}
+
+html[data-bs-theme="dark"] .report-frequency strong,
+html[data-bs-theme="dark"] .capital-breakdown-main,
+html[data-bs-theme="dark"] .return-positive,
+html[data-bs-theme="dark"] .return-negative {
+  font-size: 0.9rem !important;
+}
+
+html[data-bs-theme="dark"] .status-pill,
+html[data-bs-theme="dark"] .badge,
+html[data-bs-theme="dark"] .locked-mini {
+  font-size: 0.72rem !important;
+  padding: 0.16rem 0.36rem !important;
+}
+
+html[data-bs-theme="dark"] .report-actions {
+  gap: 0.1rem !important;
+}
+
+html[data-bs-theme="dark"] .report-actions .btn {
+  font-size: 0.72rem !important;
+  padding: 0.2rem 0.42rem !important;
+}
+
+@media (max-width: 767.98px) {
+  html[data-bs-theme="dark"] .report-ranking-table {
+    font-size: 0.68rem !important;
+  }
+
+  html[data-bs-theme="dark"] .report-ranking-table td,
+  html[data-bs-theme="dark"] .report-ranking-table th {
+    padding: 0.24rem 0.28rem !important;
+  }
+
+  html[data-bs-theme="dark"] .report-strategy-description,
+  html[data-bs-theme="dark"] .report-frequency span,
+  html[data-bs-theme="dark"] .report-frequency div,
+  html[data-bs-theme="dark"] .capital-breakdown small {
+    font-size: 0.64rem !important;
+  }
+}
+
+/* Full-width application shell: use the whole browser width by default. */
+html[data-bs-theme="dark"] .container,
+html[data-bs-theme="dark"] .container-sm,
+html[data-bs-theme="dark"] .container-md,
+html[data-bs-theme="dark"] .container-lg,
+html[data-bs-theme="dark"] .container-xl,
+html[data-bs-theme="dark"] .container-xxl {
+  max-width: none !important;
+  width: 100% !important;
+  padding-left: 0.9rem !important;
+  padding-right: 0.9rem !important;
+}
+
+html[data-bs-theme="dark"] main,
+html[data-bs-theme="dark"] .report-hero,
+html[data-bs-theme="dark"] .strategy-signals-page,
+html[data-bs-theme="dark"] .asset-filter-page {
+  width: 100%;
+}
+
+/* Model table: slightly tighter columns on the full-width layout. */
+html[data-bs-theme="dark"] .report-ranking-table td,
+html[data-bs-theme="dark"] .report-ranking-table th {
+  padding-left: 0.26rem !important;
+  padding-right: 0.26rem !important;
+}
+
+/* Risk badges keep their meaning: Bajo green, Medio yellow, Alto red. */
+html[data-bs-theme="dark"] .risk-bajo {
+  background: rgba(25, 135, 84, 0.22) !important;
+  border-color: rgba(25, 135, 84, 0.72) !important;
+  color: #7ee2a8 !important;
+}
+
+html[data-bs-theme="dark"] .risk-medio {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border-color: rgba(245, 158, 11, 0.72) !important;
+  color: #ffd166 !important;
+}
+
+html[data-bs-theme="dark"] .risk-alto {
+  background: rgba(220, 38, 38, 0.24) !important;
+  border-color: rgba(248, 113, 113, 0.78) !important;
+  color: #ff8a8a !important;
+}
+
+/* Frequency details: Aciertos is always its own row below Cierre medio. */
+html[data-bs-theme="dark"] .report-frequency .frequency-line {
+  display: block !important;
+  width: 100% !important;
+  grid-column: 1 / -1;
+  white-space: nowrap;
 }

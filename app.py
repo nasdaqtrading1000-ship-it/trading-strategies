@@ -4628,20 +4628,32 @@ self.addEventListener("fetch", () => {});
             return ""
         rollback_request_db()
         try:
-            value = g.db.execute(
+            row = g.db.execute(
                 text(
                     """
-                    SELECT MIN(COALESCE(opened_at, signal_date, closed_at, updated_at))
+                    SELECT
+                        MIN(COALESCE(opened_at, closed_at, updated_at)) AS first_timestamp,
+                        MIN(NULLIF(signal_date, '')) AS first_signal_date
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
                     """
                 ),
                 {"txt_name": txt_name},
-            ).scalar()
+            ).mappings().fetchone()
         except Exception:
             rollback_request_db()
-            value = first_operation_from_file(txt_name)
-        parsed = parse_utc_database_datetime(value)
+            row = None
+        parsed_candidates = []
+        if row:
+            parsed_candidates = [
+                parsed
+                for parsed in (
+                    parse_utc_database_datetime(row.get("first_timestamp")),
+                    parse_utc_database_datetime(row.get("first_signal_date")),
+                )
+                if parsed
+            ]
+        parsed = min(parsed_candidates) if parsed_candidates else None
         if not parsed:
             parsed = parse_utc_database_datetime(first_operation_from_file(txt_name))
         if not parsed:

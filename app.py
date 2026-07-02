@@ -458,7 +458,8 @@ def terminal_upload_watch_groups():
 
 def terminal_upload_status_event_lines():
     lines = ["CHECK :: upload file status panel"]
-    db_items = database_upload_status_payload()
+    upload_labels = [label for label, _paths in terminal_upload_watch_groups()]
+    db_items = database_chip_status_payload(upload_labels) or database_upload_status_payload()
     if db_items:
         for item in db_items:
             prefix = "OK FILE" if item["ok"] else "WARNING FILE"
@@ -483,7 +484,8 @@ def terminal_upload_status_event_lines():
 
 
 def terminal_upload_status_payload():
-    db_items = database_upload_status_payload()
+    upload_labels = [label for label, _paths in terminal_upload_watch_groups()]
+    db_items = database_chip_status_payload(upload_labels) or database_upload_status_payload()
     if db_items:
         return db_items
     today = datetime.now(MADRID_TZ).date()
@@ -499,6 +501,52 @@ def terminal_upload_status_payload():
                 "exists": status["exists"],
                 "count": status["count"],
                 "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+            }
+        )
+    return items
+
+
+def database_chip_status_payload(keys=None):
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT key, label, ok, updated_display, updated_at, file_count, synced_at
+                        FROM chip_status
+                        """
+                    )
+                )
+                .mappings()
+                .fetchall()
+            )
+    except Exception:
+        return []
+    if not rows:
+        return []
+    keys = list(keys or [])
+    rows_by_key = {row.get("key"): dict(row) for row in rows}
+    requested = keys or list(rows_by_key.keys())
+    market_open = time_in_madrid_window_global(datetime.now(MADRID_TZ), "15:30", "22:00")
+    items = []
+    for key in requested:
+        row = rows_by_key.get(key)
+        if not row:
+            continue
+        updated_at = parse_database_datetime_global(row.get("updated_at") or row.get("synced_at"))
+        ok = bool(row.get("ok")) and market_open
+        if key == "market-hours":
+            ok = market_open
+        items.append(
+            {
+                "key": key,
+                "label": row.get("label") or key,
+                "ok": ok,
+                "exists": True,
+                "count": int(row.get("file_count") or 0),
+                "updated_display": row.get("updated_display") or (updated_at.strftime("%H:%M") if updated_at else "sin fecha"),
+                "title": f"{row.get('label') or key}: {row.get('updated_display') or ''}",
             }
         )
     return items
@@ -558,6 +606,16 @@ def parse_database_datetime_global(value):
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(MADRID_TZ)
+
+
+def time_in_madrid_window_global(now, start_text, end_text):
+    start_hour, start_minute = [int(part) for part in start_text.split(":", 1)]
+    end_hour, end_minute = [int(part) for part in end_text.split(":", 1)]
+    start = now.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
+    end = now.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
+    if start <= end:
+        return start <= now < end
+    return now >= start or now < end
 
 
 def terminal_file_group_status(paths):
@@ -4497,6 +4555,20 @@ self.addEventListener("fetch", () => {});
 
     def operation_status_pilots():
         now = datetime.now(MADRID_TZ)
+        chip_items = chip_status_items_from_database(
+            [
+                "strategies",
+                "strategies_v2",
+                "backtest_5y",
+                "universe",
+                "market_full",
+                "news",
+                "sync_sqlite",
+                "market-hours",
+            ]
+        )
+        if chip_items:
+            return chip_items
         signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
         market_open = time_in_madrid_window(now, "15:30", "22:00")
         return [
@@ -4520,6 +4592,54 @@ self.addEventListener("fetch", () => {});
                 "title": "Mercado activo 15:30-22:00 Madrid" if market_open else "Mercado fuera de ventana 22:00-15:30 Madrid",
             },
         ]
+
+    def chip_status_items_from_database(keys):
+        rows_by_key = chip_status_rows_by_key()
+        if not rows_by_key:
+            return []
+        now = datetime.now(MADRID_TZ)
+        market_open = time_in_madrid_window(now, "15:30", "22:00")
+        items = []
+        for key in keys:
+            row = rows_by_key.get(key)
+            if not row:
+                return []
+            updated_at = parse_utc_database_datetime(row.get("updated_at") or row.get("synced_at"))
+            updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else None
+            ok = bool(row.get("ok")) and market_open
+            if key == "market-hours":
+                ok = market_open
+            updated_display = row.get("updated_display") or (updated_at.strftime("%H:%M") if updated_at else "sin fecha")
+            items.append(
+                {
+                    "key": key,
+                    "label": row.get("label") or key,
+                    "ok": ok,
+                    "updated_display": updated_display,
+                    "title": f"{row.get('label') or key}: {updated_display}",
+                }
+            )
+        return items
+
+    def chip_status_rows_by_key():
+        cached = getattr(g, "_chip_status_rows_by_key", None)
+        if cached is not None:
+            return cached
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT key, label, ok, updated_display, updated_at, file_count, synced_at
+                    FROM chip_status
+                    """
+                )
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            rows = []
+        cached = {row.get("key"): dict(row) for row in rows}
+        g._chip_status_rows_by_key = cached
+        return cached
 
     def pilot_status_item(key, label, paths=None, table=None):
         status_row = execution_status_row(key)
@@ -4600,6 +4720,9 @@ self.addEventListener("fetch", () => {});
         return now >= start or now < end
 
     def upload_status_item(label, path=None, files=None):
+        chip_item = upload_status_item_from_chip_status(label)
+        if chip_item:
+            return chip_item
         db_item = upload_status_item_from_database(label)
         if db_item:
             return db_item
@@ -4629,6 +4752,21 @@ self.addEventListener("fetch", () => {});
             "exists": bool(existing),
             "count": len(existing),
             "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+        }
+
+    def upload_status_item_from_chip_status(label):
+        row = chip_status_rows_by_key().get(label)
+        if not row:
+            return None
+        market_open = time_in_madrid_window(datetime.now(MADRID_TZ), "15:30", "22:00")
+        updated_at = parse_utc_database_datetime(row.get("updated_at") or row.get("synced_at"))
+        updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else None
+        return {
+            "label": row.get("label") or label,
+            "ok": bool(row.get("ok")) and market_open,
+            "exists": True,
+            "count": int(row.get("file_count") or 0),
+            "updated_display": row.get("updated_display") or (updated_at.strftime("%H:%M") if updated_at else "no file"),
         }
 
     def upload_status_item_from_database(label):
@@ -6848,6 +6986,7 @@ def init_db():
         ensure_market_news_table(connection)
         ensure_execution_status_table(connection)
         ensure_upload_file_status_table(connection)
+        ensure_chip_status_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "python_file")
@@ -7331,6 +7470,26 @@ def ensure_upload_file_status_table(connection):
                 latest_name TEXT NOT NULL DEFAULT '',
                 latest_updated_at TIMESTAMP,
                 synced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def ensure_chip_status_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS chip_status (
+                key TEXT PRIMARY KEY,
+                label TEXT NOT NULL DEFAULT '',
+                ok INTEGER NOT NULL DEFAULT 0,
+                updated_display TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP,
+                file_count INTEGER NOT NULL DEFAULT 0,
+                total_bytes INTEGER NOT NULL DEFAULT 0,
+                latest_name TEXT NOT NULL DEFAULT '',
+                synced_at TIMESTAMP
             )
             """
         )

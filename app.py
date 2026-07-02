@@ -4724,6 +4724,48 @@ self.addEventListener("fetch", () => {});
         strategy["return_badge_class"] = strategy_return_badge_class(return_source)
         return strategy
 
+    def operation_metrics_for_txt(txt_name):
+        if not txt_name:
+            return {}
+        cache = getattr(g, "_operation_metrics_by_txt", None)
+        if cache is None:
+            cache = load_operation_metrics_by_txt()
+            g._operation_metrics_by_txt = cache
+        return cache.get(txt_name, {})
+
+    def load_operation_metrics_by_txt():
+        if engine.dialect.name == "postgresql":
+            average_expr = "EXTRACT(EPOCH FROM (closed_at - opened_at))"
+        else:
+            average_expr = "(julianday(closed_at) - julianday(opened_at)) * 86400.0"
+        try:
+            rows = g.db.execute(
+                text(
+                    f"""
+                    SELECT
+                        txt_name,
+                        SUM(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END) AS closed_count,
+                        SUM(CASE WHEN status = 'CLOSED' AND profit_usd > 0 THEN 1 ELSE 0 END) AS winners,
+                        AVG(CASE
+                            WHEN status = 'CLOSED'
+                             AND opened_at IS NOT NULL
+                             AND closed_at IS NOT NULL
+                             AND closed_at >= opened_at
+                            THEN {average_expr}
+                            ELSE NULL
+                        END) AS average_close_seconds,
+                        MIN(COALESCE(opened_at, closed_at, updated_at)) AS first_timestamp,
+                        MIN(NULLIF(signal_date, '')) AS first_signal_date
+                    FROM simulated_operations
+                    GROUP BY txt_name
+                    """
+                )
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            return {}
+        return {row.get("txt_name"): dict(row) for row in rows if row.get("txt_name")}
+
     def open_operations_count(txt_name):
         if not txt_name:
             return 0
@@ -4746,6 +4788,19 @@ self.addEventListener("fetch", () => {});
     def first_operation_display(txt_name):
         if not txt_name:
             return ""
+        metrics = operation_metrics_for_txt(txt_name)
+        if metrics:
+            parsed_candidates = [
+                parsed
+                for parsed in (
+                    parse_utc_database_datetime(metrics.get("first_timestamp")),
+                    parse_utc_database_datetime(metrics.get("first_signal_date")),
+                )
+                if parsed
+            ]
+            parsed = min(parsed_candidates) if parsed_candidates else None
+            if parsed:
+                return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%y")
         rollback_request_db()
         try:
             row = g.db.execute(
@@ -4792,6 +4847,9 @@ self.addEventListener("fetch", () => {});
     def closed_operations_count(txt_name):
         if not txt_name:
             return 0
+        metrics = operation_metrics_for_txt(txt_name)
+        if metrics:
+            return int(metrics.get("closed_count") or 0)
         count = 0
         try:
             count = g.db.execute(
@@ -4813,19 +4871,81 @@ self.addEventListener("fetch", () => {});
     def average_close_duration(txt_name):
         if not txt_name:
             return "Sin cierres todavia"
-        durations = closed_operation_durations(txt_name)
-        if not durations:
+        metrics = operation_metrics_for_txt(txt_name)
+        if metrics:
+            average_seconds = metrics.get("average_close_seconds")
+            return format_duration_seconds(float(average_seconds)) if average_seconds else "Sin cierres todavia"
+        try:
+            if engine.dialect.name == "postgresql":
+                average_seconds = g.db.execute(
+                    text(
+                        """
+                        SELECT AVG(EXTRACT(EPOCH FROM (closed_at - opened_at)))
+                        FROM simulated_operations
+                        WHERE txt_name = :txt_name
+                          AND status = 'CLOSED'
+                          AND opened_at IS NOT NULL
+                          AND closed_at IS NOT NULL
+                          AND closed_at >= opened_at
+                        """
+                    ),
+                    {"txt_name": txt_name},
+                ).scalar()
+            else:
+                average_seconds = g.db.execute(
+                    text(
+                        """
+                        SELECT AVG((julianday(closed_at) - julianday(opened_at)) * 86400.0)
+                        FROM simulated_operations
+                        WHERE txt_name = :txt_name
+                          AND status = 'CLOSED'
+                          AND opened_at IS NOT NULL
+                          AND closed_at IS NOT NULL
+                          AND closed_at >= opened_at
+                        """
+                    ),
+                    {"txt_name": txt_name},
+                ).scalar()
+        except Exception:
+            rollback_request_db()
+            durations = closed_operation_durations(txt_name)
+            average_seconds = (sum(durations) / len(durations)) if durations else None
+        if not average_seconds:
             return "Sin cierres todavia"
-        return format_duration_seconds(sum(durations) / len(durations))
+        return format_duration_seconds(float(average_seconds))
 
     def closed_operations_success_rate(txt_name):
         if not txt_name:
             return "Sin cierres todavia"
-        profits = closed_operation_profits(txt_name)
-        if not profits:
+        metrics = operation_metrics_for_txt(txt_name)
+        if metrics:
+            total = int(metrics.get("closed_count") or 0)
+            winners = int(metrics.get("winners") or 0)
+            return f"{(winners / total * 100):.1f}%" if total else "Sin cierres todavia"
+        try:
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT
+                        COUNT(*) AS total,
+                        SUM(CASE WHEN profit_usd > 0 THEN 1 ELSE 0 END) AS winners
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'CLOSED'
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).mappings().fetchone()
+            total = int(row.get("total") or 0) if row else 0
+            winners = int(row.get("winners") or 0) if row else 0
+        except Exception:
+            rollback_request_db()
+            profits = closed_operation_profits(txt_name)
+            total = len(profits)
+            winners = sum(1 for profit in profits if profit > 0)
+        if not total:
             return "Sin cierres todavia"
-        winners = sum(1 for profit in profits if profit > 0)
-        return f"{(winners / len(profits) * 100):.1f}%"
+        return f"{(winners / total * 100):.1f}%"
 
     def closed_operation_profits(txt_name):
         profits = []
@@ -4906,8 +5026,10 @@ self.addEventListener("fetch", () => {});
         return durations
 
     def attach_simulated_operations_to_signals(strategy, signals):
+        operations_by_signal = simulated_operations_for_signals(strategy, signals)
         for signal in signals:
-            operation = signal.get("open_operation") or simulated_operation_for_signal(strategy, signal)
+            signal_lookup_key = signal.get("_operation_lookup_key", "")
+            operation = signal.get("open_operation") or operations_by_signal.get(signal_lookup_key)
             if operation:
                 signal["operation_summary"] = {
                     "status_label": operation["status_label"],
@@ -4922,6 +5044,174 @@ self.addEventListener("fetch", () => {});
                     "profit_class": "text-warning",
                 }
                 signal["is_new"] = signal.get("is_today_signal", False)
+
+    def simulated_operations_for_signals(strategy, signals):
+        txt_name = strategy.get("signals_txt_name", "")
+        if not txt_name or not signals:
+            return {}
+        lookups = []
+        operation_keys = set()
+        symbols = set()
+        signal_dates = set()
+        for index, signal in enumerate(signals):
+            symbol = normalize_signal_symbol(signal.get("symbol", ""))
+            if not symbol:
+                continue
+            operation_key = build_signal_operation_key(txt_name, signal)
+            legacy_key = build_legacy_signal_operation_key(txt_name, signal)
+            signal_date = signal_line_field(signal.get("line", ""), "Fecha")
+            signal_line = signal.get("line", "")
+            lookup_key = f"{index}:{operation_key}:{legacy_key}:{symbol}:{signal_date}:{signal_line}"
+            signal["_operation_lookup_key"] = lookup_key
+            lookups.append(
+                {
+                    "lookup_key": lookup_key,
+                    "operation_key": operation_key,
+                    "legacy_key": legacy_key,
+                    "symbol": symbol,
+                    "signal_date": signal_date,
+                    "signal_line": signal_line,
+                }
+            )
+            if operation_key:
+                operation_keys.add(operation_key)
+            if legacy_key:
+                operation_keys.add(legacy_key)
+            symbols.add(symbol)
+            if signal_date:
+                signal_dates.add(signal_date)
+        if not lookups:
+            return {}
+        operations = simulated_operations_from_database_batch(txt_name, operation_keys, symbols, signal_dates)
+        if not operations:
+            return simulated_operations_from_file_batch(txt_name, lookups)
+        return match_operations_to_signal_lookups(lookups, operations)
+
+    def simulated_operations_from_database_batch(txt_name, operation_keys, symbols, signal_dates):
+        clauses = []
+        params = {"txt_name": txt_name}
+        if operation_keys:
+            params["operation_keys"] = list(operation_keys)
+            clauses.append("operation_key = ANY(:operation_keys)")
+        if symbols and signal_dates:
+            params["symbols"] = list(symbols)
+            params["signal_dates"] = list(signal_dates)
+            clauses.append("(UPPER(symbol) = ANY(:symbols) AND signal_date = ANY(:signal_dates))")
+        if not clauses:
+            return []
+        try:
+            rows = g.db.execute(
+                text(
+                    f"""
+                    SELECT strategy_name, txt_name, symbol, direction, status,
+                           operation_key, signal_date, signal_line, opened_at, closed_at, entry_price,
+                           target_price, stop_loss, shares, current_price,
+                           investment_value, profit_usd, profit_pct,
+                           close_reason, updated_at
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND ({' OR '.join(clauses)})
+                    ORDER BY updated_at DESC
+                    """
+                ),
+                params,
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            return []
+        return [format_simulated_operation(dict(row)) for row in rows]
+
+    def simulated_operations_from_file_batch(txt_name, lookups):
+        path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
+        try:
+            if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
+                return {}
+            operations = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        lookup_symbols = {item["symbol"] for item in lookups}
+        lookup_dates = {item["signal_date"] for item in lookups if item["signal_date"]}
+        lookup_keys = {
+            key
+            for item in lookups
+            for key in (item["operation_key"], item["legacy_key"])
+            if key
+        }
+        candidates = []
+        for operation in operations:
+            if operation.get("txt_name") != txt_name:
+                continue
+            op_symbol = normalize_signal_symbol(operation.get("symbol", ""))
+            op_key = operation.get("operation_key", "")
+            op_date = str(operation.get("signal_date", ""))
+            if op_key in lookup_keys or (op_symbol in lookup_symbols and op_date in lookup_dates):
+                candidates.append(format_simulated_operation(dict(operation)))
+        return match_operations_to_signal_lookups(lookups, candidates)
+
+    def match_operations_to_signal_lookups(lookups, operations):
+        operation_indexes = build_operation_lookup_indexes(operations)
+        matched = {}
+        for lookup in lookups:
+            best = best_operation_for_lookup(lookup, operation_indexes)
+            if best:
+                matched[lookup["lookup_key"]] = best
+        return matched
+
+    def build_operation_lookup_indexes(operations):
+        by_key = {}
+        by_symbol_date = {}
+        for operation in operations:
+            op_key = str(operation.get("operation_key") or "")
+            if op_key:
+                by_key.setdefault(op_key, []).append(operation)
+            symbol_date_key = (
+                normalize_signal_symbol(operation.get("symbol", "")),
+                str(operation.get("signal_date") or ""),
+            )
+            by_symbol_date.setdefault(symbol_date_key, []).append(operation)
+        return {"by_key": by_key, "by_symbol_date": by_symbol_date}
+
+    def best_operation_for_lookup(lookup, operation_indexes):
+        matches = []
+        candidates = []
+        candidates.extend(operation_indexes["by_key"].get(lookup["operation_key"], []))
+        candidates.extend(operation_indexes["by_key"].get(lookup["legacy_key"], []))
+        candidates.extend(
+            operation_indexes["by_symbol_date"].get(
+                (lookup["symbol"], str(lookup["signal_date"] or "")),
+                [],
+            )
+        )
+        seen = set()
+        for operation in candidates:
+            identity = (
+                operation.get("operation_key"),
+                operation.get("symbol"),
+                operation.get("signal_date"),
+                operation.get("opened_at"),
+                operation.get("updated_at"),
+            )
+            if identity in seen:
+                continue
+            seen.add(identity)
+            op_key = str(operation.get("operation_key") or "")
+            op_symbol = normalize_signal_symbol(operation.get("symbol", ""))
+            op_date = str(operation.get("signal_date") or "")
+            if op_key == lookup["operation_key"]:
+                priority = 0
+            elif op_key == lookup["legacy_key"]:
+                priority = 1
+            elif op_symbol == lookup["symbol"] and op_date == str(lookup["signal_date"] or ""):
+                priority = 2 if operation.get("signal_line") == lookup["signal_line"] else 3
+            else:
+                continue
+            status_priority = 0 if str(operation.get("status") or "").upper() == "OPEN" else 1
+            matches.append((priority, status_priority, str(operation.get("updated_at") or ""), operation))
+        if not matches:
+            return None
+        matches.sort(key=lambda item: (item[0], item[1], item[2]), reverse=False)
+        same_priority = [item for item in matches if item[0] == matches[0][0] and item[1] == matches[0][1]]
+        return max(same_priority, key=lambda item: item[2])[3]
 
     def strategy_uses_grouped_operations(strategy):
         strategy_name = str(strategy.get("name", "")).strip().lower()
@@ -5495,12 +5785,6 @@ self.addEventListener("fetch", () => {});
         path = strategy_signals_path(txt_name)
         if path is None and not valid_txt_name_global(txt_name):
             return []
-
-        if path is not None:
-            try:
-                sync_signal_file_to_database(txt_name, path)
-            except Exception:
-                rollback_request_db()
 
         today = datetime.now(MADRID_TZ).date().isoformat()
         rollback_request_db()

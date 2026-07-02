@@ -24,15 +24,19 @@ import sys
 import threading
 import time
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from flask import Flask, Response, redirect, render_template_string, request, url_for
+from sqlalchemy import text
 
 from config_env import load_local_env
+from db import engine
 
 
 BASE_DIR = Path(__file__).resolve().parent
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 STRATEGIES_DIR = BASE_DIR / "Estrategias"
 STRATEGIES_V2_DIR = BASE_DIR / "EstrategiasV2"
 PANEL_DATA_DIR = BASE_DIR / "local_panel_data"
@@ -41,10 +45,14 @@ ERRORS_DIR = PANEL_DATA_DIR / "errors"
 TASK_LOGS_DIR = PANEL_DATA_DIR / "task_logs"
 AUTOMATION_FILE = PANEL_DATA_DIR / "automation.json"
 TASK_STATUS_FILE = PANEL_DATA_DIR / "task_status.json"
+WEB_SETTINGS_FILE = PANEL_DATA_DIR / "web_settings.json"
 RUNNER_CONFIG_FILE = STRATEGIES_DIR / "runner_config.txt"
 RUNNER_SELECTION_FILE = STRATEGIES_DIR / "estrategias_a_ejecutar.txt"
 RUNNER_SCRIPT_FILE = STRATEGIES_DIR / "run_all_strategies.py"
 V2_CONFIG_FILE = STRATEGIES_V2_DIR / "config.json"
+BACKTEST_JSON_FILE = STRATEGIES_V2_DIR / "outputs" / "historical_backtest_5y.json"
+HISTORICAL_DATA_DIR = STRATEGIES_V2_DIR / "historical_data" / "daily_txt"
+HISTORICAL_MANIFEST_FILE = STRATEGIES_V2_DIR / "historical_data" / "manifest.json"
 LOG_LINES = deque(maxlen=600)
 TASK_LOCK = threading.Lock()
 ACTIVE_PROCESS_LOCK = threading.Lock()
@@ -153,6 +161,56 @@ TASKS = {
             }
         ],
     },
+    "historical_data_5y": {
+        "label": "Descargar historicos 5 anos",
+        "button_label": "Descargar historicos",
+        "description": "Pide a Alpaca los datos diarios y guarda un TXT independiente por activo. No ejecuta estrategias ni crea operaciones.",
+        "commands": [
+            {
+                "label": "Descargar TXT historicos 5 anos",
+                "command": [
+                    sys.executable,
+                    str(STRATEGIES_V2_DIR / "download_historical_data.py"),
+                    "--years",
+                    "5",
+                    "--output-dir",
+                    str(HISTORICAL_DATA_DIR),
+                    "--manifest",
+                    str(HISTORICAL_MANIFEST_FILE),
+                ],
+                "cwd": BASE_DIR,
+                "timeout_seconds": 21600,
+            }
+        ],
+    },
+    "backtest_5y": {
+        "label": "Backtest historico 5 anos",
+        "button_label": "Lanzar backtest",
+        "description": "Lee los TXT historicos guardados, ejecuta las estrategias con filtro rolling y genera el JSON local. No descarga datos ni sube nada a PostgreSQL.",
+        "commands": [
+            {
+                "label": "Generar JSON backtest 5 anos desde TXT",
+                "command": [
+                    sys.executable,
+                    str(STRATEGIES_V2_DIR / "run_backtest_from_txt.py"),
+                    "--data-dir",
+                    str(HISTORICAL_DATA_DIR),
+                    "--manifest",
+                    str(HISTORICAL_MANIFEST_FILE),
+                    "--years",
+                    "5",
+                    "--filter-window-months",
+                    "6",
+                    "--asset-limit",
+                    "0",
+                    "--output",
+                    str(BACKTEST_JSON_FILE),
+                ],
+                "cwd": BASE_DIR,
+                "timeout_seconds": 21600,
+            }
+        ],
+    },
     "sync_sqlite": {
         "label": "Sincronizar PostgreSQL -> SQLite",
         "description": "Copia datos de PostgreSQL a strategies.db para que 127.0.0.1 cargue rapido.",
@@ -207,7 +265,10 @@ PAGE = """
       .clock-box span { color:#9aa7b7; display:block; font-size:.72rem; }
       .clock-box strong { display:block; font-size:.9rem; margin-top:.15rem; }
       .automation-form { background:rgba(13,202,240,.05); border:1px solid rgba(13,202,240,.16); border-radius:8px; padding:.75rem; }
+      .sticky-save-panel { position:sticky; top:.75rem; z-index:20; box-shadow:0 12px 28px rgba(0,0,0,.18); }
       .runner-v2-note { background:rgba(13,202,240,.07); border:1px solid rgba(13,202,240,.18); border-radius:8px; color:#b8ecff; padding:.75rem; }
+      .strategy-settings-grid { display:grid; gap:1rem; grid-template-columns:minmax(0,1fr) minmax(230px,300px); }
+      .strategy-settings-main, .strategy-settings-side { min-width:0; }
       .task-error { background:rgba(220,53,69,.08); border:1px solid rgba(220,53,69,.22); border-radius:8px; color:#ffb9c0; max-height:170px; overflow:auto; padding:.75rem; white-space:pre-wrap; }
       .task-log-details { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.08); border-radius:8px; }
       .task-log-details summary { color:#dbe7f3; cursor:pointer; font-size:.86rem; font-weight:700; list-style:none; padding:.55rem .7rem; }
@@ -220,8 +281,9 @@ PAGE = """
       .data-card { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.75rem; }
       .data-card span { color:#9aa7b7; display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; }
       .data-card strong { display:block; font-size:1rem; margin-top:.15rem; }
-      .v2-strategy-grid { display:grid; gap:.45rem; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); }
+      .v2-strategy-grid { display:grid; gap:.45rem; grid-template-columns:1fr; }
       .v2-strategy-option { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.45rem .55rem; }
+      @media (max-width: 991.98px) { .strategy-settings-grid { grid-template-columns:1fr; } }
       .path-line { color:#9aa7b7; font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .diagnostics-preview { max-height:360px; }
       pre { background:#05080d; border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#dbe7f3; max-height:520px; overflow:auto; padding:1rem; white-space:pre-wrap; }
@@ -287,7 +349,20 @@ PAGE = """
         </div>
       </div>
 
-      <div class="panel p-4 mb-4">
+      <div class="panel p-3 mb-4 sticky-save-panel">
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-2 align-items-md-center">
+          <div>
+            <strong>Guardar configuracion completa</strong>
+            <p class="text-secondary small mb-0">Guarda runner, estrategias clasicas, estrategias V2, automatizaciones y notas de una sola vez.</p>
+          </div>
+          <form id="bulk-settings-form" method="post" action="{{ url_for('save_all_settings') }}">
+            <button class="btn btn-info btn-sm fw-semibold" type="button" data-save-all>Guardar todo</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="strategy-settings-grid mb-4">
+      <div class="panel p-4 strategy-settings-main">
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
           <div>
             <h2 class="h5 mb-1">Runner de estrategias</h2>
@@ -295,7 +370,7 @@ PAGE = """
           </div>
           <span class="badge text-bg-info align-self-start">{{ runner.engine_label }}</span>
         </div>
-        <form method="post" action="{{ url_for('save_runner_settings') }}">
+        <form id="runner-settings-form" method="post" action="{{ url_for('save_runner_settings') }}">
           <div class="row g-2 align-items-end mb-3">
             <div class="col-12 col-md-3">
               <label class="form-label small" for="runner-engine">Motor</label>
@@ -383,7 +458,7 @@ PAGE = """
         </form>
       </div>
 
-      <div class="panel p-4 mb-4">
+      <div class="panel p-4 strategy-settings-side">
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
           <div>
             <h2 class="h5 mb-1">Estrategias Motor V2</h2>
@@ -391,7 +466,7 @@ PAGE = """
           </div>
           <span class="badge text-bg-info align-self-start">{{ v2_runner.enabled_count }} V2 activas</span>
         </div>
-        <form method="post" action="{{ url_for('save_v2_strategy_settings') }}">
+        <form id="v2-settings-form" method="post" action="{{ url_for('save_v2_strategy_settings') }}">
           <div class="v2-strategy-grid mb-3">
             {% for strategy in v2_runner.strategies %}
               <label class="v2-strategy-option form-check m-0">
@@ -403,6 +478,31 @@ PAGE = """
           <button class="btn btn-info btn-sm fw-semibold" type="submit">Guardar estrategias V2</button>
           <span class="text-secondary small ms-2">Esto no cambia las estrategias del motor clasico.</span>
         </form>
+      </div>
+      </div>
+
+      <div class="panel p-4 mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+          <div>
+            <h2 class="h5 mb-1">Backtest historico</h2>
+            <p class="text-secondary small mb-2">Control local del historico simulado. El JSON queda separado y no se sube a PostgreSQL desde aqui.</p>
+            <div class="small text-secondary">
+              <div>Archivo: {{ backtest.path }}</div>
+              <div>Estado: {% if backtest.exists %}creado{% else %}no creado{% endif %}</div>
+              <div>Ultima ejecucion: {{ backtest.updated_at }}</div>
+              <div>Corte backtest: {{ backtest.backtest_cutoff_date or "Pendiente" }}</div>
+              <div>Operativa actual desde: {{ backtest.live_operations_from_date or "Sin detectar" }}</div>
+              <div>Operaciones cerradas: {{ backtest.closed_operations }} | Resultado: {{ backtest.profit_usd }} USD | Tamano: {{ backtest.size }}</div>
+            </div>
+          </div>
+          <form class="automation-form align-self-lg-start" method="post" action="{{ url_for('save_backtest_settings') }}">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="show_backtest_5y" name="show_backtest_5y" {% if web_settings.show_backtest_5y %}checked{% endif %}>
+              <label class="form-check-label" for="show_backtest_5y">Incluir backtest en la proxima simulacion/sincronizacion</label>
+            </div>
+            <button class="btn btn-info btn-sm fw-semibold" type="submit">Guardar backtest</button>
+          </form>
+        </div>
       </div>
 
       <div class="row g-3 mb-4">
@@ -422,7 +522,7 @@ PAGE = """
                   <p class="text-secondary small mb-2">{{ task.description }}</p>
                   <div class="d-flex flex-wrap gap-2">
                     <form method="post" action="{{ url_for('run_task', task_key=key) }}">
-                      <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if state.running %}disabled{% endif %}>Ejecutar ahora</button>
+                      <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if state.running %}disabled{% endif %}>{{ task.button_label or "Ejecutar ahora" }}</button>
                     </form>
                     <form method="post" action="{{ url_for('clear_task_status', task_key=key) }}">
                       <button class="btn btn-outline-warning btn-sm" type="submit">Liberar RUNNING</button>
@@ -449,7 +549,7 @@ PAGE = """
                   </div>
                 </div>
 
-                <form class="automation-form" method="post" action="{{ url_for('save_automation', task_key=key) }}">
+                <form class="automation-form" method="post" action="{{ url_for('save_automation', task_key=key) }}" data-automation-key="{{ key }}">
                   <div class="row g-2 align-items-end">
                     <div class="col-6 col-md-3">
                       <div class="form-check form-switch">
@@ -500,7 +600,7 @@ PAGE = """
                   <div class="task-log-box">{{ task_logs[key] or "Sin log guardado para esta tarea." }}</div>
                 </details>
 
-                <form method="post" action="{{ url_for('save_task_note', task_key=key) }}">
+                <form method="post" action="{{ url_for('save_task_note', task_key=key) }}" data-note-key="{{ key }}">
                   <label class="form-label small" for="note-{{ key }}">Bloc de notas</label>
                   <textarea class="form-control form-control-sm task-note" id="note-{{ key }}" name="note">{{ task_notes[key] }}</textarea>
                   <button class="btn btn-outline-info btn-sm mt-2" type="submit">Guardar nota</button>
@@ -598,6 +698,48 @@ PAGE = """
         runnerEngine.addEventListener("change", paintRunnerEngine);
         paintRunnerEngine();
       }
+
+      const saveAllButton = document.querySelector("[data-save-all]");
+      if (saveAllButton) {
+        saveAllButton.addEventListener("click", () => {
+          const targetForm = document.getElementById("bulk-settings-form");
+          if (!targetForm) {
+            return;
+          }
+          targetForm.querySelectorAll("input[type='hidden']").forEach((item) => item.remove());
+          const append = (name, value) => {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            input.value = value;
+            targetForm.appendChild(input);
+          };
+          const appendForm = (form, prefix = "") => {
+            if (!form) {
+              return;
+            }
+            const data = new FormData(form);
+            for (const [name, value] of data.entries()) {
+              append(`${prefix}${name}`, value);
+            }
+          };
+
+          appendForm(document.getElementById("runner-settings-form"));
+          appendForm(document.getElementById("v2-settings-form"));
+
+          document.querySelectorAll("[data-automation-key]").forEach((form) => {
+            const key = form.dataset.automationKey;
+            appendForm(form, `auto_${key}_`);
+          });
+          document.querySelectorAll("[data-note-key]").forEach((form) => {
+            const key = form.dataset.noteKey;
+            const note = form.querySelector("textarea[name='note']");
+            append(`note_${key}`, note ? note.value : "");
+          });
+
+          targetForm.submit();
+        });
+      }
       if (!isRefreshPaused()) {
         setTimeout(() => {
           if (!isRefreshPaused()) {
@@ -631,6 +773,8 @@ def index():
         runner_days=RUNNER_DAYS,
         runner=load_runner_panel_state(),
         v2_runner=load_v2_runner_panel_state(),
+        web_settings=load_web_settings(),
+        backtest=backtest_file_status(),
         data_overview=load_data_overview(),
         diagnostics_preview=tail_text(STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.txt", max_lines=120),
         now_display=now_text(),
@@ -644,6 +788,7 @@ def view_local_file(file_key):
         "diagnostics_v2": STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.txt",
         "signals_v2": STRATEGIES_V2_DIR / "outputs" / "signals_v2.txt",
         "pair_diagnostics_v2": STRATEGIES_V2_DIR / "outputs" / "pair_diagnostics_v2.txt",
+        "backtest_5y": BACKTEST_JSON_FILE,
     }
     path = files.get(file_key)
     if not path:
@@ -683,36 +828,88 @@ def save_automation(task_key):
         add_log(f"Automatizacion ignorada: tarea desconocida {task_key}")
         return redirect(url_for("index"))
     automation = load_automation()
-    automation[task_key] = {
-        "enabled": request.form.get("enabled") == "on",
-        "start_time": normalize_time(request.form.get("start_time"), "15:30"),
-        "interval_minutes": parse_int(request.form.get("interval_minutes"), 60, 1, 1440),
-        "runs_per_day": parse_int(request.form.get("runs_per_day"), 1, 1, 48),
-        "weekdays": normalize_weekdays(request.form.getlist("weekdays")),
-        "executed_slots": clean_executed_slots(automation.get(task_key, {}).get("executed_slots", [])),
-    }
+    automation[task_key] = automation_config_from_form(
+        request.form,
+        task_key,
+        current=automation.get(task_key, {}),
+    )
     save_json(AUTOMATION_FILE, automation)
     add_log(f"Automatizacion guardada para {TASKS[task_key]['label']}.")
     return redirect(url_for("index"))
 
 
+@app.route("/backtest/settings", methods=["POST"])
+def save_backtest_settings():
+    settings = load_web_settings()
+    settings["show_backtest_5y"] = request.form.get("show_backtest_5y") == "on"
+    settings["backtest_file"] = str(BACKTEST_JSON_FILE)
+    save_json(WEB_SETTINGS_FILE, settings)
+    mode = "incluido" if settings["show_backtest_5y"] else "excluido"
+    add_log(f"Backtest historico {mode} para la proxima simulacion/sincronizacion.")
+    return redirect(url_for("index"))
+
+
+def automation_config_from_form(form, task_key, prefix="", current=None):
+    current = current or {}
+    return {
+        "enabled": form.get(f"{prefix}enabled") == "on",
+        "start_time": normalize_time(form.get(f"{prefix}start_time"), "15:30"),
+        "interval_minutes": parse_int(form.get(f"{prefix}interval_minutes"), 60, 1, 1440),
+        "runs_per_day": parse_int(form.get(f"{prefix}runs_per_day"), 1, 1, 48),
+        "weekdays": normalize_weekdays(form.getlist(f"{prefix}weekdays")),
+        "executed_slots": clean_executed_slots(current.get("executed_slots", [])),
+    }
+
+
+@app.route("/settings/save-all", methods=["POST"])
+def save_all_settings():
+    runner_summary = save_runner_settings_from_form(request.form)
+    v2_summary = save_v2_settings_from_form(request.form)
+
+    automation = load_automation()
+    automation_count = 0
+    for task_key in TASKS:
+        automation[task_key] = automation_config_from_form(
+            request.form,
+            task_key,
+            prefix=f"auto_{task_key}_",
+            current=automation.get(task_key, {}),
+        )
+        note_value = request.form.get(f"note_{task_key}", "")
+        write_text(note_path(task_key), note_value)
+        automation_count += 1
+    save_json(AUTOMATION_FILE, automation)
+
+    add_log(
+        "Configuracion completa guardada: "
+        f"{runner_summary}, {v2_summary}, {automation_count} automatizaciones/notas."
+    )
+    return redirect(url_for("index"))
+
+
 @app.route("/runner/save", methods=["POST"])
 def save_runner_settings():
+    summary = save_runner_settings_from_form(request.form)
+    add_log(summary)
+    return redirect(url_for("index"))
+
+
+def save_runner_settings_from_form(form):
     catalog = load_strategy_catalog()
-    enabled_names = set(request.form.getlist("strategy_enabled"))
-    motor = request.form.get("motor", "clasico")
+    enabled_names = set(form.getlist("strategy_enabled"))
+    motor = form.get("motor", "clasico")
     if motor not in {"clasico", "v2"}:
         motor = "clasico"
     config = {
         "motor": motor,
-        "modo": request.form.get("modo", "loop") if request.form.get("modo") in {"loop", "once"} else "loop",
-        "dias": ",".join(normalize_runner_days(request.form.getlist("runner_days"))),
-        "hora_global_inicio": normalize_time(request.form.get("hora_global_inicio"), "15:30"),
-        "hora_global_fin": normalize_time(request.form.get("hora_global_fin"), "22:00"),
-        "ignorar_horarios": "True" if request.form.get("ignorar_horarios") == "on" else "False",
-        "generar_tickers": "si" if request.form.get("generar_tickers") == "on" else "no",
-        "fmp_ticker_limit": str(parse_int(request.form.get("fmp_ticker_limit"), 20, 1, 500)),
-        "espera_segundos": str(parse_int(request.form.get("espera_segundos"), 30, 5, 3600)),
+        "modo": form.get("modo", "loop") if form.get("modo") in {"loop", "once"} else "loop",
+        "dias": ",".join(normalize_runner_days(form.getlist("runner_days"))),
+        "hora_global_inicio": normalize_time(form.get("hora_global_inicio"), "15:30"),
+        "hora_global_fin": normalize_time(form.get("hora_global_fin"), "22:00"),
+        "ignorar_horarios": "True" if form.get("ignorar_horarios") == "on" else "False",
+        "generar_tickers": "si" if form.get("generar_tickers") == "on" else "no",
+        "fmp_ticker_limit": str(parse_int(form.get("fmp_ticker_limit"), 20, 1, 500)),
+        "espera_segundos": str(parse_int(form.get("espera_segundos"), 30, 5, 3600)),
     }
     write_runner_config(config)
 
@@ -725,23 +922,27 @@ def save_runner_settings():
     for strategy in catalog:
         if strategy["name"] not in enabled_names:
             continue
-        interval = parse_int(request.form.get(f"interval_{strategy['slug']}"), 60, 1, 1440)
+        interval = parse_int(form.get(f"interval_{strategy['slug']}"), 60, 1, 1440)
         lines.append(f"{strategy['name']} | {interval}")
     write_text(RUNNER_SELECTION_FILE, "\n".join(lines) + "\n")
-    add_log(f"Runner guardado: motor {motor}, {len(enabled_names)} estrategias clasicas seleccionadas, horario {config['hora_global_inicio']} - {config['hora_global_fin']}.")
-    return redirect(url_for("index"))
+    return f"runner {motor}, {len(enabled_names)} estrategias clasicas, horario {config['hora_global_inicio']} - {config['hora_global_fin']}"
 
 
 @app.route("/v2/strategies/save", methods=["POST"])
 def save_v2_strategy_settings():
-    selected_keys = set(request.form.getlist("v2_strategy_enabled"))
+    summary = save_v2_settings_from_form(request.form)
+    add_log(summary)
+    return redirect(url_for("index"))
+
+
+def save_v2_settings_from_form(form):
+    selected_keys = set(form.getlist("v2_strategy_enabled"))
     valid_keys = [key for key, _label in V2_STRATEGY_LABELS]
     enabled = [key for key in valid_keys if key in selected_keys]
     config = load_v2_config_file()
     config["enabled_strategies"] = enabled
     write_text(V2_CONFIG_FILE, json.dumps(config, indent=2, ensure_ascii=False) + "\n")
-    add_log(f"Motor V2 guardado: {len(enabled)} estrategias activas.")
-    return redirect(url_for("index"))
+    return f"motor V2 {len(enabled)} estrategias activas"
 
 
 @app.route("/notes/<task_key>", methods=["POST"])
@@ -1009,6 +1210,16 @@ def load_data_overview():
             "path": str(BASE_DIR / "strategies.db"),
         },
         {
+            "label": "Historicos 5 anos",
+            "value": historical_data_summary_label(HISTORICAL_DATA_DIR, HISTORICAL_MANIFEST_FILE),
+            "path": str(HISTORICAL_DATA_DIR),
+        },
+        {
+            "label": "Backtest 5 anos",
+            "value": backtest_summary_label(BACKTEST_JSON_FILE),
+            "path": str(BACKTEST_JSON_FILE),
+        },
+        {
             "label": "V2 senales",
             "value": json_signal_count(STRATEGIES_V2_DIR / "outputs" / "signals_v2.json"),
             "path": str(STRATEGIES_V2_DIR / "outputs" / "signals_v2.json"),
@@ -1075,6 +1286,72 @@ def json_ticker_count(path):
         return "Error"
     tickers = data.get("tickers", {}) if isinstance(data, dict) else {}
     return str(len(tickers)) if isinstance(tickers, dict) else "0"
+
+
+def backtest_summary_label(path):
+    if not path.exists():
+        return "No creado"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        return "JSON invalido"
+    totals = data.get("totals", {}) if isinstance(data, dict) else {}
+    closed = totals.get("closed_operations", 0)
+    profit = totals.get("profit_usd", 0)
+    return f"{closed} cerradas | {profit} USD"
+
+
+def historical_data_summary_label(data_dir, manifest_path):
+    txt_count = count_files(data_dir, "*.txt")
+    if not manifest_path.exists():
+        return f"{txt_count} TXT | sin manifest"
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        return f"{txt_count} TXT | manifest invalido"
+    saved = data.get("saved_symbols", txt_count) if isinstance(data, dict) else txt_count
+    cutoff = data.get("backtest_cutoff_date", "") if isinstance(data, dict) else ""
+    return f"{saved} TXT | corte {cutoff or 'sin fecha'}"
+
+
+def load_web_settings():
+    default = {
+        "show_backtest_5y": False,
+        "backtest_file": str(BACKTEST_JSON_FILE),
+    }
+    data = load_json(WEB_SETTINGS_FILE, {})
+    if not isinstance(data, dict):
+        data = {}
+    return {**default, **data}
+
+
+def backtest_file_status(path=BACKTEST_JSON_FILE):
+    if not path.exists():
+        return {
+            "exists": False,
+            "path": str(path),
+            "updated_at": "No creado",
+            "size": "0 B",
+            "closed_operations": 0,
+            "profit_usd": 0,
+            "backtest_cutoff_date": "",
+            "live_operations_from_date": "",
+        }
+    try:
+        data = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+    except json.JSONDecodeError:
+        data = {}
+    totals = data.get("totals", {}) if isinstance(data, dict) else {}
+    return {
+        "exists": True,
+        "path": str(path),
+        "updated_at": datetime.fromtimestamp(path.stat().st_mtime).strftime("%d/%m/%Y %H:%M"),
+        "size": file_size_label(path),
+        "closed_operations": totals.get("closed_operations", 0),
+        "profit_usd": totals.get("profit_usd", 0),
+        "backtest_cutoff_date": data.get("backtest_cutoff_date", "") if isinstance(data, dict) else "",
+        "live_operations_from_date": data.get("live_operations_from_date", "") if isinstance(data, dict) else "",
+    }
 
 
 def file_size_label(path):
@@ -1392,6 +1669,97 @@ def update_task_status(task_key, updates):
     current.update(updates)
     data[task_key] = current
     save_json(TASK_STATUS_FILE, data)
+    sync_task_status_to_postgres(task_key, current)
+
+
+def sync_task_status_to_postgres(task_key, item):
+    task = TASKS.get(task_key, {})
+    status = item.get("status") or "IDLE"
+    finished_at = parse_panel_datetime(item.get("last_finished_at"))
+    updated_at = datetime.now(UTC).replace(tzinfo=None)
+    params = {
+        "task_key": task_key,
+        "label": task.get("label", task_key),
+        "status": status,
+        "last_finished_at": finished_at,
+        "last_returncode": item.get("last_returncode"),
+        "duration_seconds": int(item.get("duration_seconds") or 0),
+        "message": item.get("message") or "",
+        "updated_at": updated_at,
+    }
+    try:
+        with engine.begin() as connection:
+            ensure_execution_status_table(connection)
+            if engine.dialect.name == "postgresql":
+                statement = text(
+                    """
+                    INSERT INTO execution_status
+                    (task_key, label, status, last_finished_at, last_returncode, duration_seconds, message, updated_at)
+                    VALUES (:task_key, :label, :status, :last_finished_at, :last_returncode, :duration_seconds, :message, :updated_at)
+                    ON CONFLICT (task_key)
+                    DO UPDATE SET
+                        label = EXCLUDED.label,
+                        status = EXCLUDED.status,
+                        last_finished_at = EXCLUDED.last_finished_at,
+                        last_returncode = EXCLUDED.last_returncode,
+                        duration_seconds = EXCLUDED.duration_seconds,
+                        message = EXCLUDED.message,
+                        updated_at = EXCLUDED.updated_at
+                    """
+                )
+            else:
+                statement = text(
+                    """
+                    INSERT INTO execution_status
+                    (task_key, label, status, last_finished_at, last_returncode, duration_seconds, message, updated_at)
+                    VALUES (:task_key, :label, :status, :last_finished_at, :last_returncode, :duration_seconds, :message, :updated_at)
+                    ON CONFLICT(task_key)
+                    DO UPDATE SET
+                        label = excluded.label,
+                        status = excluded.status,
+                        last_finished_at = excluded.last_finished_at,
+                        last_returncode = excluded.last_returncode,
+                        duration_seconds = excluded.duration_seconds,
+                        message = excluded.message,
+                        updated_at = excluded.updated_at
+                    """
+                )
+            connection.execute(statement, params)
+    except Exception as error:
+        add_log(f"No se pudo sincronizar estado de {task_key} con PostgreSQL/DB: {error}")
+
+
+def ensure_execution_status_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS execution_status (
+                task_key TEXT PRIMARY KEY,
+                label TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'IDLE',
+                last_finished_at TIMESTAMP,
+                last_returncode INTEGER,
+                duration_seconds INTEGER NOT NULL DEFAULT 0,
+                message TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def parse_panel_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    for fmt in ("%H:%M:%S %d/%m/%y", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M:%S"):
+        try:
+            parsed = datetime.strptime(str(value), fmt)
+            return parsed.replace(tzinfo=MADRID_TZ).astimezone(UTC).replace(tzinfo=None)
+        except ValueError:
+            continue
+    return None
 
 
 def status_label(status, returncode):

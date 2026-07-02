@@ -27,6 +27,14 @@
       Avisos ordenados por actividad y disponibles segun tu nivel de acceso.
     </div>
   </div>
+  <div class="operation-pilot-strip" aria-label="Estado de ejecuciones locales">
+    {% for item in operation_status_pilots %}
+      <span class="operation-pilot {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" title="{{ item.title }}">
+        <span class="operation-pilot-led"></span>
+        <span>{{ item.label }}</span>
+      </span>
+    {% endfor %}
+  </div>
   <div class="upload-status-strip" aria-label="Estado de archivos locales sincronizables">
     {% for item in upload_file_statuses %}
       <span class="upload-status-chip {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" data-upload-status-chip="{{ item.label }}" title="{{ item.updated_display }}{% if item.count > 1 %} Â· {{ item.count }} files{% endif %}">
@@ -85,20 +93,18 @@
               <div class="news-radar-list compact">
                 {% for item in market_news %}
                   <article class="market-news-row compact hero-news-row">
-                    <div class="news-row-time">
-                      <strong>{{ item.published_display or item.created_display }}</strong>
+                    <div class="hero-news-meta-bar">
+                      <span class="news-row-time">{{ item.published_display or item.created_display }}</span>
+                      <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
+                      <span class="news-row-affected">
+                        <span>Afecta</span>
+                        <strong>{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
+                      </span>
                     </div>
                     <div class="news-row-main">
-                      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                        <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
-                        <h3 class="news-row-title mb-0">{{ item.title_es }}</h3>
-                      </div>
+                      <h3 class="news-row-title mb-1">{{ item.title_es }}</h3>
                       <p class="news-market-angle mb-1">{{ item.market_angle }}</p>
                       <p class="market-news-summary mb-0">{{ item.display_summary_es }}</p>
-                    </div>
-                    <div class="news-row-affected">
-                      <span>Afecta</span>
-                      <strong>{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
                     </div>
                   </article>
                 {% endfor %}

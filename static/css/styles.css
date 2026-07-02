@@ -5798,8 +5798,61 @@ html[data-bs-theme="dark"] .report-hero .terminal-feed-lines {
 }
 
 html[data-bs-theme="dark"] .report-hero .hero-news-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   padding: 0.22rem 0.28rem !important;
   gap: 0.35rem !important;
+}
+
+html[data-bs-theme="dark"] .report-hero .hero-news-meta-bar {
+  align-items: center !important;
+  border: 1px solid rgba(117, 215, 255, 0.28) !important;
+  display: flex !important;
+  gap: 0.45rem !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  padding: 0.18rem 0.28rem !important;
+  width: 100% !important;
+}
+
+html[data-bs-theme="dark"] .report-hero .hero-news-meta-bar > * {
+  min-width: 0 !important;
+}
+
+html[data-bs-theme="dark"] .report-hero .hero-news-meta-bar > strong {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+html[data-bs-theme="dark"] .report-hero .hero-news-meta-bar .news-row-time {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+
+html[data-bs-theme="dark"] .report-hero .hero-news-meta-bar .news-row-affected {
+  align-items: center !important;
+  background: transparent !important;
+  border: 0 !important;
+  display: flex !important;
+  flex: 1 1 auto !important;
+  gap: 0.25rem !important;
+  justify-content: flex-end !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+html[data-bs-theme="dark"] .report-hero .hero-news-meta-bar .news-row-affected span,
+html[data-bs-theme="dark"] .report-hero .hero-news-meta-bar .news-row-affected strong {
+  display: inline !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+html[data-bs-theme="dark"] .report-hero .hero-news-row .news-row-main {
+  min-width: 0 !important;
+  width: 100% !important;
 }
 
 html[data-bs-theme="dark"] .report-hero .hero-news-row .news-row-title {
@@ -5853,18 +5906,107 @@ html[data-bs-theme="dark"] .model-summary-strip {
   box-shadow: none !important;
 }
 
+html[data-bs-theme="dark"] .operation-pilot-strip {
+  display: grid !important;
+  grid-auto-flow: column !important;
+  grid-auto-columns: minmax(120px, max-content) !important;
+  grid-template-rows: repeat(2, minmax(24px, auto)) !important;
+  align-items: center !important;
+  column-gap: 0.48rem !important;
+  row-gap: 0.36rem !important;
+  width: 100% !important;
+  margin-top: 0.28rem !important;
+  padding: 0.35rem 0.16rem 0.24rem 0.7rem !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: thin;
+}
+
+html[data-bs-theme="dark"] .operation-pilot {
+  align-items: center !important;
+  border: 1px solid rgba(125, 211, 252, 0.24) !important;
+  color: #d8e7ff !important;
+  display: inline-flex !important;
+  gap: 0.32rem !important;
+  line-height: 1 !important;
+  min-height: 22px !important;
+  padding: 0.12rem 0.34rem !important;
+  white-space: nowrap !important;
+}
+
+html[data-bs-theme="dark"] .operation-pilot-led {
+  background: #220404 !important;
+  border: 1px solid rgba(239, 68, 68, 0.88) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 7px rgba(239, 68, 68, 0.42);
+  display: inline-block !important;
+  flex: 0 0 auto !important;
+  height: 0.58rem !important;
+  position: relative !important;
+  width: 0.58rem !important;
+  animation: pilot-red-random 2.7s steps(1, end) infinite !important;
+}
+
+html[data-bs-theme="dark"] .operation-pilot.is-fresh .operation-pilot-led {
+  background: #042112 !important;
+  border-color: rgba(34, 197, 94, 0.92) !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 8px rgba(34, 197, 94, 0.5);
+  animation-name: pilot-green-random !important;
+}
+
+@keyframes pilot-green-random {
+  0%,
+  7%,
+  21%,
+  40%,
+  67%,
+  100% {
+    opacity: 0.42;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 2px rgba(34, 197, 94, 0.2);
+  }
+  8%,
+  18%,
+  41%,
+  58%,
+  68%,
+  89% {
+    opacity: 1;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 0 9px rgba(34, 197, 94, 0.76);
+  }
+}
+
+@keyframes pilot-red-random {
+  0%,
+  13%,
+  31%,
+  56%,
+  73%,
+  100% {
+    opacity: 0.45;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 2px rgba(239, 68, 68, 0.18);
+  }
+  14%,
+  25%,
+  32%,
+  49%,
+  74%,
+  92% {
+    opacity: 1;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 9px rgba(239, 68, 68, 0.72);
+  }
+}
+
 html[data-bs-theme="dark"] .upload-status-strip {
   display: grid !important;
   grid-auto-flow: column !important;
-  grid-auto-columns: minmax(92px, 1fr) !important;
-  grid-template-rows: repeat(2, minmax(24px, auto)) !important;
+  grid-auto-columns: minmax(72px, max-content) !important;
+  grid-template-rows: repeat(2, minmax(20px, auto)) !important;
   align-items: center !important;
   align-content: start !important;
-  column-gap: 0.55rem !important;
-  row-gap: 0.46rem !important;
+  column-gap: 0.38rem !important;
+  row-gap: 0.3rem !important;
   width: 100% !important;
-  margin-top: 0.28rem !important;
-  padding: 0.42rem 0.16rem 0.34rem 0.7rem !important;
+  margin-top: 0.08rem !important;
+  padding: 0.16rem 0.16rem 0.28rem 0.7rem !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
   scrollbar-width: thin;
@@ -5874,9 +6016,9 @@ html[data-bs-theme="dark"] .upload-status-chip {
   display: inline-flex !important;
   align-items: center !important;
   gap: 0.24rem !important;
-  min-height: 22px !important;
-  max-width: 116px !important;
-  padding: 0.12rem 0.28rem !important;
+  min-height: 19px !important;
+  max-width: 92px !important;
+  padding: 0.08rem 0.22rem !important;
   border: 1px solid rgba(125, 211, 252, 0.24) !important;
   background: rgba(0, 28, 67, 0.42) !important;
   color: #d8e7ff !important;
@@ -5886,8 +6028,8 @@ html[data-bs-theme="dark"] .upload-status-chip {
 }
 
 html[data-bs-theme="dark"] .upload-status-dot {
-  width: 0.46rem !important;
-  height: 0.46rem !important;
+  width: 0.4rem !important;
+  height: 0.4rem !important;
   border-radius: 999px !important;
   background: #ef4444 !important;
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.66) !important;
@@ -5899,6 +6041,7 @@ html[data-bs-theme="dark"] .upload-status-chip.is-fresh .upload-status-dot {
 }
 
 html[data-bs-theme="dark"] .upload-status-chip small {
+  display: none !important;
   color: #8ea8ca !important;
   font-size: 0.58rem !important;
   line-height: 1 !important;

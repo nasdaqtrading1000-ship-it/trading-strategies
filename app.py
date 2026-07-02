@@ -63,6 +63,8 @@ DEFAULT_BACKTEST_OUTPUT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "histor
 DEFAULT_V2_SIGNALS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "signals_v2.txt").resolve()
 DEFAULT_V2_DIAGNOSTICS_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.json").resolve()
 DEFAULT_V2_DIAGNOSTICS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.txt").resolve()
+DEFAULT_HISTORICAL_MANIFEST_FILE = (BASE_DIR / "EstrategiasV2" / "historical_data" / "manifest.json").resolve()
+LOCAL_SQLITE_FILE = Path(SQLITE_DATABASE).resolve()
 STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 SCHEDULER_THREAD_STARTED = False
@@ -3101,6 +3103,7 @@ def create_app():
             top_money_volume_assets=top_assets["rows"],
             top_money_volume_updated_at=top_assets["updated_at"],
             top_money_volume_source=top_assets["source"],
+            operation_status_pilots=operation_status_pilots(),
             upload_file_statuses=local_upload_file_statuses(),
             market_news=news_preview["rows"],
             market_news_updated_at=news_preview["updated_at"],
@@ -4364,6 +4367,108 @@ self.addEventListener("fetch", () => {});
             upload_status_item("assets", path=BASE_DIR / "data" / "assets.csv"),
         ]
         return items
+
+    def operation_status_pilots():
+        now = datetime.now(MADRID_TZ)
+        signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
+        market_open = time_in_madrid_window(now, "15:30", "22:00")
+        return [
+            pilot_status_item("strategies", "Estrategias", paths=[DEFAULT_STRATEGY_STATUS_FILE, *signal_files]),
+            pilot_status_item("strategies_v2", "V2", paths=[DEFAULT_V2_DIAGNOSTICS_FILE, DEFAULT_V2_SIGNALS_TXT_FILE]),
+            pilot_status_item("backtest_5y", "Backset", paths=[DEFAULT_BACKTEST_OUTPUT_FILE]),
+            pilot_status_item(
+                "universe",
+                "Tickets/universo",
+                paths=[DEFAULT_STRATEGY_TICKERS_FILE, BASE_DIR / "data" / "assets.csv"],
+                table="asset_universe",
+            ),
+            pilot_status_item("market_full", "Mercado full", paths=[BASE_DIR / "data" / "market_data.csv"], table="asset_snapshots"),
+            pilot_status_item("news", "Noticias", table="market_news"),
+            pilot_status_item("sync_sqlite", "Postgres sync", paths=[LOCAL_SQLITE_FILE], table="simulated_operations"),
+            {
+                "key": "market-hours",
+                "label": "Status",
+                "ok": market_open,
+                "updated_display": "15:30-22:00" if market_open else "22:00-15:30",
+                "title": "Mercado activo 15:30-22:00 Madrid" if market_open else "Mercado fuera de ventana 22:00-15:30 Madrid",
+            },
+        ]
+
+    def pilot_status_item(key, label, paths=None, table=None):
+        status_row = execution_status_row(key)
+        updated_at = parse_utc_database_datetime(status_row.get("last_finished_at")) if status_row else None
+        updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else latest_file_datetime(paths or [])
+        db_updated_at = latest_table_datetime(table) if table else None
+        if db_updated_at and (not updated_at or db_updated_at > updated_at):
+            updated_at = db_updated_at
+        today = datetime.now(MADRID_TZ).date()
+        status_ok = str(status_row.get("status") or "").upper() == "OK" if status_row else True
+        ok = bool(status_ok and updated_at and updated_at.date() == today)
+        updated_display = updated_at.strftime("%H:%M") if updated_at else "sin fecha"
+        return {
+            "key": key,
+            "label": label,
+            "ok": ok,
+            "updated_display": updated_display,
+            "title": f"{label}: {updated_display}",
+        }
+
+    def execution_status_row(task_key):
+        try:
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT task_key, status, last_finished_at, last_returncode, updated_at
+                    FROM execution_status
+                    WHERE task_key = :task_key
+                    """
+                ),
+                {"task_key": task_key},
+            ).mappings().fetchone()
+        except Exception:
+            return None
+        return dict(row) if row else None
+
+    def latest_file_datetime(paths):
+        latest_mtime = None
+        for raw_path in paths or []:
+            if not raw_path:
+                continue
+            try:
+                path = Path(raw_path).resolve()
+                if not path.exists() or not path.is_file():
+                    continue
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            latest_mtime = mtime if latest_mtime is None else max(latest_mtime, mtime)
+        return datetime.fromtimestamp(latest_mtime, MADRID_TZ) if latest_mtime else None
+
+    def latest_table_datetime(table):
+        table_columns = {
+            "asset_universe": "updated_at",
+            "asset_snapshots": "updated_at",
+            "market_news": "created_at",
+            "simulated_operations": "updated_at",
+        }
+        column = table_columns.get(table)
+        if not table or not column:
+            return None
+        try:
+            value = g.db.execute(text(f"SELECT MAX({column}) FROM {table}")).scalar()
+        except Exception:
+            return None
+        parsed = parse_utc_database_datetime(value)
+        return parsed.astimezone(MADRID_TZ) if parsed else None
+
+    def time_in_madrid_window(now, start_text, end_text):
+        start_hour, start_minute = [int(part) for part in start_text.split(":", 1)]
+        end_hour, end_minute = [int(part) for part in end_text.split(":", 1)]
+        start = now.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
+        end = now.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
+        if start <= end:
+            return start <= now < end
+        return now >= start or now < end
 
     def upload_status_item(label, path=None, files=None):
         checked_files = [Path(path)] if path else list(files or [])
@@ -6252,6 +6357,7 @@ def init_db():
         ensure_top_money_volume_table(connection)
         ensure_strategy_diagnostics_table(connection)
         ensure_market_news_table(connection)
+        ensure_execution_status_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "python_file")
@@ -6702,6 +6808,25 @@ def market_news_column_exists(connection, column_name):
         return bool(result)
     result = connection.execute(text("PRAGMA table_info(market_news)")).fetchall()
     return any(row[1] == column_name for row in result)
+
+
+def ensure_execution_status_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS execution_status (
+                task_key TEXT PRIMARY KEY,
+                label TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'IDLE',
+                last_finished_at TIMESTAMP,
+                last_returncode INTEGER,
+                duration_seconds INTEGER NOT NULL DEFAULT 0,
+                message TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
 
 
 def ensure_users_table(connection):

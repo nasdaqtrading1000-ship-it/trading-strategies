@@ -457,6 +457,14 @@ def terminal_upload_watch_groups():
 
 def terminal_upload_status_event_lines():
     lines = ["CHECK :: upload file status panel"]
+    db_items = database_upload_status_payload()
+    if db_items:
+        for item in db_items:
+            prefix = "OK FILE" if item["ok"] else "WARNING FILE"
+            color = "green" if item["ok"] else "red"
+            detail = item["updated_display"] if item["exists"] else "missing"
+            lines.append(f"{prefix} :: {item['label']} {color} updated={detail} files={item['count']}")
+        return lines
     today = datetime.now(MADRID_TZ).date()
     for label, paths in terminal_upload_watch_groups():
         status = terminal_file_group_status(paths)
@@ -474,6 +482,9 @@ def terminal_upload_status_event_lines():
 
 
 def terminal_upload_status_payload():
+    db_items = database_upload_status_payload()
+    if db_items:
+        return db_items
     today = datetime.now(MADRID_TZ).date()
     items = []
     for label, paths in terminal_upload_watch_groups():
@@ -490,6 +501,62 @@ def terminal_upload_status_payload():
             }
         )
     return items
+
+
+def database_upload_status_payload():
+    labels = [label for label, _paths in terminal_upload_watch_groups()]
+    if not labels:
+        return []
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT label, exists_flag, file_count, latest_updated_at
+                        FROM upload_file_status
+                        """
+                    )
+                )
+                .mappings()
+                .fetchall()
+            )
+    except Exception:
+        return []
+    rows_by_label = {row.get("label"): dict(row) for row in rows}
+    today = datetime.now(MADRID_TZ).date()
+    items = []
+    for label in labels:
+        row = rows_by_label.get(label)
+        updated_at = parse_database_datetime_global(row.get("latest_updated_at")) if row else None
+        ok = bool(updated_at and updated_at.date() == today)
+        items.append(
+            {
+                "label": label,
+                "ok": ok,
+                "exists": bool(row and row.get("exists_flag")),
+                "count": int(row.get("file_count") or 0) if row else 0,
+                "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+            }
+        )
+    return items
+
+
+def parse_database_datetime_global(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime.combine(value, datetime.min.time(), tzinfo=UTC)
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(MADRID_TZ)
 
 
 def terminal_file_group_status(paths):
@@ -4485,6 +4552,9 @@ self.addEventListener("fetch", () => {});
         return now >= start or now < end
 
     def upload_status_item(label, path=None, files=None):
+        db_item = upload_status_item_from_database(label)
+        if db_item:
+            return db_item
         checked_files = [Path(path)] if path else list(files or [])
         existing = []
         for file_path in checked_files:
@@ -4510,6 +4580,34 @@ self.addEventListener("fetch", () => {});
             "ok": updated_today,
             "exists": bool(existing),
             "count": len(existing),
+            "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+        }
+
+    def upload_status_item_from_database(label):
+        try:
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT label, exists_flag, file_count, latest_updated_at
+                    FROM upload_file_status
+                    WHERE label = :label
+                    """
+                ),
+                {"label": label},
+            ).mappings().fetchone()
+        except Exception:
+            rollback_request_db()
+            return None
+        if not row:
+            return None
+        updated_at = parse_utc_database_datetime(row.get("latest_updated_at"))
+        updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else None
+        today = datetime.now(MADRID_TZ).date()
+        return {
+            "label": label,
+            "ok": bool(updated_at and updated_at.date() == today),
+            "exists": bool(row.get("exists_flag")),
+            "count": int(row.get("file_count") or 0),
             "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
         }
 
@@ -6404,6 +6502,7 @@ def init_db():
         ensure_strategy_diagnostics_table(connection)
         ensure_market_news_table(connection)
         ensure_execution_status_table(connection)
+        ensure_upload_file_status_table(connection)
         add_strategy_column(connection, "signals_txt_name")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "python_file")
@@ -6869,6 +6968,24 @@ def ensure_execution_status_table(connection):
                 duration_seconds INTEGER NOT NULL DEFAULT 0,
                 message TEXT NOT NULL DEFAULT '',
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def ensure_upload_file_status_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS upload_file_status (
+                label TEXT PRIMARY KEY,
+                exists_flag INTEGER NOT NULL DEFAULT 0,
+                file_count INTEGER NOT NULL DEFAULT 0,
+                total_bytes INTEGER NOT NULL DEFAULT 0,
+                latest_name TEXT NOT NULL DEFAULT '',
+                latest_updated_at TIMESTAMP,
+                synced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
         )

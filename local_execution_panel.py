@@ -58,6 +58,7 @@ TASK_LOCK = threading.Lock()
 ACTIVE_PROCESS_LOCK = threading.Lock()
 ACTIVE_PROCESS = None
 AUTOMATION_THREAD_STARTED = False
+UPLOAD_STATUS_SYNC_LAST = 0.0
 TASK_STATE = {
     "running": False,
     "task_key": "",
@@ -755,6 +756,7 @@ PAGE = """
 
 @app.route("/")
 def index():
+    sync_upload_file_statuses_to_postgres()
     automation = load_automation()
     task_status = build_task_status()
     automation_status = build_automation_status(automation)
@@ -1065,6 +1067,7 @@ def run_command(task_key, task, trigger):
             "duration_seconds": duration_seconds,
         },
     )
+    sync_upload_file_statuses_to_postgres(force=True)
     with TASK_LOCK:
         TASK_STATE.update(
             {
@@ -1729,6 +1732,121 @@ def sync_task_status_to_postgres(task_key, item):
         add_log(f"No se pudo sincronizar estado de {task_key} con PostgreSQL/DB: {error}")
 
 
+def upload_file_watch_groups():
+    signal_files = sorted((STRATEGIES_DIR / "salidas_txt").glob("*.txt")) if (STRATEGIES_DIR / "salidas_txt").exists() else []
+    operations_dir = STRATEGIES_DIR / "operaciones_simuladas"
+    return [
+        ("Signals", signal_files),
+        ("Run", [STRATEGIES_DIR / "strategy_run_status.json"]),
+        ("Selected", [RUNNER_SELECTION_FILE]),
+        ("Top Vol", [STRATEGIES_DIR / "top_money_volume_assets.txt"]),
+        ("V2 Diag", [STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.json"]),
+        ("Diag TXT", [STRATEGIES_V2_DIR / "outputs" / "diagnostics_v2.txt"]),
+        ("Ops State", [operations_dir / "operaciones_estado.json"]),
+        ("Open Ops", [operations_dir / "operaciones_abiertas.txt"]),
+        ("Closed Ops", [operations_dir / "operaciones_cerradas.txt"]),
+        ("All Ops", [operations_dir / "operaciones_todas.txt"]),
+        ("Perf", [operations_dir / "rentabilidad_estrategias.txt"]),
+        ("Max Cap", [operations_dir / "capital_maximos_estrategias.txt"]),
+        ("BT JSON", [BACKTEST_JSON_FILE]),
+        ("Assets", [BASE_DIR / "data" / "assets.csv"]),
+    ]
+
+
+def upload_file_group_status(paths):
+    existing = []
+    latest_path = None
+    latest_mtime = None
+    total_bytes = 0
+    for raw_path in paths or []:
+        try:
+            path = Path(raw_path)
+            if not path.exists() or not path.is_file():
+                continue
+            stats = path.stat()
+        except OSError:
+            continue
+        existing.append(path)
+        total_bytes += int(stats.st_size or 0)
+        if latest_mtime is None or stats.st_mtime > latest_mtime:
+            latest_mtime = stats.st_mtime
+            latest_path = path
+    updated_at = datetime.fromtimestamp(latest_mtime, MADRID_TZ) if latest_mtime else None
+    return {
+        "exists": bool(existing),
+        "count": len(existing),
+        "bytes": total_bytes,
+        "latest_name": latest_path.name if latest_path else "",
+        "updated_at": updated_at,
+    }
+
+
+def sync_upload_file_statuses_to_postgres(force=False):
+    global UPLOAD_STATUS_SYNC_LAST
+    now = time.monotonic()
+    if not force and now - UPLOAD_STATUS_SYNC_LAST < 30:
+        return
+    UPLOAD_STATUS_SYNC_LAST = now
+    rows = []
+    synced_at = datetime.now(UTC).replace(tzinfo=None)
+    for label, paths in upload_file_watch_groups():
+        status = upload_file_group_status(paths)
+        latest_updated_at = (
+            status["updated_at"].astimezone(UTC).replace(tzinfo=None)
+            if status["updated_at"]
+            else None
+        )
+        rows.append(
+            {
+                "label": label,
+                "exists_flag": 1 if status["exists"] else 0,
+                "file_count": int(status["count"] or 0),
+                "total_bytes": int(status["bytes"] or 0),
+                "latest_name": status["latest_name"] or "",
+                "latest_updated_at": latest_updated_at,
+                "synced_at": synced_at,
+            }
+        )
+    try:
+        with engine.begin() as connection:
+            ensure_upload_file_status_table(connection)
+            if engine.dialect.name == "postgresql":
+                statement = text(
+                    """
+                    INSERT INTO upload_file_status
+                    (label, exists_flag, file_count, total_bytes, latest_name, latest_updated_at, synced_at)
+                    VALUES (:label, :exists_flag, :file_count, :total_bytes, :latest_name, :latest_updated_at, :synced_at)
+                    ON CONFLICT (label)
+                    DO UPDATE SET
+                        exists_flag = EXCLUDED.exists_flag,
+                        file_count = EXCLUDED.file_count,
+                        total_bytes = EXCLUDED.total_bytes,
+                        latest_name = EXCLUDED.latest_name,
+                        latest_updated_at = EXCLUDED.latest_updated_at,
+                        synced_at = EXCLUDED.synced_at
+                    """
+                )
+            else:
+                statement = text(
+                    """
+                    INSERT INTO upload_file_status
+                    (label, exists_flag, file_count, total_bytes, latest_name, latest_updated_at, synced_at)
+                    VALUES (:label, :exists_flag, :file_count, :total_bytes, :latest_name, :latest_updated_at, :synced_at)
+                    ON CONFLICT(label)
+                    DO UPDATE SET
+                        exists_flag = excluded.exists_flag,
+                        file_count = excluded.file_count,
+                        total_bytes = excluded.total_bytes,
+                        latest_name = excluded.latest_name,
+                        latest_updated_at = excluded.latest_updated_at,
+                        synced_at = excluded.synced_at
+                    """
+                )
+            connection.execute(statement, rows)
+    except Exception as error:
+        add_log(f"No se pudo sincronizar estado de archivos con PostgreSQL/DB: {error}")
+
+
 def ensure_execution_status_table(connection):
     connection.execute(
         text(
@@ -1742,6 +1860,24 @@ def ensure_execution_status_table(connection):
                 duration_seconds INTEGER NOT NULL DEFAULT 0,
                 message TEXT NOT NULL DEFAULT '',
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def ensure_upload_file_status_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS upload_file_status (
+                label TEXT PRIMARY KEY,
+                exists_flag INTEGER NOT NULL DEFAULT 0,
+                file_count INTEGER NOT NULL DEFAULT 0,
+                total_bytes INTEGER NOT NULL DEFAULT 0,
+                latest_name TEXT NOT NULL DEFAULT '',
+                latest_updated_at TIMESTAMP,
+                synced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
         )

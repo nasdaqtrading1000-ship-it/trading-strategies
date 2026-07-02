@@ -3448,6 +3448,32 @@ self.addEventListener("fetch", () => {});
             },
         )
 
+    @app.route("/estrategia/<int:strategy_id>/historial/datos")
+    def strategy_closed_operations_data(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        if not can_view_strategy(strategy):
+            return jsonify({"error": "login_required"}), 403
+        txt_name = strategy.get("signals_txt_name", "")
+        total_closed_count = closed_operations_count(txt_name)
+        offset = parse_int_arg(request.args.get("offset"), 0, 0, max(total_closed_count, 0))
+        show_all = request.args.get("all") == "1"
+        limit = (
+            max(total_closed_count - offset, 0)
+            if show_all
+            else parse_int_arg(request.args.get("limit"), HISTORY_OPERATION_PAGE_SIZE, 1, HISTORY_OPERATION_PAGE_SIZE)
+        )
+        operations = closed_operations_for_strategy(txt_name, limit=limit, offset=offset)
+        loaded_count = min(offset + len(operations), total_closed_count)
+        return jsonify(
+            {
+                "operations": operations,
+                "loaded_count": loaded_count,
+                "total_count": total_closed_count,
+                "has_more": loaded_count < total_closed_count,
+                "next_offset": loaded_count,
+            }
+        )
+
     def parse_int_arg(value, default, minimum, maximum):
         try:
             parsed = int(value)
@@ -6117,16 +6143,21 @@ self.addEventListener("fetch", () => {});
             return None
         return format_simulated_operation(dict(row))
 
-    def closed_operations_for_strategy(txt_name, limit=500):
+    def closed_operations_for_strategy(txt_name, limit=500, offset=0):
         if not txt_name:
             return []
         operations = []
+        loaded_from_database = False
         try:
             params = {"txt_name": txt_name}
             limit_clause = ""
             if limit is not None:
                 params["limit"] = int(limit)
                 limit_clause = "LIMIT :limit"
+            offset_clause = ""
+            if offset:
+                params["offset"] = int(offset)
+                offset_clause = "OFFSET :offset"
             rows = g.db.execute(
                 text(
                     f"""
@@ -6140,15 +6171,19 @@ self.addEventListener("fetch", () => {});
                       AND status = 'CLOSED'
                     ORDER BY closed_at DESC, updated_at DESC
                     {limit_clause}
+                    {offset_clause}
                     """
                 ),
                 params,
             ).mappings().fetchall()
             operations = [format_simulated_operation(dict(row)) for row in rows]
+            loaded_from_database = True
         except Exception:
             rollback_request_db()
-            operations = closed_operations_from_file(txt_name, limit=limit)
+            operations = closed_operations_from_file(txt_name, limit=None)
         operations.sort(key=lambda item: str(item.get("closed_at") or item.get("updated_at") or ""), reverse=True)
+        if offset and not loaded_from_database:
+            operations = operations[offset:]
         if limit is None:
             return operations
         return operations[:limit]

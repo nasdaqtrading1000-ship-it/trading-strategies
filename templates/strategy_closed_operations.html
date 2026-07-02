@@ -9,7 +9,7 @@
       <div>
         <p class="eyebrow mb-2">Historial de operaciones cerradas</p>
         <h1 class="h2 mb-2">{{ strategy.name }}</h1>
-        <p class="text-secondary mb-0">
+        <p class="text-secondary mb-0" id="history-loaded-status">
           {{ history_totalizer.loaded_count }} de {{ history_totalizer.count }} operaciones cerradas cargadas.
         </p>
       </div>
@@ -62,7 +62,7 @@
               <th>Motivo</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="history-operations-body">
             {% for operation in operations %}
               <tr>
                 <td><strong class="text-info">{{ operation.symbol }}</strong></td>
@@ -80,14 +80,14 @@
         </table>
       </div>
       {% if history_pagination.has_more or not history_pagination.show_all %}
-        <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-4">
+        <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-4" id="history-actions">
           {% if history_pagination.has_more %}
-            <a class="btn btn-outline-info" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, limit=history_pagination.next_limit) }}">
+            <a class="btn btn-outline-info" id="history-load-more" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, limit=history_pagination.next_limit) }}" data-url="{{ url_for('strategy_closed_operations_data', strategy_id=strategy.id) }}" data-offset="{{ history_totalizer.loaded_count }}" data-limit="{{ history_pagination.page_size }}">
               Ver mas
             </a>
           {% endif %}
           {% if not history_pagination.show_all %}
-            <a class="btn btn-outline-light" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, all=1) }}">
+            <a class="btn btn-outline-light" id="history-load-all" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, all=1) }}" data-url="{{ url_for('strategy_closed_operations_data', strategy_id=strategy.id) }}" data-offset="{{ history_totalizer.loaded_count }}">
               Ver todas
             </a>
           {% endif %}
@@ -101,4 +101,109 @@
     {% endif %}
   </div>
 </section>
+<script>
+(() => {
+  const tbody = document.getElementById("history-operations-body");
+  const status = document.getElementById("history-loaded-status");
+  const loadMore = document.getElementById("history-load-more");
+  const loadAll = document.getElementById("history-load-all");
+  if (!tbody || !status) return;
+
+  const setText = (node, value) => {
+    node.textContent = value || "";
+  };
+
+  const appendOperation = (operation) => {
+    const row = document.createElement("tr");
+    const symbolCell = document.createElement("td");
+    const symbol = document.createElement("strong");
+    symbol.className = "text-info";
+    setText(symbol, operation.symbol);
+    symbolCell.appendChild(symbol);
+    row.appendChild(symbolCell);
+
+    [
+      operation.direction,
+      operation.opened_at_display,
+      operation.closed_at_display,
+      operation.entry_price_display,
+      operation.exit_price_display,
+    ].forEach((value) => {
+      const cell = document.createElement("td");
+      setText(cell, value);
+      row.appendChild(cell);
+    });
+
+    const pctCell = document.createElement("td");
+    const pct = document.createElement("strong");
+    pct.className = operation.profit_class || "";
+    setText(pct, operation.profit_pct_display);
+    pctCell.appendChild(pct);
+    row.appendChild(pctCell);
+
+    const usdCell = document.createElement("td");
+    const usd = document.createElement("strong");
+    usd.className = operation.profit_class || "";
+    setText(usd, operation.profit_usd_display);
+    usdCell.appendChild(usd);
+    row.appendChild(usdCell);
+
+    const reasonCell = document.createElement("td");
+    setText(reasonCell, operation.close_reason || "Cerrada");
+    row.appendChild(reasonCell);
+    tbody.appendChild(row);
+  };
+
+  const updateButtons = (payload) => {
+    status.textContent = `${payload.loaded_count} de ${payload.total_count} operaciones cerradas cargadas.`;
+    if (loadMore) {
+      loadMore.dataset.offset = payload.next_offset;
+      loadMore.classList.toggle("d-none", !payload.has_more);
+    }
+    if (loadAll) {
+      loadAll.dataset.offset = payload.next_offset;
+      loadAll.classList.toggle("d-none", !payload.has_more);
+    }
+  };
+
+  const requestOperations = async (button, all = false) => {
+    if (!button || button.dataset.loading === "1") return;
+    button.dataset.loading = "1";
+    const previous = button.textContent;
+    button.textContent = "Cargando...";
+    const url = new URL(button.dataset.url, window.location.origin);
+    url.searchParams.set("offset", button.dataset.offset || "0");
+    if (all) {
+      url.searchParams.set("all", "1");
+    } else {
+      url.searchParams.set("limit", button.dataset.limit || "100");
+    }
+    try {
+      const response = await fetch(url.toString(), {headers: {"Accept": "application/json"}});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      (payload.operations || []).forEach(appendOperation);
+      updateButtons(payload);
+    } catch (error) {
+      window.location.href = button.href;
+    } finally {
+      button.dataset.loading = "0";
+      button.textContent = previous;
+    }
+  };
+
+  if (loadMore) {
+    loadMore.addEventListener("click", (event) => {
+      event.preventDefault();
+      requestOperations(loadMore, false);
+    });
+  }
+  if (loadAll) {
+    loadAll.addEventListener("click", (event) => {
+      event.preventDefault();
+      requestOperations(loadAll, true);
+    });
+  }
+})();
+</script>
 {% endblock %}

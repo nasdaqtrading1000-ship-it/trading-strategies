@@ -3201,7 +3201,8 @@ def create_app():
                historical_return, telegram_url, has_telegram, signals_txt_name,
                python_file, auto_execute, schedule_start_time, schedule_end_time,
                schedule_interval_minutes, run_status, run_message, run_at,
-               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active
+               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
+               closed_operations_count, average_close_duration, success_rate, first_operation_display
         FROM strategies
         WHERE is_active = 1
         ORDER BY created_at DESC
@@ -3458,7 +3459,7 @@ self.addEventListener("fetch", () => {});
             flash("Crea una cuenta para ver el historial completo.", "warning")
             return redirect(url_for("user_login"))
         txt_name = strategy.get("signals_txt_name", "")
-        total_closed_count = closed_operations_count(txt_name)
+        total_closed_count = int(strategy.get("closed_operations_count") or 0)
         show_all = request.args.get("all") == "1"
         requested_limit = parse_int_arg(request.args.get("limit"), HISTORY_OPERATION_PAGE_SIZE, HISTORY_OPERATION_PAGE_SIZE, 5000)
         operation_limit = None if show_all else requested_limit
@@ -3512,7 +3513,7 @@ self.addEventListener("fetch", () => {});
         if not can_view_strategy(strategy):
             return jsonify({"error": "login_required"}), 403
         txt_name = strategy.get("signals_txt_name", "")
-        total_closed_count = closed_operations_count(txt_name)
+        total_closed_count = int(strategy.get("closed_operations_count") or 0)
         offset = parse_int_arg(request.args.get("offset"), 0, 0, max(total_closed_count, 0))
         show_all = request.args.get("all") == "1"
         limit = (
@@ -4872,13 +4873,13 @@ self.addEventListener("fetch", () => {});
         signals_updated_at = strategy_signals_updated_at_datetime(txt_name)
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
-        strategy["closed_operations_count"] = closed_operations_count(txt_name)
-        strategy["average_close_duration"] = average_close_duration(txt_name)
-        strategy["success_rate"] = closed_operations_success_rate(txt_name)
+        strategy["closed_operations_count"] = int(strategy.get("closed_operations_count") or 0)
+        strategy["average_close_duration"] = strategy.get("average_close_duration") or "Sin cierres todavia"
+        strategy["success_rate"] = strategy.get("success_rate") or "Sin cierres todavia"
         strategy["_signals_updated_at_datetime"] = signals_updated_at
         strategy["signals_updated_at"] = format_madrid_datetime(signals_updated_at)
         strategy["run_status"] = strategy_run_status(strategy, txt_name)
-        strategy["first_operation_display"] = first_operation_display(txt_name)
+        strategy["first_operation_display"] = strategy.get("first_operation_display") or ""
         strategy["short_name"] = strategy_short_name(strategy.get("name"))
         return_source = strategy.get("historical_return")
         strategy["historical_return"] = return_source
@@ -4887,307 +4888,6 @@ self.addEventListener("fetch", () => {});
         strategy["return_badge"] = strategy_return_badge(return_source)
         strategy["return_badge_class"] = strategy_return_badge_class(return_source)
         return strategy
-
-    def operation_metrics_for_txt(txt_name):
-        if not txt_name:
-            return {}
-        cache = getattr(g, "_operation_metrics_by_txt", None)
-        if cache is None:
-            cache = load_operation_metrics_by_txt()
-            g._operation_metrics_by_txt = cache
-        return cache.get(txt_name, {})
-
-    def load_operation_metrics_by_txt():
-        if engine.dialect.name == "postgresql":
-            average_expr = "EXTRACT(EPOCH FROM (closed_at - opened_at))"
-        else:
-            average_expr = "(julianday(closed_at) - julianday(opened_at)) * 86400.0"
-        try:
-            rows = g.db.execute(
-                text(
-                    f"""
-                    SELECT
-                        txt_name,
-                        SUM(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END) AS closed_count,
-                        SUM(CASE WHEN status = 'CLOSED' AND profit_usd > 0 THEN 1 ELSE 0 END) AS winners,
-                        AVG(CASE
-                            WHEN status = 'CLOSED'
-                             AND opened_at IS NOT NULL
-                             AND closed_at IS NOT NULL
-                             AND closed_at >= opened_at
-                            THEN {average_expr}
-                            ELSE NULL
-                        END) AS average_close_seconds,
-                        MIN(COALESCE(opened_at, closed_at, updated_at)) AS first_timestamp,
-                        MIN(NULLIF(signal_date, '')) AS first_signal_date
-                    FROM simulated_operations
-                    GROUP BY txt_name
-                    """
-                )
-            ).mappings().fetchall()
-        except Exception:
-            rollback_request_db()
-            return {}
-        return {row.get("txt_name"): dict(row) for row in rows if row.get("txt_name")}
-
-    def open_operations_count(txt_name):
-        if not txt_name:
-            return 0
-        try:
-            return g.db.execute(
-                text(
-                    """
-                    SELECT COUNT(*)
-                    FROM simulated_operations
-                    WHERE txt_name = :txt_name
-                      AND status = 'OPEN'
-                    """
-                ),
-                {"txt_name": txt_name},
-            ).scalar_one()
-        except Exception:
-            rollback_request_db()
-            return 0
-
-    def first_operation_display(txt_name):
-        if not txt_name:
-            return ""
-        metrics = operation_metrics_for_txt(txt_name)
-        if metrics:
-            parsed_candidates = [
-                parsed
-                for parsed in (
-                    parse_utc_database_datetime(metrics.get("first_timestamp")),
-                    parse_utc_database_datetime(metrics.get("first_signal_date")),
-                )
-                if parsed
-            ]
-            parsed = min(parsed_candidates) if parsed_candidates else None
-            if parsed:
-                return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%y")
-        rollback_request_db()
-        try:
-            row = g.db.execute(
-                text(
-                    """
-                    SELECT
-                        MIN(COALESCE(opened_at, closed_at, updated_at)) AS first_timestamp,
-                        MIN(NULLIF(signal_date, '')) AS first_signal_date
-                    FROM simulated_operations
-                    WHERE txt_name = :txt_name
-                    """
-                ),
-                {"txt_name": txt_name},
-            ).mappings().fetchone()
-        except Exception:
-            rollback_request_db()
-            row = None
-        parsed_candidates = []
-        if row:
-            parsed_candidates = [
-                parsed
-                for parsed in (
-                    parse_utc_database_datetime(row.get("first_timestamp")),
-                    parse_utc_database_datetime(row.get("first_signal_date")),
-                )
-                if parsed
-            ]
-        parsed = min(parsed_candidates) if parsed_candidates else None
-        if not parsed:
-            parsed = parse_utc_database_datetime(first_operation_from_file(txt_name))
-        if not parsed:
-            return ""
-        return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%y")
-
-    def first_operation_from_file(txt_name):
-        operations = closed_operations_from_file(txt_name, limit=None)
-        candidates = [
-            operation.get("opened_at") or operation.get("signal_date")
-            for operation in operations
-            if operation.get("opened_at") or operation.get("signal_date")
-        ]
-        return min(candidates) if candidates else ""
-
-    def closed_operations_count(txt_name):
-        if not txt_name:
-            return 0
-        metrics = operation_metrics_for_txt(txt_name)
-        if metrics:
-            return int(metrics.get("closed_count") or 0)
-        count = 0
-        try:
-            count = g.db.execute(
-                text(
-                    """
-                    SELECT COUNT(*)
-                    FROM simulated_operations
-                    WHERE txt_name = :txt_name
-                      AND status = 'CLOSED'
-                    """
-                ),
-                {"txt_name": txt_name},
-            ).scalar_one()
-        except Exception:
-            rollback_request_db()
-            count = len(closed_operations_from_file(txt_name))
-        return count
-
-    def average_close_duration(txt_name):
-        if not txt_name:
-            return "Sin cierres todavia"
-        metrics = operation_metrics_for_txt(txt_name)
-        if metrics:
-            average_seconds = metrics.get("average_close_seconds")
-            return format_duration_seconds(float(average_seconds)) if average_seconds else "Sin cierres todavia"
-        try:
-            if engine.dialect.name == "postgresql":
-                average_seconds = g.db.execute(
-                    text(
-                        """
-                        SELECT AVG(EXTRACT(EPOCH FROM (closed_at - opened_at)))
-                        FROM simulated_operations
-                        WHERE txt_name = :txt_name
-                          AND status = 'CLOSED'
-                          AND opened_at IS NOT NULL
-                          AND closed_at IS NOT NULL
-                          AND closed_at >= opened_at
-                        """
-                    ),
-                    {"txt_name": txt_name},
-                ).scalar()
-            else:
-                average_seconds = g.db.execute(
-                    text(
-                        """
-                        SELECT AVG((julianday(closed_at) - julianday(opened_at)) * 86400.0)
-                        FROM simulated_operations
-                        WHERE txt_name = :txt_name
-                          AND status = 'CLOSED'
-                          AND opened_at IS NOT NULL
-                          AND closed_at IS NOT NULL
-                          AND closed_at >= opened_at
-                        """
-                    ),
-                    {"txt_name": txt_name},
-                ).scalar()
-        except Exception:
-            rollback_request_db()
-            durations = closed_operation_durations(txt_name)
-            average_seconds = (sum(durations) / len(durations)) if durations else None
-        if not average_seconds:
-            return "Sin cierres todavia"
-        return format_duration_seconds(float(average_seconds))
-
-    def closed_operations_success_rate(txt_name):
-        if not txt_name:
-            return "Sin cierres todavia"
-        metrics = operation_metrics_for_txt(txt_name)
-        if metrics:
-            total = int(metrics.get("closed_count") or 0)
-            winners = int(metrics.get("winners") or 0)
-            return f"{(winners / total * 100):.1f}%" if total else "Sin cierres todavia"
-        try:
-            row = g.db.execute(
-                text(
-                    """
-                    SELECT
-                        COUNT(*) AS total,
-                        SUM(CASE WHEN profit_usd > 0 THEN 1 ELSE 0 END) AS winners
-                    FROM simulated_operations
-                    WHERE txt_name = :txt_name
-                      AND status = 'CLOSED'
-                    """
-                ),
-                {"txt_name": txt_name},
-            ).mappings().fetchone()
-            total = int(row.get("total") or 0) if row else 0
-            winners = int(row.get("winners") or 0) if row else 0
-        except Exception:
-            rollback_request_db()
-            profits = closed_operation_profits(txt_name)
-            total = len(profits)
-            winners = sum(1 for profit in profits if profit > 0)
-        if not total:
-            return "Sin cierres todavia"
-        return f"{(winners / total * 100):.1f}%"
-
-    def closed_operation_profits(txt_name):
-        profits = []
-        try:
-            rows = g.db.execute(
-                text(
-                    """
-                    SELECT profit_usd
-                    FROM simulated_operations
-                    WHERE txt_name = :txt_name
-                      AND status = 'CLOSED'
-                    """
-                ),
-                {"txt_name": txt_name},
-            ).mappings().fetchall()
-            profits = [parse_display_float(row.get("profit_usd")) for row in rows]
-        except Exception:
-            rollback_request_db()
-            profits = closed_operation_profits_from_file(txt_name)
-        return profits
-
-    def closed_operation_profits_from_file(txt_name):
-        path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
-        try:
-            if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
-                return []
-            operations = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return []
-        return [
-            parse_display_float(operation.get("profit_usd"))
-            for operation in operations
-            if operation.get("txt_name") == txt_name
-            and operation.get("status") == "CLOSED"
-        ]
-
-    def closed_operation_durations(txt_name):
-        durations = []
-        try:
-            rows = g.db.execute(
-                text(
-                    """
-                    SELECT opened_at, closed_at
-                    FROM simulated_operations
-                    WHERE txt_name = :txt_name
-                      AND status = 'CLOSED'
-                      AND opened_at IS NOT NULL
-                      AND closed_at IS NOT NULL
-                    """
-                ),
-                {"txt_name": txt_name},
-            ).mappings().fetchall()
-            for row in rows:
-                opened_at = parse_utc_database_datetime(row.get("opened_at"))
-                closed_at = parse_utc_database_datetime(row.get("closed_at"))
-                if opened_at and closed_at and closed_at >= opened_at:
-                    durations.append((closed_at - opened_at).total_seconds())
-        except Exception:
-            durations = closed_operation_durations_from_file(txt_name)
-        return durations
-
-    def closed_operation_durations_from_file(txt_name):
-        path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
-        try:
-            if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
-                return []
-            operations = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return []
-        durations = []
-        for operation in operations:
-            if operation.get("txt_name") != txt_name or operation.get("status") != "CLOSED":
-                continue
-            opened_at = parse_utc_database_datetime(operation.get("opened_at"))
-            closed_at = parse_utc_database_datetime(operation.get("closed_at"))
-            if opened_at and closed_at and closed_at >= opened_at:
-                durations.append((closed_at - opened_at).total_seconds())
-        return durations
 
     def attach_simulated_operations_to_signals(strategy, signals):
         operations_by_signal = simulated_operations_for_signals(strategy, signals)
@@ -6962,6 +6662,10 @@ def init_db():
                     include_in_totalizer INTEGER NOT NULL DEFAULT 0,
                     public_visible INTEGER NOT NULL DEFAULT 0,
                     run_locally INTEGER NOT NULL DEFAULT 1,
+                    closed_operations_count INTEGER NOT NULL DEFAULT 0,
+                    average_close_duration TEXT NOT NULL DEFAULT '',
+                    success_rate TEXT NOT NULL DEFAULT '',
+                    first_operation_display TEXT NOT NULL DEFAULT '',
                     is_active INTEGER NOT NULL DEFAULT 1,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -7006,6 +6710,10 @@ def init_db():
         add_strategy_column(connection, "include_in_totalizer", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "public_visible", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "run_locally", "INTEGER NOT NULL DEFAULT 1")
+        add_strategy_column(connection, "closed_operations_count", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "average_close_duration", "TEXT NOT NULL DEFAULT ''")
+        add_strategy_column(connection, "success_rate", "TEXT NOT NULL DEFAULT ''")
+        add_strategy_column(connection, "first_operation_display", "TEXT NOT NULL DEFAULT ''")
         ensure_default_real_strategies(connection)
 
         count = connection.execute(text("SELECT COUNT(*) FROM strategies")).scalar_one()

@@ -3100,6 +3100,29 @@ def create_app():
             )
         return rows
 
+    def simulator_strategy_context_for_user(user):
+        has_full_access = member_has_full_access(user)
+        rows = g.db.execute(
+            text(
+                """
+                SELECT id, name, signals_txt_name, public_visible
+                FROM strategies
+                WHERE is_active = 1
+                ORDER BY created_at DESC
+                """
+            )
+        ).mappings().fetchall()
+        selected_ids = load_user_simulator_strategy_ids(user["id"])
+        if not selected_ids:
+            selected_ids = load_user_totalizer_selection(user["id"])
+        strategies = []
+        for row in rows:
+            strategy = dict(row)
+            strategy["short_name"] = strategy_short_name(strategy.get("name"))
+            strategy["is_locked"] = not has_full_access and not int(strategy.get("public_visible") or 0)
+            strategies.append(strategy)
+        return build_simulator_strategy_rows(strategies, selected_ids)
+
     def simulator_summary(settings, strategy_rows):
         selected_txt = [row["txt_name"] for row in strategy_rows if row["selected"] and row["txt_name"]]
         contributed = simulator_contributed_capital(settings)
@@ -3189,7 +3212,7 @@ def create_app():
             months += 1
         return max(0, months)
 
-    def simulator_operations(settings, strategy_rows, limit=100):
+    def simulator_operations(settings, strategy_rows, limit=100, offset=0):
         selected_txt = [row["txt_name"] for row in strategy_rows if row["selected"] and row["txt_name"]]
         if not selected_txt:
             return []
@@ -3207,9 +3230,15 @@ def create_app():
                       AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
                     ORDER BY COALESCE(closed_at, updated_at, opened_at) DESC
                     LIMIT :limit
+                    OFFSET :offset
                     """
                 ).bindparams(bindparam("txt_names", expanding=True)),
-                {"txt_names": selected_txt, "start_date": settings["start_date"], "limit": int(limit)},
+                {
+                    "txt_names": selected_txt,
+                    "start_date": settings["start_date"],
+                    "limit": int(limit),
+                    "offset": int(offset),
+                },
             ).mappings().fetchall()
         except Exception:
             rollback_request_db()
@@ -3488,6 +3517,33 @@ def create_app():
         )
         flash("Simulador guardado.", "success")
         return redirect(url_for("index", _anchor="account-simulator"))
+
+    @app.route("/simulador-cuenta/operaciones")
+    def account_simulator_operations():
+        user = current_user()
+        if not user:
+            return jsonify({"error": "login_required"}), 403
+        strategies = simulator_strategy_context_for_user(user)
+        settings = load_user_simulator_settings(user["id"])
+        summary = simulator_summary(settings, strategies)
+        offset = parse_int_arg(request.args.get("offset"), 0, 0, max(summary["total_ops"], 0))
+        show_all = request.args.get("all") == "1"
+        limit = (
+            max(summary["total_ops"] - offset, 0)
+            if show_all
+            else parse_int_arg(request.args.get("limit"), HISTORY_OPERATION_PAGE_SIZE, 1, HISTORY_OPERATION_PAGE_SIZE)
+        )
+        operations = simulator_operations(settings, strategies, limit=limit, offset=offset)
+        loaded_count = min(offset + len(operations), summary["total_ops"])
+        return jsonify(
+            {
+                "operations": operations,
+                "loaded_count": loaded_count,
+                "total_count": summary["total_ops"],
+                "has_more": loaded_count < summary["total_ops"],
+                "next_offset": loaded_count,
+            }
+        )
 
     @app.route("/")
     def index():

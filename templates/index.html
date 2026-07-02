@@ -251,6 +251,9 @@
 
       {% if simulator.show_operations %}
         <div class="table-responsive report-ranking-table-wrap mt-3">
+          <p class="text-secondary small mb-2" id="simulator-loaded-status">
+            {{ simulator.operations|length }} de {{ simulator.summary.total_ops }} operaciones cargadas.
+          </p>
           <table class="table table-dark table-hover align-middle report-ranking-table mb-0">
             <thead>
               <tr>
@@ -263,7 +266,7 @@
                 <th class="text-end">Resultado</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="simulator-operations-body">
               {% for operation in simulator.operations %}
                 <tr>
                   <td>{{ operation.strategy_name }}</td>
@@ -282,6 +285,16 @@
             </tbody>
           </table>
         </div>
+        {% if simulator.operations|length < simulator.summary.total_ops %}
+          <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-3">
+            <a class="btn btn-outline-info btn-sm" id="simulator-load-more" href="{{ url_for('index', simulator_ops=1, _anchor='account-simulator') }}" data-url="{{ url_for('account_simulator_operations') }}" data-offset="{{ simulator.operations|length }}" data-limit="100">
+              Ver mas
+            </a>
+            <a class="btn btn-outline-light btn-sm" id="simulator-load-all" href="{{ url_for('index', simulator_ops=1, _anchor='account-simulator') }}" data-url="{{ url_for('account_simulator_operations') }}" data-offset="{{ simulator.operations|length }}">
+              Ver todas
+            </a>
+          </div>
+        {% endif %}
       {% endif %}
     {% else %}
       <div class="public-shell-warning">
@@ -290,6 +303,109 @@
     {% endif %}
   </div>
 </section>
+
+{% if current_user %}
+<script>
+(() => {
+  const tbody = document.getElementById("simulator-operations-body");
+  const status = document.getElementById("simulator-loaded-status");
+  const loadMore = document.getElementById("simulator-load-more");
+  const loadAll = document.getElementById("simulator-load-all");
+  if (!tbody || !status) return;
+
+  const setText = (node, value) => {
+    node.textContent = value || "";
+  };
+
+  const appendOperation = (operation) => {
+    const row = document.createElement("tr");
+    [
+      operation.strategy_name,
+      operation.symbol,
+      operation.status_label,
+      operation.opened_at_display,
+      operation.closed_at_display,
+    ].forEach((value, index) => {
+      const cell = document.createElement("td");
+      if (index === 1) {
+        const strong = document.createElement("strong");
+        strong.className = "text-info";
+        setText(strong, value);
+        cell.appendChild(strong);
+      } else {
+        setText(cell, value);
+      }
+      row.appendChild(cell);
+    });
+
+    const pctCell = document.createElement("td");
+    pctCell.className = "text-end";
+    const pct = document.createElement("strong");
+    pct.className = operation.profit_class || "";
+    setText(pct, operation.profit_pct_display);
+    pctCell.appendChild(pct);
+    row.appendChild(pctCell);
+
+    const usdCell = document.createElement("td");
+    usdCell.className = "text-end";
+    const usd = document.createElement("strong");
+    usd.className = operation.profit_class || "";
+    setText(usd, operation.profit_usd_display);
+    usdCell.appendChild(usd);
+    row.appendChild(usdCell);
+    tbody.appendChild(row);
+  };
+
+  const updateButtons = (payload) => {
+    status.textContent = `${payload.loaded_count} de ${payload.total_count} operaciones cargadas.`;
+    [loadMore, loadAll].forEach((button) => {
+      if (!button) return;
+      button.dataset.offset = payload.next_offset;
+      button.classList.toggle("d-none", !payload.has_more);
+    });
+  };
+
+  const requestOperations = async (button, all = false) => {
+    if (!button || button.dataset.loading === "1") return;
+    button.dataset.loading = "1";
+    const previous = button.textContent;
+    button.textContent = "Cargando...";
+    const url = new URL(button.dataset.url, window.location.origin);
+    url.searchParams.set("offset", button.dataset.offset || "0");
+    if (all) {
+      url.searchParams.set("all", "1");
+    } else {
+      url.searchParams.set("limit", button.dataset.limit || "100");
+    }
+    try {
+      const response = await fetch(url.toString(), {headers: {"Accept": "application/json"}});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      (payload.operations || []).forEach(appendOperation);
+      updateButtons(payload);
+    } catch (error) {
+      window.location.href = button.href;
+    } finally {
+      button.dataset.loading = "0";
+      button.textContent = previous;
+    }
+  };
+
+  if (loadMore) {
+    loadMore.addEventListener("click", (event) => {
+      event.preventDefault();
+      requestOperations(loadMore, false);
+    });
+  }
+  if (loadAll) {
+    loadAll.addEventListener("click", (event) => {
+      event.preventDefault();
+      requestOperations(loadAll, true);
+    });
+  }
+})();
+</script>
+{% endif %}
 
 <section id="ranking" class="container pt-4 pb-5">
   <div class="report-ranking-card">

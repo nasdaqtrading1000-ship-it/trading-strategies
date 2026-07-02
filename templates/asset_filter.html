@@ -160,13 +160,13 @@
             <thead>
               <tr>
                 <th>Activo</th>
-                <th>Mercado</th>
+                <th>Mdo</th>
                 <th>Sector</th>
                 <th>Precio</th>
-                <th>{{ filter_labels.money_volume }}</th>
-                <th>{{ filter_labels.day_volume }}</th>
-                <th>{{ filter_labels.ratio }}</th>
-                <th>{{ filter_labels.week_volume }}</th>
+                <th title="{{ filter_labels.money_volume }}">Vol {{ filters.month_window }}M</th>
+                <th title="{{ filter_labels.day_volume }}">Vol {{ filters.day_volume_window }}D</th>
+                <th title="{{ filter_labels.ratio }}">Vol ratio</th>
+                <th title="{{ filter_labels.week_volume }}">Vol {{ filters.week_volume_window }}W</th>
               </tr>
             </thead>
             <tbody>

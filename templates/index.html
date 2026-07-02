@@ -1,28 +1,113 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Code Markets Automatic Signals{% endblock %}
 
 {% block content %}
+<section class="container pt-3">
+  <div class="model-summary-strip">
+    <div class="model-summary-main">
+      <span>Modelos analizados</span>
+      <strong>{{ strategies|length }}</strong>
+    </div>
+    <div class="model-summary-metrics">
+      <div>
+        <span>Bajo</span>
+        <strong>{{ strategies|selectattr("risk_level", "equalto", "Bajo")|list|length }}</strong>
+      </div>
+      <div>
+        <span>Medio</span>
+        <strong>{{ strategies|selectattr("risk_level", "equalto", "Medio")|list|length }}</strong>
+      </div>
+      <div>
+        <span>Alto</span>
+        <strong>{{ strategies|selectattr("risk_level", "equalto", "Alto")|list|length }}</strong>
+      </div>
+    </div>
+    <div class="model-summary-note">
+      Avisos ordenados por actividad y disponibles segun tu nivel de acceso.
+    </div>
+  </div>
+  <div class="upload-status-strip" aria-label="Estado de archivos locales sincronizables">
+    {% for item in upload_file_statuses %}
+      <span class="upload-status-chip {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" data-upload-status-chip="{{ item.label }}" title="{{ item.updated_display }}{% if item.count > 1 %} Â· {{ item.count }} files{% endif %}">
+        <span class="upload-status-dot"></span>
+        <span>{{ item.label }}</span>
+        <small data-upload-status-time>{{ item.updated_display }}</small>
+      </span>
+    {% endfor %}
+  </div>
+</section>
+
 <section class="hero-section report-hero">
-  <div class="container py-5">
-    <div class="row align-items-center gy-4">
-      <div class="col-lg-8">
-        <div class="hero-kicker-row">
-          <p class="eyebrow mb-0">Automatic market signals terminal</p>
-          <span class="page-refresh-chip">Ultimo refresh {{ page_refreshed_at }}</span>
-        </div>
-        <h1 class="display-4 fw-bold mb-3">Code Markets Automatic Signals.</h1>
-        <p class="lead text-secondary mb-4">Terminal operativo para modelos de mercado, avisos activos, rendimiento y estado de ejecucion.</p>
-        <div class="live-shell-panel" aria-label="Actividad automatica del sistema">
-          <div class="live-shell-titlebar">
-            <span>//market/signals/runtime</span>
-            <span class="live-shell-window-controls">status: live</span>
+  <div class="container py-4">
+    <div class="row align-items-start gy-4">
+      <div class="col-12">
+        <div class="hero-heading-board">
+          <div class="hero-heading-copy">
+            <div class="hero-kicker-row">
+              <p class="eyebrow mb-0">Automatic market signals terminal</p>
+              <span class="page-refresh-chip">Ultimo refresh {{ page_refreshed_at }}</span>
+            </div>
+            <div class="hero-title-row mb-3">
+              <h1 class="display-4 fw-bold mb-0">Code Markets Automatic Signals.</h1>
+              <span class="router-led" aria-hidden="true"></span>
+            </div>
+            <p class="lead text-secondary mb-3">Terminal operativo para modelos de mercado, avisos activos, rendimiento y estado de ejecucion.</p>
           </div>
-          <div class="live-shell-body">
-            <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="shell-command">run automatic-signals --mode=live</span></div>
-            <div class="shell-line shell-info" id="live-shell-line">WAIT database event stream</div>
-            <div class="terminal-feed-lines" id="terminal-feed-lines" aria-live="polite"></div>
-            <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="terminal-cursor"></span></div>
+        </div>
+        <div class="hero-live-grid">
+          <div class="live-shell-panel" aria-label="Actividad automatica del sistema">
+            <div class="live-shell-titlebar">
+              <span>//market/signals/runtime</span>
+              <span class="live-shell-window-controls">status: live</span>
+            </div>
+            <div class="live-shell-body">
+              <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="shell-command">run automatic-signals --mode=live</span></div>
+              <div class="shell-line shell-info" id="live-shell-line">WAIT database event stream</div>
+              <div class="terminal-feed-lines" id="terminal-feed-lines" aria-live="polite"></div>
+              <div class="shell-line"><span class="shell-path">//market/signals&gt;</span> <span class="terminal-cursor"></span></div>
+            </div>
+          </div>
+          <div class="market-news-card hero-news-card" data-news-overlay>
+            <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+              <div>
+                <p class="eyebrow mb-1">Noticias relevantes</p>
+                <div class="market-news-heading-line">
+                  <h2 class="h5 fw-bold mb-0">Resumen de mercado</h2>
+                  <p class="text-secondary small mb-0">Ultima actualizacion: <strong>{{ market_news_updated_at or "Sin actualizar" }}</strong></p>
+                </div>
+              </div>
+              <div class="hero-news-actions">
+                <a class="btn btn-outline-warning btn-sm" href="{{ url_for('market_news_page') }}" target="_blank" rel="noopener">Ver noticias</a>
+              </div>
+            </div>
+            {% if market_news %}
+              <div class="news-radar-list compact">
+                {% for item in market_news %}
+                  <article class="market-news-row compact hero-news-row">
+                    <div class="news-row-time">
+                      <strong>{{ item.published_display or item.created_display }}</strong>
+                    </div>
+                    <div class="news-row-main">
+                      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
+                        <h3 class="news-row-title mb-0">{{ item.title_es }}</h3>
+                      </div>
+                      <p class="news-market-angle mb-1">{{ item.market_angle }}</p>
+                      <p class="market-news-summary mb-0">{{ item.display_summary_es }}</p>
+                    </div>
+                    <div class="news-row-affected">
+                      <span>Afecta</span>
+                      <strong>{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
+                    </div>
+                  </article>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="alert alert-info border-0 mb-0">
+                Aun no hay noticias cargadas. Ejecuta el actualizador local de noticias para rellenar esta seccion.
+              </div>
+            {% endif %}
           </div>
         </div>
         <div class="hero-actions d-flex gap-2 flex-wrap">
@@ -40,70 +125,7 @@
           </div>
         {% endif %}
       </div>
-      <div class="col-lg-4">
-        <div class="stats-panel stats-panel-compact report-score-panel">
-          <span class="d-block text-secondary small">Modelos analizados</span>
-          <strong>{{ strategies|length }}</strong>
-          <div class="hero-metrics">
-            <div>
-              <span>Bajo</span>
-              <strong>{{ strategies|selectattr("risk_level", "equalto", "Bajo")|list|length }}</strong>
-            </div>
-            <div>
-              <span>Medio</span>
-              <strong>{{ strategies|selectattr("risk_level", "equalto", "Medio")|list|length }}</strong>
-            </div>
-            <div>
-              <span>Alto</span>
-              <strong>{{ strategies|selectattr("risk_level", "equalto", "Alto")|list|length }}</strong>
-            </div>
-          </div>
-          <div class="report-score-note">
-            Avisos ordenados por actividad y disponibles segun tu nivel de acceso.
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
-</section>
-
-<section class="container pt-4">
-  <div class="market-news-card">
-    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
-      <div>
-        <p class="eyebrow mb-1">Noticias relevantes</p>
-        <h2 class="h5 fw-bold mb-1">Resumen de mercado</h2>
-        <p class="text-secondary small mb-0">Ultima actualizacion: <strong>{{ market_news_updated_at or "Sin actualizar" }}</strong></p>
-      </div>
-      <a class="btn btn-outline-warning btn-sm align-self-start" href="{{ url_for('market_news_page') }}" target="_blank" rel="noopener">Ver noticias</a>
-    </div>
-    {% if market_news %}
-      <div class="news-radar-list compact">
-        {% for item in market_news %}
-          <article class="market-news-row compact">
-            <div class="news-row-time">
-              <strong>{{ item.published_display or item.created_display }}</strong>
-              <span>{{ item.source }}</span>
-            </div>
-            <div class="news-row-main">
-              <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
-                <h3 class="news-row-title mb-0">{{ item.title_es }}</h3>
-              </div>
-              <p class="market-news-summary mb-0">{{ item.summary_es }}</p>
-            </div>
-            <div class="news-row-affected">
-              <span>Afecta</span>
-              <strong>{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
-            </div>
-          </article>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="alert alert-info border-0 mb-0">
-        Aun no hay noticias cargadas. Ejecuta el actualizador local de noticias para rellenar esta seccion.
-      </div>
-    {% endif %}
   </div>
 </section>
 
@@ -170,7 +192,7 @@
         <p class="mb-0 text-secondary">
           {% if totalizer.count %}
             Beneficio / perdida acumulado de {{ totalizer.count }} modelos seleccionados.
-            <span class="d-block small totalizer-return-line">Capital total: {{ totalizer.capital_display }} | Rentabilidad conjunta: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
+            <span class="d-block small totalizer-return-line">Capital base: {{ totalizer.capital_display }} | Capital actual: {{ totalizer.current_capital_display }} | Rentabilidad sobre capital base: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
           {% else %}
             Selecciona modelos para incluirlos en el totalizador.
           {% endif %}
@@ -185,7 +207,7 @@
               <th>Riesgo</th>
               <th>Frecuencia</th>
               <th class="text-end">Rentabilidad</th>
-              <th class="text-end">Capital</th>
+              <th class="text-end">Capital base</th>
               <th>Estado</th>
               <th><span class="th-two-line">Ultima<span>incorporacion</span></span></th>
               <th>Acciones</th>
@@ -221,12 +243,26 @@
                   </div>
                 </td>
                 <td class="text-end">
-                  <span class="{{ strategy.return_metrics.result_class }}">{{ strategy.return_metrics.result }}</span>
-                  <small class="d-block {{ strategy.return_metrics.percent_class }}">{{ strategy.return_metrics.percent }}</small>
+                  <div class="return-stack">
+                    <div class="return-total-line">
+                      <span class="{{ strategy.return_metrics.result_class }}">{{ strategy.return_metrics.result }}</span>
+                      <small class="{{ strategy.return_metrics.percent_class }}">{{ strategy.return_metrics.percent }}</small>
+                    </div>
+                    {% for period in strategy.return_metrics.period_lines %}
+                      <div class="return-period-line">
+                        <span>{{ period.label }}</span>
+                        <strong class="{{ period.class }}">{{ period.profit }}</strong>
+                        <small class="{{ period.class }}">{{ period.percent }}</small>
+                      </div>
+                    {% endfor %}
+                  </div>
                 </td>
                 <td class="text-end">
                   <div class="capital-breakdown">
                     <span class="capital-breakdown-main">{{ strategy.return_metrics.capital }}</span>
+                    {% if strategy.return_metrics.current_capital %}
+                      <small>Actual {{ strategy.return_metrics.current_capital }}</small>
+                    {% endif %}
                     <small>{{ strategy.return_metrics.operations_parts.total }}</small>
                     {% if strategy.return_metrics.operations_parts.open %}
                       <small>{{ strategy.return_metrics.operations_parts.open }}</small>
@@ -234,9 +270,15 @@
                     {% if strategy.return_metrics.operations_parts.closed %}
                       <small>{{ strategy.return_metrics.operations_parts.closed }}</small>
                     {% endif %}
+                    {% if strategy.return_metrics.operations_parts.max_open %}
+                      <small>{{ strategy.return_metrics.operations_parts.max_open }}</small>
+                    {% endif %}
                   </div>
                 </td>
                 <td>
+                  {% if strategy.first_operation_display %}
+                    <small class="status-init-line">init {{ strategy.first_operation_display }}</small>
+                  {% endif %}
                   <span class="status-pill {% if strategy.run_status.running %}status-running{% elif strategy.run_status.ok %}status-ok{% elif strategy.run_status.pending %}status-pending{% else %}status-error{% endif %}" {% if strategy.run_status.error %}title="{{ strategy.run_status.error }}"{% endif %}>
                     <span class="status-dot"></span>
                     {{ strategy.run_status.label }}
@@ -304,6 +346,19 @@
       output.scrollTop = output.scrollHeight;
     };
 
+    const updateUploadStatusChips = (items) => {
+      if (!items || !items.length) return;
+      document.querySelectorAll("[data-upload-status-chip]").forEach((chip) => {
+        const item = items.find((candidate) => candidate.label === chip.dataset.uploadStatusChip);
+        if (!item) return;
+        chip.classList.toggle("is-fresh", Boolean(item.ok));
+        chip.classList.toggle("is-stale", !item.ok);
+        chip.title = `${item.updated_display}${item.count > 1 ? ` Â· ${item.count} files` : ""}`;
+        const time = chip.querySelector("[data-upload-status-time]");
+        if (time) time.textContent = item.updated_display;
+      });
+    };
+
     const paint = (line, autoScroll = true) => {
       const row = document.createElement("div");
       row.className = "terminal-feed-row";
@@ -312,6 +367,10 @@
       if (line.startsWith("LOAD OK")) row.classList.add("shell-ok");
       if (line.startsWith("ACCEPTED")) row.classList.add("shell-ok");
       if (line.startsWith("SIGNAL")) row.classList.add("shell-signal");
+      if (line.startsWith("STRATEGY UPDATE")) row.classList.add("shell-info");
+      if (line.startsWith("STRATEGY DETAIL")) row.classList.add("shell-meta");
+      if (line.startsWith("OPEN OP")) row.classList.add("shell-signal");
+      if (line.startsWith("CLOSED OP")) row.classList.add("shell-updated");
       if (line.startsWith("PARAM")) row.classList.add("shell-param");
       if (line.startsWith("META")) row.classList.add("shell-meta");
       if (line.startsWith("POSTGRES")) row.classList.add("shell-postgres");
@@ -343,6 +402,7 @@
           feedSignature = incomingSignature;
           localStorage.setItem("terminal-feed-last-signature", feedSignature);
           renderLines(payload.lines);
+          updateUploadStatusChips(payload.file_statuses);
           if (statusLine) {
             statusLine.textContent = isNewPayload ? "ACCEPTED database package updated" : "WAIT database event stream";
             statusLine.classList.toggle("shell-ok", isNewPayload);
@@ -354,7 +414,7 @@
     };
 
     loadFeed();
-    window.setInterval(loadFeed, 60000);
+    window.setInterval(loadFeed, 15000);
   })();
 
   setInterval(() => {

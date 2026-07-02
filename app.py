@@ -11,7 +11,7 @@ import urllib.request
 from hmac import compare_digest
 from functools import wraps
 from uuid import uuid4
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -54,6 +54,12 @@ DEFAULT_STRATEGY_LOG_DIR = (BASE_DIR / "Estrategias" / "logs").resolve()
 DEFAULT_STRATEGY_TICKERS_FILE = (BASE_DIR / "Estrategias" / "tickers.txt").resolve()
 DEFAULT_TOP_MONEY_VOLUME_FILE = (BASE_DIR / "Estrategias" / "top_money_volume_assets.txt").resolve()
 DEFAULT_SIMULATED_OPERATIONS_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_estado.json").resolve()
+DEFAULT_OPEN_OPERATIONS_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_abiertas.txt").resolve()
+DEFAULT_CLOSED_OPERATIONS_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_cerradas.txt").resolve()
+DEFAULT_STRATEGY_PERFORMANCE_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "rentabilidad_estrategias.txt").resolve()
+DEFAULT_CAPITAL_MAX_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "capital_maximos_estrategias.txt").resolve()
+DEFAULT_BACKTEST_SUMMARY_FILE = (BASE_DIR / "Estrategias" / "operaciones_simuladas" / "backtest_resumen_estrategias.json").resolve()
+DEFAULT_BACKTEST_OUTPUT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "historical_backtest_5y.json").resolve()
 DEFAULT_V2_SIGNALS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "signals_v2.txt").resolve()
 DEFAULT_V2_DIAGNOSTICS_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.json").resolve()
 DEFAULT_V2_DIAGNOSTICS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.txt").resolve()
@@ -124,7 +130,7 @@ SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
 
 
 def terminal_feed_payload(limit=None):
-    include_local_files = engine.dialect.name != "postgresql"
+    include_local_files = True
     feed_path = terminal_feed_txt_path() if include_local_files else None
     updated_line = ""
     signal_count_line = ""
@@ -169,12 +175,15 @@ def terminal_feed_payload(limit=None):
                 f"ACCEPTED :: LOCAL TXT physical_lines={non_empty_lines} bytes={stats.st_size}",
             ]
         )
+    if include_local_files:
         lines.extend(terminal_local_file_event_lines())
+        lines.extend(terminal_upload_status_event_lines())
     lines.append("WAIT :: next database update")
     signature_parts = terminal_event_signature_parts(feed_path, stats)
     return {
         "signature": "industrial-events:" + ":".join(signature_parts),
         "lines": lines,
+        "file_statuses": terminal_upload_status_payload(),
     }
 
 
@@ -232,6 +241,9 @@ def terminal_database_event_lines():
             lines.append(f"UPDATE :: strategy_diagnostics latest={latest_diagnostics}")
         if latest_news:
             lines.append(f"UPDATE :: market_news latest={latest_news}")
+        lines.extend(terminal_strategy_activity_lines())
+        lines.extend(terminal_operation_activity_lines())
+        lines.extend(terminal_signal_activity_lines())
         lines.extend(terminal_strategy_error_lines())
     except Exception as error:
         lines.append(f"ERROR :: {terminal_database_channel()} connection failed")
@@ -295,17 +307,213 @@ def terminal_strategy_error_lines(limit=8):
     return lines
 
 
-def terminal_local_file_event_lines():
-    files = [
+def terminal_strategy_activity_lines(limit=6):
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT name, run_status, run_message, run_at, run_txt_updated
+                        FROM strategies
+                        WHERE run_at IS NOT NULL
+                        ORDER BY run_at DESC, name ASC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                )
+                .mappings()
+                .fetchall()
+            )
+    except Exception:
+        return []
+
+    lines = []
+    for row in rows:
+        status = (row.get("run_status") or "PENDING").upper()
+        txt_state = "txt_updated=1" if row.get("run_txt_updated") else "txt_updated=0"
+        lines.append(f"STRATEGY UPDATE :: {row.get('name') or 'strategy'} status={status} {txt_state} run_at={row.get('run_at')}")
+        message = (row.get("run_message") or "").replace("\n", " ").strip()
+        if message:
+            lines.append(f"STRATEGY DETAIL :: {row.get('name') or 'strategy'} :: {message[:140]}")
+    return lines
+
+
+def terminal_operation_activity_lines(limit=8):
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT strategy_name, symbol, status, profit_loss_pct, close_reason, updated_at
+                        FROM simulated_operations
+                        ORDER BY updated_at DESC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                )
+                .mappings()
+                .fetchall()
+            )
+    except Exception:
+        return []
+
+    lines = []
+    for row in rows:
+        status = (row.get("status") or "UNKNOWN").upper()
+        prefix = "CLOSED OP" if status == "CLOSED" else "OPEN OP"
+        reason = f" reason={row.get('close_reason')}" if row.get("close_reason") else ""
+        pnl = row.get("profit_loss_pct")
+        try:
+            pnl_text = f"{float(pnl):+.2f}%"
+        except (TypeError, ValueError):
+            pnl_text = str(pnl or "0.00%")
+        lines.append(
+            f"{prefix} :: {row.get('strategy_name') or 'strategy'} {row.get('symbol') or '-'} pnl={pnl_text}{reason} updated={row.get('updated_at')}"
+        )
+    return lines
+
+
+def terminal_signal_activity_lines(limit=6):
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT txt_name, COUNT(*) AS signals, MAX(created_at) AS latest
+                        FROM strategy_signals
+                        GROUP BY txt_name
+                        ORDER BY latest DESC
+                        LIMIT :limit
+                        """
+                    ),
+                    {"limit": limit},
+                )
+                .mappings()
+                .fetchall()
+            )
+    except Exception:
+        return []
+
+    lines = []
+    for row in rows:
+        lines.append(f"SIGNAL UPDATE :: {row.get('txt_name') or 'signals'} rows={row.get('signals')} latest={row.get('latest')}")
+    return lines
+
+
+def terminal_watched_files():
+    return [
         ("LOCAL TXT", terminal_feed_txt_path()),
         ("RUN STATUS", DEFAULT_STRATEGY_STATUS_FILE),
         ("TOP VOLUME", DEFAULT_TOP_MONEY_VOLUME_FILE),
-        ("OPERATIONS", DEFAULT_SIMULATED_OPERATIONS_FILE),
+        ("OPERATIONS STATE", DEFAULT_SIMULATED_OPERATIONS_FILE),
+        ("OPEN OPERATIONS", DEFAULT_OPEN_OPERATIONS_FILE),
+        ("CLOSED OPERATIONS", DEFAULT_CLOSED_OPERATIONS_FILE),
+        ("STRATEGY PERF", DEFAULT_STRATEGY_PERFORMANCE_FILE),
+        ("CAPITAL MAX", DEFAULT_CAPITAL_MAX_FILE),
+        ("BACKTEST SUMMARY", DEFAULT_BACKTEST_SUMMARY_FILE),
+        ("BACKTEST JSON", DEFAULT_BACKTEST_OUTPUT_FILE),
+        ("V2 SIGNALS", DEFAULT_V2_SIGNALS_TXT_FILE),
+        ("V2 DIAGNOSTICS", DEFAULT_V2_DIAGNOSTICS_FILE),
         ("ASSETS CSV", BASE_DIR / "data" / "assets.csv"),
         ("MARKET CSV", BASE_DIR / "data" / "market_data.csv"),
     ]
+
+
+def terminal_upload_watch_groups():
+    signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
+    return [
+        ("sig txts", signal_files),
+        ("run stat", [DEFAULT_STRATEGY_STATUS_FILE]),
+        ("selected", [BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"]),
+        ("top vol", [DEFAULT_TOP_MONEY_VOLUME_FILE]),
+        ("diag js", [DEFAULT_V2_DIAGNOSTICS_FILE]),
+        ("diag txt", [DEFAULT_V2_DIAGNOSTICS_TXT_FILE]),
+        ("ops state", [DEFAULT_SIMULATED_OPERATIONS_FILE]),
+        ("open ops", [DEFAULT_OPEN_OPERATIONS_FILE]),
+        ("closed ops", [DEFAULT_CLOSED_OPERATIONS_FILE]),
+        ("all ops", [BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_todas.txt"]),
+        ("perf", [DEFAULT_STRATEGY_PERFORMANCE_FILE]),
+        ("cap max", [DEFAULT_CAPITAL_MAX_FILE]),
+        ("bt json", [DEFAULT_BACKTEST_OUTPUT_FILE]),
+        ("assets", [BASE_DIR / "data" / "assets.csv"]),
+    ]
+
+
+def terminal_upload_status_event_lines():
+    lines = ["CHECK :: upload file status panel"]
+    today = datetime.now(MADRID_TZ).date()
+    for label, paths in terminal_upload_watch_groups():
+        status = terminal_file_group_status(paths)
+        if not status["exists"]:
+            lines.append(f"WARNING FILE :: {label} red missing")
+            continue
+        is_fresh = status["updated_at"].date() == today
+        prefix = "OK FILE" if is_fresh else "WARNING FILE"
+        color = "green" if is_fresh else "red"
+        lines.append(
+            f"{prefix} :: {label} {color} updated={status['updated_at'].strftime('%H:%M:%S')} "
+            f"files={status['count']} bytes={status['bytes']} latest={status['latest_name']}"
+        )
+    return lines
+
+
+def terminal_upload_status_payload():
+    today = datetime.now(MADRID_TZ).date()
+    items = []
+    for label, paths in terminal_upload_watch_groups():
+        status = terminal_file_group_status(paths)
+        updated_at = status["updated_at"]
+        ok = bool(updated_at and updated_at.date() == today)
+        items.append(
+            {
+                "label": label,
+                "ok": ok,
+                "exists": status["exists"],
+                "count": status["count"],
+                "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+            }
+        )
+    return items
+
+
+def terminal_file_group_status(paths):
+    existing = []
+    latest_path = None
+    latest_mtime = None
+    total_bytes = 0
+    for raw_path in paths or []:
+        if not raw_path:
+            continue
+        try:
+            path = Path(raw_path).resolve()
+            if not path.exists() or not path.is_file():
+                continue
+            stats = path.stat()
+        except OSError:
+            continue
+        existing.append(path)
+        total_bytes += stats.st_size
+        if latest_mtime is None or stats.st_mtime > latest_mtime:
+            latest_mtime = stats.st_mtime
+            latest_path = path
+    updated_at = datetime.fromtimestamp(latest_mtime, MADRID_TZ) if latest_mtime else None
+    return {
+        "exists": bool(existing),
+        "count": len(existing),
+        "bytes": total_bytes,
+        "updated_at": updated_at,
+        "latest_name": latest_path.name if latest_path else "-",
+    }
+
+
+def terminal_local_file_event_lines():
     lines = []
-    for label, path in files:
+    for label, path in terminal_watched_files():
         if not path:
             continue
         try:
@@ -325,13 +533,23 @@ def terminal_event_signature_parts(feed_path, stats):
     parts = terminal_database_signature_parts()
     if feed_path and stats:
         parts.append(f"{feed_path.name}-{int(stats.st_mtime)}-{stats.st_size}")
-    for path in [DEFAULT_STRATEGY_STATUS_FILE, DEFAULT_TOP_MONEY_VOLUME_FILE, DEFAULT_SIMULATED_OPERATIONS_FILE]:
+    for _label, path in terminal_watched_files():
+        if not path:
+            continue
         try:
             resolved = Path(path).resolve()
             file_stats = resolved.stat()
         except OSError:
             continue
         parts.append(f"{resolved.name}-{int(file_stats.st_mtime)}-{file_stats.st_size}")
+    for label, paths in terminal_upload_watch_groups():
+        status = terminal_file_group_status(paths)
+        if not status["exists"]:
+            parts.append(f"{label}-missing")
+            continue
+        parts.append(
+            f"{label}-{int(status['updated_at'].timestamp())}-{status['count']}-{status['bytes']}-{status['latest_name']}"
+        )
     return parts or ["no-files"]
 
 
@@ -643,6 +861,13 @@ def database_status():
     }
 
 
+def safe_float(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def run_scheduler_task(task_name):
     if task_name == "assets_csv":
         rows, source = build_assets_from_alpaca()
@@ -868,6 +1093,7 @@ def sync_signal_file_to_database(txt_name, path=None):
             lines_by_date.setdefault(signal_date, set()).add(line)
 
     with engine.begin() as connection:
+        existing_lines_by_date = {}
         for signal_date, current_lines in lines_by_date.items():
             existing_rows = connection.execute(
                 text(
@@ -880,6 +1106,8 @@ def sync_signal_file_to_database(txt_name, path=None):
                 ),
                 {"txt_name": txt_name, "signal_date": signal_date},
             ).mappings().fetchall()
+            existing_lines = {row["line"] for row in existing_rows}
+            existing_lines_by_date[signal_date] = existing_lines
             for row in existing_rows:
                 if row["line"] not in current_lines:
                     connection.execute(
@@ -891,20 +1119,7 @@ def sync_signal_file_to_database(txt_name, path=None):
             signal_date = signal_date_from_line(line)
             if not signal_date:
                 continue
-            exists = connection.execute(
-                text(
-                    """
-                    SELECT 1
-                    FROM strategy_signals
-                    WHERE txt_name = :txt_name
-                      AND signal_date = :signal_date
-                      AND line = :line
-                    LIMIT 1
-                    """
-                ),
-                {"txt_name": txt_name, "signal_date": signal_date, "line": line},
-            ).fetchone()
-            if exists:
+            if line in existing_lines_by_date.get(signal_date, set()):
                 continue
             connection.execute(
                 text(
@@ -1719,7 +1934,11 @@ def has_profit_usd(value):
 
 def parse_strategy_capital_usd(value):
     text_value = str(value or "")
-    match = re.search(r"capital(?:\s+(?:inicial|actual))?\s+([-+]?\d+(?:[.,]\d+)?)\s*USD", text_value, re.IGNORECASE)
+    match = re.search(
+        r"capital(?:\s+(?:base|cuenta|movido|invertido|inicial|actual))?\s+([-+]?\d+(?:[.,]\d+)?)\s*USD",
+        text_value,
+        re.IGNORECASE,
+    )
     if not match:
         return 50_000.0
     try:
@@ -1752,17 +1971,30 @@ def parse_operations_summary(value):
 def parse_operations_parts(value):
     text_value = str(value or "")
     match = re.search(r"(\d+)\s+ops,\s+(\d+)\s+abiertas,\s+(\d+)\s+cerradas", text_value, re.IGNORECASE)
+    max_match = re.search(r"max\s+abiertas\s+(\d+)", text_value, re.IGNORECASE)
     if not match:
         return {
             "total": "",
             "open": "",
             "closed": "",
+            "max_open": f"Max abiertas {max_match.group(1)}" if max_match else "",
         }
     return {
         "total": f"{match.group(1)} ops",
         "open": f"{match.group(2)} abiertas",
         "closed": f"{match.group(3)} cerradas",
+        "max_open": f"Max abiertas {max_match.group(1)}" if max_match else "",
     }
+
+
+def parse_max_open_operations(value):
+    match = re.search(r"max\s+abiertas\s+(\d+)", str(value or ""), re.IGNORECASE)
+    if not match:
+        return 0
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return 0
 
 
 def format_duration_seconds(seconds):
@@ -1792,30 +2024,74 @@ def build_return_metrics(value):
             "result": "SOS",
             "percent": "Sin datos",
             "capital": "Sin datos",
+            "current_capital": "",
             "operations": "Sin operaciones",
             "operations_parts": {
                 "total": "Sin operaciones",
                 "open": "",
                 "closed": "",
+                "max_open": "",
             },
+            "period_lines": [],
             "result_class": "return-sos",
             "percent_class": "return-sos",
             "raw": clean_public_return_text(text_value),
         }
     profit_usd = parse_profit_usd(text_value)
     return_pct = parse_return_percent(text_value)
+    account_capital = parse_strategy_capital_usd(text_value)
     current_capital = parse_current_capital_usd(text_value)
     return {
         "has_data": True,
         "result": format_signed_money_usd(profit_usd),
         "percent": f"{return_pct:+.2f}%",
-        "capital": format_money_usd(current_capital),
+        "capital": format_money_usd(account_capital),
+        "current_capital": format_money_usd(current_capital),
         "operations": parse_operations_summary(text_value) or "Operaciones registradas",
         "operations_parts": parse_operations_parts(text_value),
+        "period_lines": parse_period_return_lines(text_value),
         "result_class": profit_color_class(profit_usd),
         "percent_class": profit_color_class(return_pct),
         "raw": clean_public_return_text(text_value),
     }
+
+
+def parse_period_return_lines(value):
+    parts = [part.strip() for part in str(value or "").split("|")]
+    lines = []
+    for part in parts:
+        if not re.match(r"^(Last 1M|Last 3M|Last 12M|YTD|Prev Year|\d{4})", part, re.IGNORECASE):
+            continue
+        label_match = re.match(r"^(Last 1M|Last 3M|Last 12M|YTD|Prev Year(?:\s+\d{4})?|\d{4})\s+", part, re.IGNORECASE)
+        raw_label = label_match.group(1) if label_match else "Period"
+        label = display_period_return_label(raw_label)
+        text_after_label = part[label_match.end():] if label_match else part
+        profit = parse_profit_usd(text_after_label)
+        percent = parse_return_percent(text_after_label)
+        closed_match = re.search(r"(\d+)\s+cerradas", part, re.IGNORECASE)
+        closed_text = f"{closed_match.group(1)} cerradas" if closed_match else ""
+        lines.append(
+            {
+                "label": label,
+                "profit": format_signed_money_usd(profit),
+                "percent": f"{percent:+.2f}%",
+                "class": profit_color_class(profit),
+                "closed": closed_text,
+            }
+        )
+    return lines
+
+
+def display_period_return_label(label):
+    text_value = str(label or "").strip()
+    if re.fullmatch(r"\d{4}", text_value):
+        return text_value
+    if re.fullmatch(r"YTD", text_value, re.IGNORECASE):
+        return str(datetime.now(MADRID_TZ).year)
+    prev_year_match = re.fullmatch(r"Prev Year(?:\s+(\d{4}))?", text_value, re.IGNORECASE)
+    if prev_year_match:
+        return prev_year_match.group(1) or str(datetime.now(MADRID_TZ).year - 1)
+    return text_value
 
 
 STRATEGY_SHORT_NAMES = {
@@ -1897,6 +2173,7 @@ def build_totalizer(strategies):
     ]
     total_usd = sum(parse_profit_usd(strategy.get("historical_return")) for strategy in selected)
     total_capital = sum(parse_strategy_capital_usd(strategy.get("historical_return")) for strategy in selected)
+    current_capital = total_capital + total_usd
     total_pct = (total_usd / total_capital * 100) if total_capital else 0.0
     return {
         "strategies": selected,
@@ -1904,6 +2181,8 @@ def build_totalizer(strategies):
         "total": total_usd,
         "capital": total_capital,
         "capital_display": format_money_usd(total_capital),
+        "current_capital": current_capital,
+        "current_capital_display": format_money_usd(current_capital),
         "total_pct": total_pct,
         "display": format_signed_money_usd(total_usd),
         "pct_display": f"{total_pct:+.2f}%",
@@ -2813,7 +3092,7 @@ def create_app():
             community_url = strategies[0]["telegram_url"]
         donation_url = os.environ.get("DONATION_URL", "").strip()
         top_assets = top_money_volume_assets()
-        news_preview = relevant_market_news(limit=8)
+        news_preview = relevant_market_news(limit=60, days=3)
         totalizer = build_totalizer(strategies)
         return render_template(
             "index.html",
@@ -2822,6 +3101,7 @@ def create_app():
             top_money_volume_assets=top_assets["rows"],
             top_money_volume_updated_at=top_assets["updated_at"],
             top_money_volume_source=top_assets["source"],
+            upload_file_statuses=local_upload_file_statuses(),
             market_news=news_preview["rows"],
             market_news_updated_at=news_preview["updated_at"],
             community_url=community_url,
@@ -2864,7 +3144,7 @@ def create_app():
             )
         )
         top_assets = top_money_volume_assets()
-        news_preview = relevant_market_news(limit=5)
+        news_preview = relevant_market_news(limit=20, days=3)
         totalizer = build_totalizer(strategies)
         return render_template(
             "mobile/index.html",
@@ -2933,7 +3213,7 @@ self.addEventListener("fetch", () => {});
 
     @app.route("/noticias")
     def market_news_page():
-        news_data = relevant_market_news(limit=35)
+        news_data = relevant_market_news(limit=500)
         return render_template(
             "market_news.html",
             news_items=news_data["rows"],
@@ -3039,10 +3319,11 @@ self.addEventListener("fetch", () => {});
         if not can_view_strategy(strategy):
             flash("Crea una cuenta para ver el historial completo.", "warning")
             return redirect(url_for("user_login"))
-        operations = closed_operations_for_strategy(strategy.get("signals_txt_name", ""))
-        total_profit = sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
-        total_invested = sum(parse_display_float(operation.get("investment_value")) for operation in operations)
-        total_pct = (total_profit / total_invested * 100) if total_invested else 0.0
+        operations = closed_operations_for_strategy(strategy.get("signals_txt_name", ""), limit=None)
+        return_text = strategy.get("historical_return", "")
+        total_profit = parse_profit_usd(return_text) if has_profit_usd(return_text) else sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
+        capital_base = parse_strategy_capital_usd(return_text)
+        total_pct = parse_return_percent(return_text)
         average_pct = (
             sum(parse_display_float(operation.get("profit_pct")) for operation in operations) / len(operations)
             if operations
@@ -3055,9 +3336,11 @@ self.addEventListener("fetch", () => {});
             "count": len(operations),
             "profit_display": format_signed_money_usd(total_profit),
             "profit_class": profit_color_class(total_profit),
-            "invested_display": format_money_usd(total_invested),
+            "invested_display": format_money_usd(capital_base),
+            "current_capital_display": format_money_usd(capital_base + total_profit),
             "pct_display": f"{total_pct:+.2f}%",
             "pct_class": profit_color_class(total_pct),
+            "max_open_operations": parse_max_open_operations(return_text),
             "average_pct_display": f"{average_pct:+.2f}%",
             "average_pct_class": profit_color_class(average_pct),
             "winning_count": winning_count,
@@ -3208,7 +3491,10 @@ self.addEventListener("fetch", () => {});
     @app.route("/admin/system")
     @login_required
     def admin_system():
-        return render_template("admin/system.html", database=database_status())
+        return render_template(
+            "admin/system.html",
+            database=database_status(),
+        )
 
     @app.route("/admin/users/<int:user_id>/toggle-access", methods=["POST"])
     @login_required
@@ -3998,7 +4284,8 @@ self.addEventListener("fetch", () => {});
         except OSError:
             return {"rows": [], "updated_at": "", "source": "tickers"}
 
-    def relevant_market_news(limit=10):
+    def relevant_market_news(limit=10, days=None):
+        query_limit = max(limit * 4, 120) if days else limit
         try:
             try:
                 rows = g.db.execute(
@@ -4012,7 +4299,7 @@ self.addEventListener("fetch", () => {});
                         LIMIT :limit
                         """
                     ),
-                    {"limit": limit},
+                    {"limit": query_limit},
                 ).mappings().fetchall()
             except Exception:
                 rows = g.db.execute(
@@ -4025,15 +4312,20 @@ self.addEventListener("fetch", () => {});
                         LIMIT :limit
                         """
                     ),
-                    {"limit": limit},
+                    {"limit": query_limit},
                 ).mappings().fetchall()
             updated_at = g.db.execute(text("SELECT MAX(created_at) FROM market_news")).scalar()
         except Exception:
             return {"rows": [], "updated_at": ""}
 
         formatted = []
+        cutoff = datetime.now(UTC) - timedelta(days=days) if days else None
         for row in rows:
             item = dict(row)
+            if cutoff:
+                item_datetime = parse_utc_database_datetime(item.get("published_at") or item.get("created_at"))
+                if item_datetime and item_datetime < cutoff:
+                    continue
             item["published_display"] = format_any_madrid_datetime(item.get("published_at"))
             item["created_display"] = format_any_madrid_datetime(item.get("created_at"))
             item["impact_class"] = news_impact_class(item.get("impact"))
@@ -4042,11 +4334,64 @@ self.addEventListener("fetch", () => {});
             item["title_en"] = item.get("title_en") or item.get("title") or ""
             item["summary_es"] = item.get("summary_es") or item.get("summary") or ""
             item["summary_en"] = item.get("summary_en") or item.get("summary") or ""
+            item["display_summary_es"] = news_display_summary(item)
+            item["market_angle"] = news_market_angle(item)
             item["ai_label"] = "Resumen"
             formatted.append(item)
+            if len(formatted) >= limit:
+                break
         return {
             "rows": formatted,
             "updated_at": format_any_madrid_datetime(updated_at),
+        }
+
+    def local_upload_file_statuses():
+        signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
+        items = [
+            upload_status_item("sig txts", files=signal_files),
+            upload_status_item("run stat", path=DEFAULT_STRATEGY_STATUS_FILE),
+            upload_status_item("selected", path=BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"),
+            upload_status_item("top vol", path=DEFAULT_TOP_MONEY_VOLUME_FILE),
+            upload_status_item("diag js", path=DEFAULT_V2_DIAGNOSTICS_FILE),
+            upload_status_item("diag txt", path=DEFAULT_V2_DIAGNOSTICS_TXT_FILE),
+            upload_status_item("ops state", path=DEFAULT_SIMULATED_OPERATIONS_FILE),
+            upload_status_item("open ops", path=DEFAULT_OPEN_OPERATIONS_FILE),
+            upload_status_item("closed ops", path=DEFAULT_CLOSED_OPERATIONS_FILE),
+            upload_status_item("all ops", path=BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_todas.txt"),
+            upload_status_item("perf", path=DEFAULT_STRATEGY_PERFORMANCE_FILE),
+            upload_status_item("cap max", path=DEFAULT_CAPITAL_MAX_FILE),
+            upload_status_item("bt json", path=DEFAULT_BACKTEST_OUTPUT_FILE),
+            upload_status_item("assets", path=BASE_DIR / "data" / "assets.csv"),
+        ]
+        return items
+
+    def upload_status_item(label, path=None, files=None):
+        checked_files = [Path(path)] if path else list(files or [])
+        existing = []
+        for file_path in checked_files:
+            try:
+                if file_path.exists() and file_path.is_file():
+                    existing.append(file_path)
+            except OSError:
+                continue
+
+        latest_mtime = None
+        for file_path in existing:
+            try:
+                mtime = file_path.stat().st_mtime
+            except OSError:
+                continue
+            latest_mtime = mtime if latest_mtime is None else max(latest_mtime, mtime)
+
+        updated_at = datetime.fromtimestamp(latest_mtime, MADRID_TZ) if latest_mtime else None
+        today = datetime.now(MADRID_TZ).date()
+        updated_today = bool(updated_at and updated_at.date() == today)
+        return {
+            "label": label,
+            "ok": updated_today,
+            "exists": bool(existing),
+            "count": len(existing),
+            "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
         }
 
     def news_impact_class(value):
@@ -4064,6 +4409,24 @@ self.addEventListener("fetch", () => {});
         if value == "negativo":
             return "Negativo"
         return "Neutral"
+
+    def news_display_summary(item):
+        title = str(item.get("title_es") or item.get("title") or "").strip()
+        summary = str(item.get("summary_es") or item.get("summary") or "").strip()
+        if summary and normalize_news_text(summary) != normalize_news_text(title):
+            return summary
+        affected = str(item.get("symbols") or item.get("sector_tags") or "mercado general").strip()
+        impact = news_impact_label(item.get("impact")).lower()
+        return f"Lectura {impact}: conviene vigilar {affected} por posible impacto en volatilidad, volumen y gaps de apertura."
+
+    def news_market_angle(item):
+        affected = str(item.get("symbols") or item.get("sector_tags") or "").strip()
+        if affected:
+            return f"Impacto probable sobre {affected}"
+        return "Impacto de mercado general"
+
+    def normalize_news_text(value):
+        return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
 
     def parse_display_int(value, default):
         try:
@@ -4112,18 +4475,70 @@ self.addEventListener("fetch", () => {});
         strategy["_signals_updated_at_datetime"] = signals_updated_at
         strategy["signals_updated_at"] = format_madrid_datetime(signals_updated_at)
         strategy["run_status"] = strategy_run_status(strategy, txt_name)
+        strategy["first_operation_display"] = first_operation_display(txt_name)
         strategy["short_name"] = strategy_short_name(strategy.get("name"))
-        strategy["historical_return_public"] = clean_public_return_text(strategy.get("historical_return"))
-        strategy["return_metrics"] = build_return_metrics(strategy.get("historical_return"))
-        strategy["return_badge"] = strategy_return_badge(strategy.get("historical_return"))
-        strategy["return_badge_class"] = strategy_return_badge_class(strategy.get("historical_return"))
+        return_source = strategy.get("historical_return")
+        strategy["historical_return"] = return_source
+        strategy["historical_return_public"] = clean_public_return_text(return_source)
+        strategy["return_metrics"] = build_return_metrics(return_source)
+        strategy["return_badge"] = strategy_return_badge(return_source)
+        strategy["return_badge_class"] = strategy_return_badge_class(return_source)
         return strategy
 
-    def closed_operations_count(txt_name):
+    def open_operations_count(txt_name):
         if not txt_name:
             return 0
         try:
             return g.db.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'OPEN'
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).scalar_one()
+        except Exception:
+            return 0
+
+    def first_operation_display(txt_name):
+        if not txt_name:
+            return ""
+        try:
+            value = g.db.execute(
+                text(
+                    """
+                    SELECT MIN(COALESCE(opened_at, signal_date))
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).scalar()
+        except Exception:
+            value = first_operation_from_file(txt_name)
+        parsed = parse_utc_database_datetime(value)
+        if not parsed:
+            return ""
+        return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%y")
+
+    def first_operation_from_file(txt_name):
+        operations = closed_operations_from_file(txt_name, limit=None)
+        candidates = [
+            operation.get("opened_at") or operation.get("signal_date")
+            for operation in operations
+            if operation.get("opened_at") or operation.get("signal_date")
+        ]
+        return min(candidates) if candidates else ""
+
+    def closed_operations_count(txt_name):
+        if not txt_name:
+            return 0
+        count = 0
+        try:
+            count = g.db.execute(
                 text(
                     """
                     SELECT COUNT(*)
@@ -4135,7 +4550,8 @@ self.addEventListener("fetch", () => {});
                 {"txt_name": txt_name},
             ).scalar_one()
         except Exception:
-            return 0
+            count = len(closed_operations_from_file(txt_name))
+        return count
 
     def average_close_duration(txt_name):
         if not txt_name:
@@ -4155,6 +4571,7 @@ self.addEventListener("fetch", () => {});
         return f"{(winners / len(profits) * 100):.1f}%"
 
     def closed_operation_profits(txt_name):
+        profits = []
         try:
             rows = g.db.execute(
                 text(
@@ -4167,9 +4584,10 @@ self.addEventListener("fetch", () => {});
                 ),
                 {"txt_name": txt_name},
             ).mappings().fetchall()
-            return [parse_display_float(row.get("profit_usd")) for row in rows]
+            profits = [parse_display_float(row.get("profit_usd")) for row in rows]
         except Exception:
-            return closed_operation_profits_from_file(txt_name)
+            profits = closed_operation_profits_from_file(txt_name)
+        return profits
 
     def closed_operation_profits_from_file(txt_name):
         path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
@@ -4187,6 +4605,7 @@ self.addEventListener("fetch", () => {});
         ]
 
     def closed_operation_durations(txt_name):
+        durations = []
         try:
             rows = g.db.execute(
                 text(
@@ -4201,15 +4620,14 @@ self.addEventListener("fetch", () => {});
                 ),
                 {"txt_name": txt_name},
             ).mappings().fetchall()
-            durations = []
             for row in rows:
                 opened_at = parse_utc_database_datetime(row.get("opened_at"))
                 closed_at = parse_utc_database_datetime(row.get("closed_at"))
                 if opened_at and closed_at and closed_at >= opened_at:
                     durations.append((closed_at - opened_at).total_seconds())
-            return durations
         except Exception:
-            return closed_operation_durations_from_file(txt_name)
+            durations = closed_operation_durations_from_file(txt_name)
+        return durations
 
     def closed_operation_durations_from_file(txt_name):
         path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
@@ -5147,13 +5565,15 @@ self.addEventListener("fetch", () => {});
             return None
         return format_simulated_operation(dict(row))
 
-    def closed_operations_for_strategy(txt_name):
+    def closed_operations_for_strategy(txt_name, limit=500):
         if not txt_name:
             return []
+        operations = []
         try:
+            limit_clause = "" if limit is None else "LIMIT 500"
             rows = g.db.execute(
                 text(
-                    """
+                    f"""
                     SELECT strategy_name, txt_name, symbol, direction, status,
                            signal_date, opened_at, closed_at, entry_price,
                            target_price, stop_loss, shares, current_price,
@@ -5163,16 +5583,20 @@ self.addEventListener("fetch", () => {});
                     WHERE txt_name = :txt_name
                       AND status = 'CLOSED'
                     ORDER BY closed_at DESC, updated_at DESC
-                    LIMIT 500
+                    {limit_clause}
                     """
                 ),
                 {"txt_name": txt_name},
             ).mappings().fetchall()
-            return [format_simulated_operation(dict(row)) for row in rows]
+            operations = [format_simulated_operation(dict(row)) for row in rows]
         except Exception:
-            return closed_operations_from_file(txt_name)
+            operations = closed_operations_from_file(txt_name, limit=limit)
+        operations.sort(key=lambda item: str(item.get("closed_at") or item.get("updated_at") or ""), reverse=True)
+        if limit is None:
+            return operations
+        return operations[:limit]
 
-    def closed_operations_from_file(txt_name):
+    def closed_operations_from_file(txt_name, limit=500):
         path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
         try:
             if path != DEFAULT_SIMULATED_OPERATIONS_FILE and BASE_DIR not in path.parents:
@@ -5187,7 +5611,9 @@ self.addEventListener("fetch", () => {});
             and operation.get("status") == "CLOSED"
         ]
         rows.sort(key=lambda item: str(item.get("closed_at") or item.get("updated_at") or ""), reverse=True)
-        return [format_simulated_operation(dict(row)) for row in rows[:500]]
+        if limit is not None:
+            rows = rows[:limit]
+        return [format_simulated_operation(dict(row)) for row in rows]
 
     def simulated_operation_from_file(txt_name, symbol, operation_key="", legacy_key="", signal_date="", signal_line=""):
         path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
@@ -6128,6 +6554,14 @@ def ensure_strategy_signals_table(connection):
             """
         )
     )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_signals_txt_date
+            ON strategy_signals(txt_name, signal_date, created_at DESC, id DESC)
+            """
+        )
+    )
 
 
 def ensure_simulated_operations_table(connection):
@@ -6156,6 +6590,30 @@ def ensure_simulated_operations_table(connection):
                 close_reason TEXT NOT NULL DEFAULT '',
                 updated_at TIMESTAMP
             )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sim_ops_txt_status
+            ON simulated_operations(txt_name, status)
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sim_ops_txt_symbol_date
+            ON simulated_operations(txt_name, UPPER(symbol), signal_date)
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sim_ops_txt_updated
+            ON simulated_operations(txt_name, updated_at DESC)
             """
         )
     )

@@ -6095,6 +6095,13 @@ html[data-bs-theme="dark"] .return-total-line span {
   font-weight: 700 !important;
 }
 
+html[data-bs-theme="dark"] .return-total-line .return-total-label {
+  color: #8ea8ca !important;
+  font-size: 0.62rem !important;
+  font-weight: 350 !important;
+  text-transform: uppercase;
+}
+
 html[data-bs-theme="dark"] .return-total-line small,
 html[data-bs-theme="dark"] .return-period-line small {
   font-size: 0.68rem !important;

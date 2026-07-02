@@ -429,20 +429,20 @@ def terminal_watched_files():
 def terminal_upload_watch_groups():
     signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
     return [
-        ("sig txts", signal_files),
-        ("run stat", [DEFAULT_STRATEGY_STATUS_FILE]),
-        ("selected", [BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"]),
-        ("top vol", [DEFAULT_TOP_MONEY_VOLUME_FILE]),
-        ("diag js", [DEFAULT_V2_DIAGNOSTICS_FILE]),
-        ("diag txt", [DEFAULT_V2_DIAGNOSTICS_TXT_FILE]),
-        ("ops state", [DEFAULT_SIMULATED_OPERATIONS_FILE]),
-        ("open ops", [DEFAULT_OPEN_OPERATIONS_FILE]),
-        ("closed ops", [DEFAULT_CLOSED_OPERATIONS_FILE]),
-        ("all ops", [BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_todas.txt"]),
-        ("perf", [DEFAULT_STRATEGY_PERFORMANCE_FILE]),
-        ("cap max", [DEFAULT_CAPITAL_MAX_FILE]),
-        ("bt json", [DEFAULT_BACKTEST_OUTPUT_FILE]),
-        ("assets", [BASE_DIR / "data" / "assets.csv"]),
+        ("Signals", signal_files),
+        ("Run", [DEFAULT_STRATEGY_STATUS_FILE]),
+        ("Selected", [BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"]),
+        ("Top Vol", [DEFAULT_TOP_MONEY_VOLUME_FILE]),
+        ("V2 Diag", [DEFAULT_V2_DIAGNOSTICS_FILE]),
+        ("Diag TXT", [DEFAULT_V2_DIAGNOSTICS_TXT_FILE]),
+        ("Ops State", [DEFAULT_SIMULATED_OPERATIONS_FILE]),
+        ("Open Ops", [DEFAULT_OPEN_OPERATIONS_FILE]),
+        ("Closed Ops", [DEFAULT_CLOSED_OPERATIONS_FILE]),
+        ("All Ops", [BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_todas.txt"]),
+        ("Perf", [DEFAULT_STRATEGY_PERFORMANCE_FILE]),
+        ("Max Cap", [DEFAULT_CAPITAL_MAX_FILE]),
+        ("BT JSON", [DEFAULT_BACKTEST_OUTPUT_FILE]),
+        ("Assets", [BASE_DIR / "data" / "assets.csv"]),
     ]
 
 
@@ -4351,20 +4351,20 @@ self.addEventListener("fetch", () => {});
     def local_upload_file_statuses():
         signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
         items = [
-            upload_status_item("sig txts", files=signal_files),
-            upload_status_item("run stat", path=DEFAULT_STRATEGY_STATUS_FILE),
-            upload_status_item("selected", path=BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"),
-            upload_status_item("top vol", path=DEFAULT_TOP_MONEY_VOLUME_FILE),
-            upload_status_item("diag js", path=DEFAULT_V2_DIAGNOSTICS_FILE),
-            upload_status_item("diag txt", path=DEFAULT_V2_DIAGNOSTICS_TXT_FILE),
-            upload_status_item("ops state", path=DEFAULT_SIMULATED_OPERATIONS_FILE),
-            upload_status_item("open ops", path=DEFAULT_OPEN_OPERATIONS_FILE),
-            upload_status_item("closed ops", path=DEFAULT_CLOSED_OPERATIONS_FILE),
-            upload_status_item("all ops", path=BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_todas.txt"),
-            upload_status_item("perf", path=DEFAULT_STRATEGY_PERFORMANCE_FILE),
-            upload_status_item("cap max", path=DEFAULT_CAPITAL_MAX_FILE),
-            upload_status_item("bt json", path=DEFAULT_BACKTEST_OUTPUT_FILE),
-            upload_status_item("assets", path=BASE_DIR / "data" / "assets.csv"),
+            upload_status_item("Signals", files=signal_files),
+            upload_status_item("Run", path=DEFAULT_STRATEGY_STATUS_FILE),
+            upload_status_item("Selected", path=BASE_DIR / "Estrategias" / "estrategias_a_ejecutar.txt"),
+            upload_status_item("Top Vol", path=DEFAULT_TOP_MONEY_VOLUME_FILE),
+            upload_status_item("V2 Diag", path=DEFAULT_V2_DIAGNOSTICS_FILE),
+            upload_status_item("Diag TXT", path=DEFAULT_V2_DIAGNOSTICS_TXT_FILE),
+            upload_status_item("Ops State", path=DEFAULT_SIMULATED_OPERATIONS_FILE),
+            upload_status_item("Open Ops", path=DEFAULT_OPEN_OPERATIONS_FILE),
+            upload_status_item("Closed Ops", path=DEFAULT_CLOSED_OPERATIONS_FILE),
+            upload_status_item("All Ops", path=BASE_DIR / "Estrategias" / "operaciones_simuladas" / "operaciones_todas.txt"),
+            upload_status_item("Perf", path=DEFAULT_STRATEGY_PERFORMANCE_FILE),
+            upload_status_item("Max Cap", path=DEFAULT_CAPITAL_MAX_FILE),
+            upload_status_item("BT JSON", path=DEFAULT_BACKTEST_OUTPUT_FILE),
+            upload_status_item("Assets", path=BASE_DIR / "data" / "assets.csv"),
         ]
         return items
 
@@ -4373,21 +4373,21 @@ self.addEventListener("fetch", () => {});
         signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
         market_open = time_in_madrid_window(now, "15:30", "22:00")
         return [
-            pilot_status_item("strategies", "Estrategias", paths=[DEFAULT_STRATEGY_STATUS_FILE, *signal_files]),
-            pilot_status_item("strategies_v2", "V2", paths=[DEFAULT_V2_DIAGNOSTICS_FILE, DEFAULT_V2_SIGNALS_TXT_FILE]),
+            pilot_status_item("strategies", "Strategies", paths=[DEFAULT_STRATEGY_STATUS_FILE, *signal_files]),
+            pilot_status_item("strategies_v2", "Engine V2", paths=[DEFAULT_V2_DIAGNOSTICS_FILE, DEFAULT_V2_SIGNALS_TXT_FILE]),
             pilot_status_item("backtest_5y", "Backset", paths=[DEFAULT_BACKTEST_OUTPUT_FILE]),
             pilot_status_item(
                 "universe",
-                "Tickets/universo",
+                "Universe",
                 paths=[DEFAULT_STRATEGY_TICKERS_FILE, BASE_DIR / "data" / "assets.csv"],
                 table="asset_universe",
             ),
-            pilot_status_item("market_full", "Mercado full", paths=[BASE_DIR / "data" / "market_data.csv"], table="asset_snapshots"),
-            pilot_status_item("news", "Noticias", table="market_news"),
-            pilot_status_item("sync_sqlite", "Postgres sync", paths=[LOCAL_SQLITE_FILE], table="simulated_operations"),
+            pilot_status_item("market_full", "Market Full", paths=[BASE_DIR / "data" / "market_data.csv"], table="asset_snapshots"),
+            pilot_status_item("news", "Notices", table="market_news"),
+            pilot_status_item("sync_sqlite", "Post Sync", paths=[LOCAL_SQLITE_FILE], table="simulated_operations"),
             {
                 "key": "market-hours",
-                "label": "Status",
+                "label": "STATUS",
                 "ok": market_open,
                 "updated_display": "15:30-22:00" if market_open else "22:00-15:30",
                 "title": "Mercado activo 15:30-22:00 Madrid" if market_open else "Mercado fuera de ventana 22:00-15:30 Madrid",

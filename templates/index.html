@@ -27,22 +27,24 @@
       Avisos ordenados por actividad y disponibles segun tu nivel de acceso.
     </div>
   </div>
-  <div class="operation-pilot-strip" aria-label="Estado de ejecuciones locales">
-    {% for item in operation_status_pilots %}
-      <span class="operation-pilot {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" title="{{ item.title }}">
-        <span class="operation-pilot-led"></span>
-        <span>{{ item.label }}</span>
-      </span>
-    {% endfor %}
-  </div>
-  <div class="upload-status-strip" aria-label="Estado de archivos locales sincronizables">
-    {% for item in upload_file_statuses %}
-      <span class="upload-status-chip {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" data-upload-status-chip="{{ item.label }}" title="{{ item.updated_display }}{% if item.count > 1 %} Â· {{ item.count }} files{% endif %}">
-        <span class="upload-status-dot"></span>
-        <span>{{ item.label }}</span>
-        <small data-upload-status-time>{{ item.updated_display }}</small>
-      </span>
-    {% endfor %}
+  <div class="status-chip-board">
+    <div class="operation-pilot-strip" aria-label="Estado de ejecuciones locales">
+      {% for item in operation_status_pilots %}
+        <span class="operation-pilot {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" title="{{ item.title }}">
+          <span class="operation-pilot-led"></span>
+          <span>{{ item.label }}</span>
+        </span>
+      {% endfor %}
+    </div>
+    <div class="upload-status-strip" aria-label="Estado de archivos locales sincronizables">
+      {% for item in upload_file_statuses %}
+        <span class="upload-status-chip {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" data-upload-status-chip="{{ item.label }}" title="{{ item.updated_display }}{% if item.count > 1 %} Â· {{ item.count }} files{% endif %}">
+          <span class="upload-status-dot"></span>
+          <span>{{ item.label }}</span>
+          <small data-upload-status-time>{{ item.updated_display }}</small>
+        </span>
+      {% endfor %}
+    </div>
   </div>
 </section>
 
@@ -123,7 +125,7 @@
           <a class="btn btn-outline-light" href="#riesgo">Aviso de riesgo</a>
         </div>
         {% if is_public_view %}
-          <div class="member-access-banner mt-3">
+          <div class="member-access-banner public-shell-warning mt-3">
             <strong>Vista publica:</strong>
             ahora ves solo los modelos marcados como publicos.
             <a href="{{ url_for('user_register') }}">Crea una cuenta gratis</a>

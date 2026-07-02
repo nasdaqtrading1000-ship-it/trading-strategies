@@ -5362,9 +5362,13 @@ self.addEventListener("fetch", () => {});
             return []
 
         if path is not None:
-            sync_signal_file_to_database(txt_name, path)
+            try:
+                sync_signal_file_to_database(txt_name, path)
+            except Exception:
+                rollback_request_db()
 
         today = datetime.now(MADRID_TZ).date().isoformat()
+        rollback_request_db()
         try:
             rows = g.db.execute(
                 text(

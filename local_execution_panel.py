@@ -150,6 +150,19 @@ TASKS = {
             }
         ],
     },
+    "simulated_operations": {
+        "label": "Simulated operations",
+        "button_label": "Lanzar simulated operations",
+        "description": "Actualiza operaciones abiertas, beneficios/perdidas, cierres, rentabilidad, semaforos y sincroniza PostgreSQL/SQLite antes de ejecutar Motor V2.",
+        "commands": [
+            {
+                "label": "Actualizar simulated operations",
+                "command": [sys.executable, str(STRATEGIES_DIR / "simulate_operations.py")],
+                "cwd": STRATEGIES_DIR,
+                "timeout_seconds": 7200,
+            }
+        ],
+    },
     "strategies_v2": {
         "label": "Ejecutar motor V2",
         "description": "Ejecuta EstrategiasV2/run_engine_v2.py. Genera avisos, escribe TXT antiguos, sube PostgreSQL, simula operaciones y copia a SQLite.",

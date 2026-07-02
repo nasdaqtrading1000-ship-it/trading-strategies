@@ -67,6 +67,15 @@ DEFAULT_HISTORICAL_MANIFEST_FILE = (BASE_DIR / "EstrategiasV2" / "historical_dat
 LOCAL_SQLITE_FILE = Path(SQLITE_DATABASE).resolve()
 STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
+
+
+def rollback_request_db():
+    try:
+        connection = getattr(g, "db", None)
+        if connection is not None:
+            connection.rollback()
+    except Exception:
+        pass
 SCHEDULER_THREAD_STARTED = False
 SCHEDULER_LOCK = threading.Lock()
 SCHEDULER_TASKS = {
@@ -4212,6 +4221,7 @@ self.addEventListener("fetch", () => {});
                 text("SELECT MAX(updated_at) FROM top_money_volume_assets")
             ).scalar()
         except Exception:
+            rollback_request_db()
             return {"rows": [], "updated_at": "", "source": "database"}
         return {
             "rows": [dict(row) for row in rows],
@@ -4305,6 +4315,7 @@ self.addEventListener("fetch", () => {});
                     {"limit": query_limit},
                 ).mappings().fetchall()
             except Exception:
+                rollback_request_db()
                 rows = g.db.execute(
                     text(
                         """
@@ -4319,6 +4330,7 @@ self.addEventListener("fetch", () => {});
                 ).mappings().fetchall()
             updated_at = g.db.execute(text("SELECT MAX(created_at) FROM market_news")).scalar()
         except Exception:
+            rollback_request_db()
             return {"rows": [], "updated_at": ""}
 
         formatted = []
@@ -4426,6 +4438,7 @@ self.addEventListener("fetch", () => {});
                 {"task_key": task_key},
             ).mappings().fetchone()
         except Exception:
+            rollback_request_db()
             return None
         return dict(row) if row else None
 
@@ -4457,6 +4470,7 @@ self.addEventListener("fetch", () => {});
         try:
             value = g.db.execute(text(f"SELECT MAX({column}) FROM {table}")).scalar()
         except Exception:
+            rollback_request_db()
             return None
         parsed = parse_utc_database_datetime(value)
         return parsed.astimezone(MADRID_TZ) if parsed else None
@@ -4606,6 +4620,7 @@ self.addEventListener("fetch", () => {});
                 {"txt_name": txt_name},
             ).scalar_one()
         except Exception:
+            rollback_request_db()
             return 0
 
     def first_operation_display(txt_name):
@@ -4623,6 +4638,7 @@ self.addEventListener("fetch", () => {});
                 {"txt_name": txt_name},
             ).scalar()
         except Exception:
+            rollback_request_db()
             value = first_operation_from_file(txt_name)
         parsed = parse_utc_database_datetime(value)
         if not parsed:
@@ -4655,6 +4671,7 @@ self.addEventListener("fetch", () => {});
                 {"txt_name": txt_name},
             ).scalar_one()
         except Exception:
+            rollback_request_db()
             count = len(closed_operations_from_file(txt_name))
         return count
 
@@ -4691,6 +4708,7 @@ self.addEventListener("fetch", () => {});
             ).mappings().fetchall()
             profits = [parse_display_float(row.get("profit_usd")) for row in rows]
         except Exception:
+            rollback_request_db()
             profits = closed_operation_profits_from_file(txt_name)
         return profits
 
@@ -5347,18 +5365,22 @@ self.addEventListener("fetch", () => {});
             sync_signal_file_to_database(txt_name, path)
 
         today = datetime.now(MADRID_TZ).date().isoformat()
-        rows = g.db.execute(
-            text(
-                """
-                    SELECT line, created_at
-                    FROM strategy_signals
-                WHERE txt_name = :txt_name
-                  AND signal_date = :signal_date
-                ORDER BY created_at DESC, id DESC
-                """
-            ),
-            {"txt_name": txt_name, "signal_date": today},
-        ).mappings().fetchall()
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                        SELECT line, created_at
+                        FROM strategy_signals
+                    WHERE txt_name = :txt_name
+                      AND signal_date = :signal_date
+                    ORDER BY created_at DESC, id DESC
+                    """
+                ),
+                {"txt_name": txt_name, "signal_date": today},
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            rows = []
         if rows:
             return merge_open_operations_with_signals(txt_name, deduplicate_signals([
                 parse_signal_line(row["line"], row.get("created_at"))
@@ -5435,6 +5457,7 @@ self.addEventListener("fetch", () => {});
             ).mappings().fetchall()
             return [dict(row) for row in rows]
         except Exception:
+            rollback_request_db()
             return []
 
     def operation_line_as_signal(operation):
@@ -5665,6 +5688,7 @@ self.addEventListener("fetch", () => {});
                 },
             ).mappings().fetchone()
         except Exception:
+            rollback_request_db()
             return None
         if not row:
             return None
@@ -5695,6 +5719,7 @@ self.addEventListener("fetch", () => {});
             ).mappings().fetchall()
             operations = [format_simulated_operation(dict(row)) for row in rows]
         except Exception:
+            rollback_request_db()
             operations = closed_operations_from_file(txt_name, limit=limit)
         operations.sort(key=lambda item: str(item.get("closed_at") or item.get("updated_at") or ""), reverse=True)
         if limit is None:

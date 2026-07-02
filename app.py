@@ -3228,7 +3228,8 @@ def create_app():
                     FROM simulated_operations
                     WHERE txt_name IN :txt_names
                       AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
-                    ORDER BY COALESCE(closed_at, updated_at, opened_at) DESC
+                    ORDER BY COALESCE(opened_at, closed_at, updated_at) DESC,
+                             COALESCE(closed_at, updated_at) DESC
                     LIMIT :limit
                     OFFSET :offset
                     """
@@ -6365,7 +6366,8 @@ self.addEventListener("fetch", () => {});
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
                       AND status = 'CLOSED'
-                    ORDER BY closed_at DESC, updated_at DESC
+                    ORDER BY COALESCE(opened_at, closed_at, updated_at) DESC,
+                             COALESCE(closed_at, updated_at) DESC
                     {limit_clause}
                     {offset_clause}
                     """
@@ -6377,7 +6379,13 @@ self.addEventListener("fetch", () => {});
         except Exception:
             rollback_request_db()
             operations = closed_operations_from_file(txt_name, limit=None)
-        operations.sort(key=lambda item: str(item.get("closed_at") or item.get("updated_at") or ""), reverse=True)
+        operations.sort(
+            key=lambda item: (
+                str(item.get("opened_at") or item.get("signal_date") or item.get("closed_at") or item.get("updated_at") or ""),
+                str(item.get("closed_at") or item.get("updated_at") or ""),
+            ),
+            reverse=True,
+        )
         if offset and not loaded_from_database:
             operations = operations[offset:]
         if limit is None:
@@ -6398,7 +6406,13 @@ self.addEventListener("fetch", () => {});
             if operation.get("txt_name") == txt_name
             and operation.get("status") == "CLOSED"
         ]
-        rows.sort(key=lambda item: str(item.get("closed_at") or item.get("updated_at") or ""), reverse=True)
+        rows.sort(
+            key=lambda item: (
+                str(item.get("opened_at") or item.get("signal_date") or item.get("closed_at") or item.get("updated_at") or ""),
+                str(item.get("closed_at") or item.get("updated_at") or ""),
+            ),
+            reverse=True,
+        )
         if limit is not None:
             rows = rows[:limit]
         return [format_simulated_operation(dict(row)) for row in rows]

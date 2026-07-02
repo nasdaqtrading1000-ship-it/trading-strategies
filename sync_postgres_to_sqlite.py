@@ -23,6 +23,8 @@ SQLITE_DATABASE = BASE_DIR / "strategies.db"
 TABLES_TO_COPY = [
     "strategies",
     "users",
+    "user_simulator_settings",
+    "user_simulator_strategies",
     "automation_schedules",
     "strategy_signals",
     "simulated_operations",

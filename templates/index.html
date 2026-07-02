@@ -180,6 +180,114 @@
   </details>
 </section>
 
+<section id="account-simulator" class="container pt-4">
+  <div class="report-ranking-card">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+      <div>
+        <p class="eyebrow mb-1">Simulador individual</p>
+        <h2 class="h5 fw-bold mb-1">Cuenta personal simulada</h2>
+        <p class="text-secondary small mb-0">Guarda capital inicial, aportacion mensual, fecha de inicio y modelos usados por esta cuenta.</p>
+      </div>
+      {% if current_user %}
+        <a class="btn btn-outline-info btn-sm align-self-start" href="{{ url_for('index', simulator_ops=1, _anchor='account-simulator') }}">Ver operaciones</a>
+      {% else %}
+        <a class="btn btn-outline-info btn-sm align-self-start" href="{{ url_for('user_login') }}">Entrar para guardar</a>
+      {% endif %}
+    </div>
+
+    {% if current_user %}
+      <form method="post" action="{{ url_for('save_account_simulator') }}">
+        <div class="row g-3 align-items-end mb-3">
+          <div class="col-sm-4 col-lg-3">
+            <label class="form-label small" for="sim-initial">Entrada inicial</label>
+            <input class="form-control form-control-sm" id="sim-initial" name="initial_capital" type="number" min="0" step="0.01" value="{{ '%.2f'|format(simulator.settings.initial_capital) }}">
+          </div>
+          <div class="col-sm-4 col-lg-3">
+            <label class="form-label small" for="sim-monthly">Ingreso mensual</label>
+            <input class="form-control form-control-sm" id="sim-monthly" name="monthly_contribution" type="number" min="0" step="0.01" value="{{ '%.2f'|format(simulator.settings.monthly_contribution) }}">
+          </div>
+          <div class="col-sm-4 col-lg-3">
+            <label class="form-label small" for="sim-start">Fecha inicio</label>
+            <input class="form-control form-control-sm" id="sim-start" name="start_date" type="date" value="{{ simulator.settings.start_date }}">
+          </div>
+          <div class="col-lg-3">
+            <button class="btn btn-info btn-sm fw-semibold w-100" type="submit">Guardar simulador</button>
+          </div>
+        </div>
+
+        <div class="totalizer-box totalizer-box-table mb-3">
+          <div>
+            <span class="text-secondary small d-block">Capital aportado</span>
+            <strong>{{ simulator.summary.contributed_display }}</strong>
+          </div>
+          <p class="mb-0 text-secondary">
+            Resultado: <strong class="{{ simulator.summary.profit_class }}">{{ simulator.summary.profit_display }}</strong>
+            <span class="d-block small totalizer-return-line">
+              Capital actual: {{ simulator.summary.current_capital_display }} |
+              Rentabilidad: <strong class="{{ simulator.summary.return_pct_class }}">{{ simulator.summary.return_pct_display }}</strong> |
+              Modelos: {{ simulator.summary.selected_count }} |
+              Ops: {{ simulator.summary.total_ops }} total, {{ simulator.summary.open_ops }} abiertas, {{ simulator.summary.closed_ops }} cerradas
+            </span>
+          </p>
+        </div>
+
+        <div class="row g-2 mb-3">
+          {% for strategy in simulator.strategies %}
+            <div class="col-sm-6 col-lg-4 col-xl-3">
+              <label class="top-asset-item d-flex gap-2 align-items-center border border-secondary-subtle rounded-2 h-100">
+                <input class="form-check-input mt-0" type="checkbox" name="simulator_strategy" value="{{ strategy.id }}" {% if strategy.selected %}checked{% endif %} {% if strategy.locked %}disabled{% endif %}>
+                <span class="min-w-0">
+                  <strong class="d-block">{{ strategy.short_name }}</strong>
+                  <span class="text-secondary small">{{ strategy.name }}</span>
+                </span>
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+      </form>
+
+      {% if simulator.show_operations %}
+        <div class="table-responsive report-ranking-table-wrap mt-3">
+          <table class="table table-dark table-hover align-middle report-ranking-table mb-0">
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th>Ticker</th>
+                <th>Estado</th>
+                <th>Fecha apertura</th>
+                <th>Fecha cierre</th>
+                <th class="text-end">Rentabilidad</th>
+                <th class="text-end">Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for operation in simulator.operations %}
+                <tr>
+                  <td>{{ operation.strategy_name }}</td>
+                  <td><strong class="text-info">{{ operation.symbol }}</strong></td>
+                  <td>{{ operation.status_label }}</td>
+                  <td>{{ operation.opened_at_display }}</td>
+                  <td>{{ operation.closed_at_display }}</td>
+                  <td class="text-end"><strong class="{{ operation.profit_class }}">{{ operation.profit_pct_display }}</strong></td>
+                  <td class="text-end"><strong class="{{ operation.profit_class }}">{{ operation.profit_usd_display }}</strong></td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="7" class="text-secondary">No hay operaciones para esa fecha y seleccion de modelos.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="public-shell-warning">
+        Entra con tu cuenta para guardar un simulador individual y recordar tus aportaciones y modelos seleccionados.
+      </div>
+    {% endif %}
+  </div>
+</section>
+
 <section id="ranking" class="container pt-4 pb-5">
   <div class="report-ranking-card">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">

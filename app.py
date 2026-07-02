@@ -27,7 +27,7 @@ from flask import (
     session,
     url_for,
 )
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import SQLITE_DATABASE, engine
@@ -3004,6 +3004,282 @@ def create_app():
         )
         g.db.commit()
 
+    def load_user_simulator(user_id, strategies):
+        if not user_id:
+            return default_simulator_state(strategies)
+        settings = load_user_simulator_settings(user_id)
+        selected_ids = load_user_simulator_strategy_ids(user_id)
+        if not selected_ids:
+            selected_ids = {
+                int(strategy["id"])
+                for strategy in strategies
+                if int(strategy.get("selected_for_totalizer") or 0) == 1
+            }
+        rows = build_simulator_strategy_rows(strategies, selected_ids)
+        summary = simulator_summary(settings, rows)
+        return {
+            "settings": settings,
+            "strategies": rows,
+            "summary": summary,
+            "operations": [],
+            "show_operations": False,
+        }
+
+    def default_simulator_state(strategies):
+        settings = {
+            "initial_capital": 10000.0,
+            "monthly_contribution": 300.0,
+            "start_date": datetime.now(MADRID_TZ).date().isoformat(),
+        }
+        rows = build_simulator_strategy_rows(strategies, set())
+        return {
+            "settings": settings,
+            "strategies": rows,
+            "summary": empty_simulator_summary(settings),
+            "operations": [],
+            "show_operations": False,
+        }
+
+    def load_user_simulator_settings(user_id):
+        try:
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT initial_capital, monthly_contribution, start_date
+                    FROM user_simulator_settings
+                    WHERE user_id = :user_id
+                    """
+                ),
+                {"user_id": user_id},
+            ).mappings().fetchone()
+        except Exception:
+            rollback_request_db()
+            row = None
+        if not row:
+            return {
+                "initial_capital": 10000.0,
+                "monthly_contribution": 300.0,
+                "start_date": datetime.now(MADRID_TZ).date().isoformat(),
+            }
+        return {
+            "initial_capital": float(row.get("initial_capital") or 0),
+            "monthly_contribution": float(row.get("monthly_contribution") or 0),
+            "start_date": str(row.get("start_date") or datetime.now(MADRID_TZ).date().isoformat())[:10],
+        }
+
+    def load_user_simulator_strategy_ids(user_id):
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT strategy_id
+                    FROM user_simulator_strategies
+                    WHERE user_id = :user_id
+                      AND selected = 1
+                    """
+                ),
+                {"user_id": user_id},
+            ).fetchall()
+        except Exception:
+            rollback_request_db()
+            return set()
+        return {int(row[0]) for row in rows}
+
+    def build_simulator_strategy_rows(strategies, selected_ids):
+        rows = []
+        for strategy in strategies:
+            rows.append(
+                {
+                    "id": int(strategy["id"]),
+                    "name": strategy["name"],
+                    "short_name": strategy.get("short_name") or strategy_short_name(strategy.get("name")),
+                    "txt_name": strategy.get("signals_txt_name", ""),
+                    "selected": int(strategy["id"]) in selected_ids,
+                    "locked": bool(strategy.get("is_locked")),
+                }
+            )
+        return rows
+
+    def simulator_summary(settings, strategy_rows):
+        selected_txt = [row["txt_name"] for row in strategy_rows if row["selected"] and row["txt_name"]]
+        contributed = simulator_contributed_capital(settings)
+        if not selected_txt:
+            summary = empty_simulator_summary(settings)
+            summary["contributed"] = contributed
+            return summary
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT
+                        COUNT(*) AS total_ops,
+                        SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS open_ops,
+                        SUM(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END) AS closed_ops,
+                        SUM(COALESCE(profit_usd, 0)) AS profit_usd
+                    FROM simulated_operations
+                    WHERE txt_name IN :txt_names
+                      AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
+                    """
+                ).bindparams(bindparam("txt_names", expanding=True)),
+                {"txt_names": selected_txt, "start_date": settings["start_date"]},
+            ).mappings().fetchone()
+        except Exception:
+            rollback_request_db()
+            rows = None
+        profit = float(rows.get("profit_usd") or 0) if rows else 0.0
+        total_ops = int(rows.get("total_ops") or 0) if rows else 0
+        open_ops = int(rows.get("open_ops") or 0) if rows else 0
+        closed_ops = int(rows.get("closed_ops") or 0) if rows else 0
+        current_capital = contributed + profit
+        return_pct = (profit / contributed * 100) if contributed else 0.0
+        return {
+            "selected_count": len(selected_txt),
+            "contributed": contributed,
+            "contributed_display": format_money_usd(contributed),
+            "monthly_display": format_money_usd(settings["monthly_contribution"]),
+            "profit": profit,
+            "profit_display": format_signed_money_usd(profit),
+            "profit_class": profit_color_class(profit),
+            "current_capital": current_capital,
+            "current_capital_display": format_money_usd(current_capital),
+            "return_pct": return_pct,
+            "return_pct_display": f"{return_pct:+.2f}%",
+            "return_pct_class": profit_color_class(return_pct),
+            "total_ops": total_ops,
+            "open_ops": open_ops,
+            "closed_ops": closed_ops,
+        }
+
+    def empty_simulator_summary(settings):
+        contributed = simulator_contributed_capital(settings)
+        return {
+            "selected_count": 0,
+            "contributed": contributed,
+            "contributed_display": format_money_usd(contributed),
+            "monthly_display": format_money_usd(settings["monthly_contribution"]),
+            "profit": 0.0,
+            "profit_display": format_signed_money_usd(0),
+            "profit_class": profit_color_class(0),
+            "current_capital": contributed,
+            "current_capital_display": format_money_usd(contributed),
+            "return_pct": 0.0,
+            "return_pct_display": "+0.00%",
+            "return_pct_class": profit_color_class(0),
+            "total_ops": 0,
+            "open_ops": 0,
+            "closed_ops": 0,
+        }
+
+    def simulator_contributed_capital(settings):
+        initial = float(settings.get("initial_capital") or 0)
+        monthly = float(settings.get("monthly_contribution") or 0)
+        months = months_since_start(settings.get("start_date"))
+        return initial + (monthly * months)
+
+    def months_since_start(start_date):
+        try:
+            start = datetime.fromisoformat(str(start_date)[:10]).date()
+        except ValueError:
+            return 0
+        today = datetime.now(MADRID_TZ).date()
+        if start > today:
+            return 0
+        months = (today.year - start.year) * 12 + (today.month - start.month)
+        if today.day >= start.day:
+            months += 1
+        return max(0, months)
+
+    def simulator_operations(settings, strategy_rows, limit=100):
+        selected_txt = [row["txt_name"] for row in strategy_rows if row["selected"] and row["txt_name"]]
+        if not selected_txt:
+            return []
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT strategy_name, txt_name, symbol, direction, status,
+                           signal_date, opened_at, closed_at, entry_price,
+                           target_price, stop_loss, shares, current_price,
+                           investment_value, profit_usd, profit_pct,
+                           close_reason, updated_at
+                    FROM simulated_operations
+                    WHERE txt_name IN :txt_names
+                      AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
+                    ORDER BY COALESCE(closed_at, updated_at, opened_at) DESC
+                    LIMIT :limit
+                    """
+                ).bindparams(bindparam("txt_names", expanding=True)),
+                {"txt_names": selected_txt, "start_date": settings["start_date"], "limit": int(limit)},
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            return []
+        return [format_simulated_operation(dict(row)) for row in rows]
+
+    def save_user_simulator(user_id, initial_capital, monthly_contribution, start_date, selected_ids):
+        if engine.dialect.name == "postgresql":
+            settings_statement = text(
+                """
+                INSERT INTO user_simulator_settings
+                (user_id, initial_capital, monthly_contribution, start_date, updated_at)
+                VALUES (:user_id, :initial_capital, :monthly_contribution, :start_date, CURRENT_TIMESTAMP)
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    initial_capital = EXCLUDED.initial_capital,
+                    monthly_contribution = EXCLUDED.monthly_contribution,
+                    start_date = EXCLUDED.start_date,
+                    updated_at = CURRENT_TIMESTAMP
+                """
+            )
+        else:
+            settings_statement = text(
+                """
+                INSERT INTO user_simulator_settings
+                (user_id, initial_capital, monthly_contribution, start_date, updated_at)
+                VALUES (:user_id, :initial_capital, :monthly_contribution, :start_date, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id)
+                DO UPDATE SET
+                    initial_capital = excluded.initial_capital,
+                    monthly_contribution = excluded.monthly_contribution,
+                    start_date = excluded.start_date,
+                    updated_at = CURRENT_TIMESTAMP
+                """
+            )
+        g.db.execute(
+            settings_statement,
+            {
+                "user_id": user_id,
+                "initial_capital": initial_capital,
+                "monthly_contribution": monthly_contribution,
+                "start_date": start_date,
+            },
+        )
+        g.db.execute(text("DELETE FROM user_simulator_strategies WHERE user_id = :user_id"), {"user_id": user_id})
+        if selected_ids:
+            g.db.execute(
+                text(
+                    """
+                    INSERT INTO user_simulator_strategies
+                    (user_id, strategy_id, selected, updated_at)
+                    VALUES (:user_id, :strategy_id, 1, CURRENT_TIMESTAMP)
+                    """
+                ),
+                [{"user_id": user_id, "strategy_id": strategy_id} for strategy_id in selected_ids],
+            )
+        g.db.commit()
+
+    def parse_money_form_value(value, default=0.0):
+        try:
+            return max(0.0, float(str(value or "").replace(",", ".")))
+        except ValueError:
+            return default
+
+    def parse_date_form_value(value):
+        try:
+            return datetime.fromisoformat(str(value)[:10]).date().isoformat()
+        except ValueError:
+            return datetime.now(MADRID_TZ).date().isoformat()
+
     @app.context_processor
     def inject_user_context():
         user = current_user()
@@ -3192,6 +3468,27 @@ def create_app():
         save_user_strategy_selection(user["id"], strategy_id, selected)
         return redirect(url_for("index", _anchor=f"strategy-{strategy_id}"))
 
+    @app.route("/simulador-cuenta", methods=["POST"])
+    def save_account_simulator():
+        user = current_user()
+        if not user:
+            flash("Entra con tu cuenta para guardar tu simulador.", "warning")
+            return redirect(url_for("user_login"))
+        strategy_ids = {
+            int(value)
+            for value in request.form.getlist("simulator_strategy")
+            if str(value).isdigit()
+        }
+        save_user_simulator(
+            user["id"],
+            parse_money_form_value(request.form.get("initial_capital"), 10000.0),
+            parse_money_form_value(request.form.get("monthly_contribution"), 300.0),
+            parse_date_form_value(request.form.get("start_date")),
+            strategy_ids,
+        )
+        flash("Simulador guardado.", "success")
+        return redirect(url_for("index", _anchor="account-simulator"))
+
     @app.route("/")
     def index():
         user = current_user()
@@ -3232,10 +3529,15 @@ def create_app():
         top_assets = top_money_volume_assets()
         news_preview = relevant_market_news(limit=60, days=3)
         totalizer = build_totalizer(strategies)
+        simulator = load_user_simulator(user["id"], strategies) if user else default_simulator_state(strategies)
+        if user and request.args.get("simulator_ops") == "1":
+            simulator["operations"] = simulator_operations(simulator["settings"], simulator["strategies"])
+            simulator["show_operations"] = True
         return render_template(
             "index.html",
             strategies=strategies,
             totalizer=totalizer,
+            simulator=simulator,
             top_money_volume_assets=top_assets["rows"],
             top_money_volume_updated_at=top_assets["updated_at"],
             top_money_volume_source=top_assets["source"],
@@ -6674,6 +6976,7 @@ def init_db():
         )
         ensure_users_table(connection)
         ensure_user_strategy_selections_table(connection)
+        ensure_user_simulator_tables(connection)
         add_user_column(connection, "age_confirmed", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "risk_accepted", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "accepted_terms_at", "TIMESTAMP")
@@ -7249,6 +7552,43 @@ def ensure_user_strategy_selections_table(connection):
                 user_id INTEGER NOT NULL,
                 strategy_id INTEGER NOT NULL,
                 selected INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, strategy_id)
+            )
+            """
+        )
+    )
+
+
+def ensure_user_simulator_tables(connection):
+    settings_id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    selection_id_column = settings_id_column
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS user_simulator_settings (
+                id {settings_id_column},
+                user_id INTEGER NOT NULL UNIQUE,
+                initial_capital FLOAT NOT NULL DEFAULT 10000,
+                monthly_contribution FLOAT NOT NULL DEFAULT 0,
+                start_date TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS user_simulator_strategies (
+                id {selection_id_column},
+                user_id INTEGER NOT NULL,
+                strategy_id INTEGER NOT NULL,
+                selected INTEGER NOT NULL DEFAULT 1,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, strategy_id)
             )

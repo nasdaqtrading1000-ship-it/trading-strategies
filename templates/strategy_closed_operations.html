@@ -10,7 +10,7 @@
         <p class="eyebrow mb-2">Historial de operaciones cerradas</p>
         <h1 class="h2 mb-2">{{ strategy.name }}</h1>
         <p class="text-secondary mb-0">
-          {{ operations|length }} operaciones cerradas registradas para esta estrategia.
+          {{ history_totalizer.loaded_count }} de {{ history_totalizer.count }} operaciones cerradas cargadas.
         </p>
       </div>
       <div class="d-flex gap-2 align-items-start">
@@ -79,6 +79,20 @@
           </tbody>
         </table>
       </div>
+      {% if history_pagination.has_more or not history_pagination.show_all %}
+        <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-4">
+          {% if history_pagination.has_more %}
+            <a class="btn btn-outline-info" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, limit=history_pagination.next_limit) }}">
+              Ver mas
+            </a>
+          {% endif %}
+          {% if not history_pagination.show_all %}
+            <a class="btn btn-outline-light" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, all=1) }}">
+              Ver todas
+            </a>
+          {% endif %}
+        </div>
+      {% endif %}
     {% else %}
       <div class="empty-state text-center py-5">
         <h2 class="h4">Sin operaciones cerradas</h2>

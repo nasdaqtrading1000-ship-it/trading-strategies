@@ -138,6 +138,7 @@ DEFAULT_STRATEGY_SCHEDULES = {
 }
 SIGNAL_SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9./-]{0,14}$")
 SIGNAL_SIDE_WORDS = {"LONG", "SHORT", "BUY", "SELL", "COMPRA", "VENTA"}
+HISTORY_OPERATION_PAGE_SIZE = 100
 
 
 def terminal_feed_payload(limit=None):
@@ -3398,7 +3399,12 @@ self.addEventListener("fetch", () => {});
         if not can_view_strategy(strategy):
             flash("Crea una cuenta para ver el historial completo.", "warning")
             return redirect(url_for("user_login"))
-        operations = closed_operations_for_strategy(strategy.get("signals_txt_name", ""), limit=None)
+        txt_name = strategy.get("signals_txt_name", "")
+        total_closed_count = closed_operations_count(txt_name)
+        show_all = request.args.get("all") == "1"
+        requested_limit = parse_int_arg(request.args.get("limit"), HISTORY_OPERATION_PAGE_SIZE, HISTORY_OPERATION_PAGE_SIZE, 5000)
+        operation_limit = None if show_all else requested_limit
+        operations = closed_operations_for_strategy(txt_name, limit=operation_limit)
         return_text = strategy.get("historical_return", "")
         total_profit = parse_profit_usd(return_text) if has_profit_usd(return_text) else sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
         capital_base = parse_strategy_capital_usd(return_text)
@@ -3412,7 +3418,8 @@ self.addEventListener("fetch", () => {});
         losing_count = sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) < 0)
         flat_count = max(0, len(operations) - winning_count - losing_count)
         history_totalizer = {
-            "count": len(operations),
+            "count": total_closed_count,
+            "loaded_count": len(operations),
             "profit_display": format_signed_money_usd(total_profit),
             "profit_class": profit_color_class(total_profit),
             "invested_display": format_money_usd(capital_base),
@@ -3431,7 +3438,22 @@ self.addEventListener("fetch", () => {});
             strategy=strategy,
             operations=operations,
             history_totalizer=history_totalizer,
+            history_pagination={
+                "page_size": HISTORY_OPERATION_PAGE_SIZE,
+                "limit": operation_limit,
+                "next_limit": min(requested_limit + HISTORY_OPERATION_PAGE_SIZE, total_closed_count),
+                "show_all": show_all,
+                "has_more": (not show_all) and len(operations) < total_closed_count,
+                "total_count": total_closed_count,
+            },
         )
+
+    def parse_int_arg(value, default, minimum, maximum):
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = default
+        return max(minimum, min(maximum, parsed))
 
     @app.route("/estrategia/<int:strategy_id>/funcionamiento")
     def strategy_details(strategy_id):
@@ -5816,7 +5838,11 @@ self.addEventListener("fetch", () => {});
             return []
         operations = []
         try:
-            limit_clause = "" if limit is None else "LIMIT 500"
+            params = {"txt_name": txt_name}
+            limit_clause = ""
+            if limit is not None:
+                params["limit"] = int(limit)
+                limit_clause = "LIMIT :limit"
             rows = g.db.execute(
                 text(
                     f"""
@@ -5832,7 +5858,7 @@ self.addEventListener("fetch", () => {});
                     {limit_clause}
                     """
                 ),
-                {"txt_name": txt_name},
+                params,
             ).mappings().fetchall()
             operations = [format_simulated_operation(dict(row)) for row in rows]
         except Exception:

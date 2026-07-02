@@ -493,7 +493,10 @@
                 </td>
                 <td class="text-end">
                   <div class="capital-breakdown">
-                    <span class="capital-breakdown-main">{{ strategy.return_metrics.capital }}</span>
+                    <div class="capital-main-line">
+                      <span class="capital-main-label">Capital aportado</span>
+                      <span class="capital-breakdown-main">{{ strategy.return_metrics.capital }}</span>
+                    </div>
                     {% if strategy.return_metrics.current_capital %}
                       <small>Actual {{ strategy.return_metrics.current_capital }}</small>
                     {% endif %}

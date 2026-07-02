@@ -4626,11 +4626,12 @@ self.addEventListener("fetch", () => {});
     def first_operation_display(txt_name):
         if not txt_name:
             return ""
+        rollback_request_db()
         try:
             value = g.db.execute(
                 text(
                     """
-                    SELECT MIN(COALESCE(opened_at, signal_date))
+                    SELECT MIN(COALESCE(opened_at, signal_date, closed_at, updated_at))
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
                     """
@@ -4641,6 +4642,8 @@ self.addEventListener("fetch", () => {});
             rollback_request_db()
             value = first_operation_from_file(txt_name)
         parsed = parse_utc_database_datetime(value)
+        if not parsed:
+            parsed = parse_utc_database_datetime(first_operation_from_file(txt_name))
         if not parsed:
             return ""
         return parsed.astimezone(MADRID_TZ).strftime("%d/%m/%y")
@@ -6291,6 +6294,8 @@ Devuelve 4 bloques cortos:
             return None
         if isinstance(value, datetime):
             parsed = value
+        elif isinstance(value, date):
+            parsed = datetime.combine(value, datetime.min.time(), tzinfo=UTC)
         else:
             parsed = parse_status_datetime(value)
             if parsed is None:

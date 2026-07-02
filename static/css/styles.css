@@ -6704,6 +6704,17 @@ html[data-bs-theme="dark"] .top-assets-card .top-assets-toggle-text {
   padding: 0.16rem 0.42rem !important;
 }
 
+html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
+  color: #b9ddff !important;
+  display: block !important;
+  font-size: 0.64rem !important;
+  line-height: 1.05 !important;
+  margin-bottom: 0.14rem !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  white-space: nowrap !important;
+}
+
 @media (min-width: 768px) {
   html[data-bs-theme="dark"] .report-hero .hero-live-grid {
     display: grid !important;

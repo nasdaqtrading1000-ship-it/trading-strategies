@@ -456,6 +456,40 @@ def terminal_upload_watch_groups():
     ]
 
 
+def upload_status_description(label):
+    descriptions = {
+        "Signals": "TXT de señales",
+        "Run": "estado de ejecucion",
+        "Selected": "archivo de estrategias",
+        "Top Vol": "top activos",
+        "V2 Diag": "diagnostico generado por motor V2",
+        "Diag TXT": "diagnostico V2 en TXT",
+        "Ops State": "estado general de operaciones",
+        "Open Ops": "operaciones abiertas",
+        "Closed Ops": "operaciones cerradas",
+        "All Ops": "todas las operaciones",
+        "Perf": "rentabilidad/rendimiento por estrategia",
+        "Max Cap": "capital maximo/base calculado",
+        "BT JSON": "JSON del back",
+        "Assets": "universo",
+    }
+    return descriptions.get(label, label)
+
+
+def operation_pilot_description(key, label=None):
+    descriptions = {
+        "strategies": "ejecucion del motor antiguo / clasico",
+        "strategies_v2": "ejecucion del motor V2",
+        "backtest_5y": "generacion/carga del historico",
+        "universe": "actualizacion del universo",
+        "market_full": "actualizacion completa de mercado/snapshots",
+        "news": "actualizacion de noticias relevantes",
+        "sync_sqlite": "sincronizacion PostgreSQL/SQLite",
+        "market-hours": "ventana",
+    }
+    return descriptions.get(key, label or key)
+
+
 def terminal_upload_status_event_lines():
     lines = ["CHECK :: upload file status panel"]
     upload_labels = [label for label, _paths in terminal_upload_watch_groups()]
@@ -501,6 +535,7 @@ def terminal_upload_status_payload():
                 "exists": status["exists"],
                 "count": status["count"],
                 "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+                "description": upload_status_description(label),
             }
         )
     return items
@@ -528,14 +563,17 @@ def database_chip_status_payload(keys=None):
     keys = list(keys or [])
     rows_by_key = {row.get("key"): dict(row) for row in rows}
     requested = keys or list(rows_by_key.keys())
-    market_open = time_in_madrid_window_global(datetime.now(MADRID_TZ), "15:30", "22:00")
+    now = datetime.now(MADRID_TZ)
+    today = now.date()
+    market_open = time_in_madrid_window_global(now, "15:30", "22:00")
     items = []
     for key in requested:
         row = rows_by_key.get(key)
         if not row:
             continue
         updated_at = parse_database_datetime_global(row.get("updated_at") or row.get("synced_at"))
-        ok = bool(row.get("ok")) and market_open
+        updated_today = bool(updated_at and updated_at.astimezone(MADRID_TZ).date() == today)
+        ok = bool(row.get("ok")) and updated_today
         if key == "market-hours":
             ok = market_open
         items.append(
@@ -546,7 +584,8 @@ def database_chip_status_payload(keys=None):
                 "exists": True,
                 "count": int(row.get("file_count") or 0),
                 "updated_display": row.get("updated_display") or (updated_at.strftime("%H:%M") if updated_at else "sin fecha"),
-                "title": f"{row.get('label') or key}: {row.get('updated_display') or ''}",
+                "description": upload_status_description(row.get("label") or key),
+                "title": f"{upload_status_description(row.get('label') or key)} | {row.get('updated_display') or ''}",
             }
         )
     return items
@@ -586,6 +625,7 @@ def database_upload_status_payload():
                 "exists": bool(row and row.get("exists_flag")),
                 "count": int(row.get("file_count") or 0) if row else 0,
                 "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+                "description": upload_status_description(label),
             }
         )
     return items
@@ -2108,19 +2148,18 @@ def parse_operations_summary(value):
 def parse_operations_parts(value):
     text_value = str(value or "")
     match = re.search(r"(\d+)\s+ops,\s+(\d+)\s+abiertas,\s+(\d+)\s+cerradas", text_value, re.IGNORECASE)
-    max_match = re.search(r"max\s+abiertas\s+(\d+)", text_value, re.IGNORECASE)
     if not match:
         return {
             "total": "",
             "open": "",
             "closed": "",
-            "max_open": f"Max abiertas {max_match.group(1)}" if max_match else "",
+            "max_open": "",
         }
     return {
         "total": f"{match.group(1)} ops",
         "open": f"{match.group(2)} abiertas",
         "closed": f"{match.group(3)} cerradas",
-        "max_open": f"Max abiertas {max_match.group(1)}" if max_match else "",
+        "max_open": "",
     }
 
 
@@ -2879,6 +2918,14 @@ def create_app():
         if db is not None:
             db.close()
 
+    @app.after_request
+    def prevent_dynamic_page_cache(response):
+        if response.content_type and response.content_type.startswith("text/html"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
     def login_required(view):
         @wraps(view)
         def wrapped_view(*args, **kwargs):
@@ -3094,6 +3141,7 @@ def create_app():
                     "name": strategy["name"],
                     "short_name": strategy.get("short_name") or strategy_short_name(strategy.get("name")),
                     "txt_name": strategy.get("signals_txt_name", ""),
+                    "historical_return": strategy.get("historical_return", ""),
                     "selected": int(strategy["id"]) in selected_ids,
                     "locked": bool(strategy.get("is_locked")),
                 }
@@ -3105,7 +3153,7 @@ def create_app():
         rows = g.db.execute(
             text(
                 """
-                SELECT id, name, signals_txt_name, public_visible
+                SELECT id, name, signals_txt_name, historical_return, public_visible
                 FROM strategies
                 WHERE is_active = 1
                 ORDER BY created_at DESC
@@ -3149,12 +3197,12 @@ def create_app():
         except Exception:
             rollback_request_db()
             rows = None
-        profit = float(rows.get("profit_usd") or 0) if rows else 0.0
         total_ops = int(rows.get("total_ops") or 0) if rows else 0
         open_ops = int(rows.get("open_ops") or 0) if rows else 0
         closed_ops = int(rows.get("closed_ops") or 0) if rows else 0
+        return_pct = simulator_selected_return_pct(strategy_rows)
+        profit = contributed * (return_pct / 100)
         current_capital = contributed + profit
-        return_pct = (profit / contributed * 100) if contributed else 0.0
         return {
             "selected_count": len(selected_txt),
             "contributed": contributed,
@@ -3172,6 +3220,16 @@ def create_app():
             "open_ops": open_ops,
             "closed_ops": closed_ops,
         }
+
+    def simulator_selected_return_pct(strategy_rows):
+        selected_returns = [
+            parse_return_percent(row.get("historical_return"))
+            for row in strategy_rows
+            if row.get("selected") and row.get("txt_name")
+        ]
+        if not selected_returns:
+            return 0.0
+        return sum(selected_returns) / len(selected_returns)
 
     def empty_simulator_summary(settings):
         contributed = simulator_contributed_capital(settings)
@@ -3228,8 +3286,11 @@ def create_app():
                     FROM simulated_operations
                     WHERE txt_name IN :txt_names
                       AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
-                    ORDER BY COALESCE(opened_at, closed_at, updated_at) DESC,
-                             COALESCE(closed_at, updated_at) DESC
+                    ORDER BY CASE WHEN opened_at IS NULL THEN 1 ELSE 0 END ASC,
+                             opened_at DESC,
+                             closed_at DESC,
+                             updated_at DESC,
+                             symbol ASC
                     LIMIT :limit
                     OFFSET :offset
                     """
@@ -4915,43 +4976,47 @@ self.addEventListener("fetch", () => {});
 
     def operation_status_pilots():
         now = datetime.now(MADRID_TZ)
-        chip_items = chip_status_items_from_database(
-            [
-                "strategies",
-                "strategies_v2",
-                "backtest_5y",
-                "universe",
-                "market_full",
-                "news",
-                "sync_sqlite",
-                "market-hours",
-            ]
-        )
+        pilot_keys = [
+            "strategies",
+            "strategies_v2",
+            "backtest_5y",
+            "universe",
+            "market_full",
+            "news",
+            "sync_sqlite",
+            "market-hours",
+        ]
+        chip_items = chip_status_items_from_database(pilot_keys)
         if chip_items:
             return chip_items
-        signal_files = sorted(DEFAULT_SIGNALS_DIR.glob("*.txt")) if DEFAULT_SIGNALS_DIR.exists() else []
         market_open = time_in_madrid_window(now, "15:30", "22:00")
         return [
-            pilot_status_item("strategies", "Strategies", paths=[DEFAULT_STRATEGY_STATUS_FILE, *signal_files]),
-            pilot_status_item("strategies_v2", "Engine V2", paths=[DEFAULT_V2_DIAGNOSTICS_FILE, DEFAULT_V2_SIGNALS_TXT_FILE]),
-            pilot_status_item("backtest_5y", "Backset", paths=[DEFAULT_BACKTEST_OUTPUT_FILE]),
-            pilot_status_item(
-                "universe",
-                "Universe",
-                paths=[DEFAULT_STRATEGY_TICKERS_FILE, BASE_DIR / "data" / "assets.csv"],
-                table="asset_universe",
-            ),
-            pilot_status_item("market_full", "Market Full", paths=[BASE_DIR / "data" / "market_data.csv"], table="asset_snapshots"),
-            pilot_status_item("news", "Notices", table="market_news"),
-            pilot_status_item("sync_sqlite", "Post Sync", paths=[LOCAL_SQLITE_FILE], table="simulated_operations"),
+            missing_pilot_status_item("strategies", "Strategies"),
+            missing_pilot_status_item("strategies_v2", "Engine V2"),
+            missing_pilot_status_item("backtest_5y", "Backset"),
+            missing_pilot_status_item("universe", "Universe"),
+            missing_pilot_status_item("market_full", "Market Full"),
+            missing_pilot_status_item("news", "Notices"),
+            missing_pilot_status_item("sync_sqlite", "Post Sync"),
             {
                 "key": "market-hours",
                 "label": "STATUS",
                 "ok": market_open,
                 "updated_display": "15:30-22:00" if market_open else "22:00-15:30",
-                "title": "Mercado activo 15:30-22:00 Madrid" if market_open else "Mercado fuera de ventana 22:00-15:30 Madrid",
+                "description": operation_pilot_description("market-hours", "STATUS"),
+                "title": f"{operation_pilot_description('market-hours', 'STATUS')} | {'15:30-22:00' if market_open else '22:00-15:30'}",
             },
         ]
+
+    def missing_pilot_status_item(key, label):
+        return {
+            "key": key,
+            "label": label,
+            "ok": False,
+            "updated_display": "sin fecha",
+            "description": operation_pilot_description(key, label),
+            "title": f"{operation_pilot_description(key, label)} | sin fecha",
+        }
 
     def chip_status_items_from_database(keys):
         rows_by_key = chip_status_rows_by_key()
@@ -4966,17 +5031,20 @@ self.addEventListener("fetch", () => {});
                 return []
             updated_at = parse_utc_database_datetime(row.get("updated_at") or row.get("synced_at"))
             updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else None
-            ok = bool(row.get("ok")) and market_open
+            updated_today = bool(updated_at and updated_at.date() == now.date())
+            ok = bool(row.get("ok")) and updated_today
             if key == "market-hours":
                 ok = market_open
             updated_display = row.get("updated_display") or (updated_at.strftime("%H:%M") if updated_at else "sin fecha")
+            description = operation_pilot_description(key, row.get("label") or key)
             items.append(
                 {
                     "key": key,
                     "label": row.get("label") or key,
                     "ok": ok,
                     "updated_display": updated_display,
-                    "title": f"{row.get('label') or key}: {updated_display}",
+                    "description": description,
+                    "title": f"{description} | {updated_display}",
                 }
             )
         return items
@@ -5086,47 +5154,30 @@ self.addEventListener("fetch", () => {});
         db_item = upload_status_item_from_database(label)
         if db_item:
             return db_item
-        checked_files = [Path(path)] if path else list(files or [])
-        existing = []
-        for file_path in checked_files:
-            try:
-                if file_path.exists() and file_path.is_file():
-                    existing.append(file_path)
-            except OSError:
-                continue
-
-        latest_mtime = None
-        for file_path in existing:
-            try:
-                mtime = file_path.stat().st_mtime
-            except OSError:
-                continue
-            latest_mtime = mtime if latest_mtime is None else max(latest_mtime, mtime)
-
-        updated_at = datetime.fromtimestamp(latest_mtime, MADRID_TZ) if latest_mtime else None
-        today = datetime.now(MADRID_TZ).date()
-        updated_today = bool(updated_at and updated_at.date() == today)
         return {
             "label": label,
-            "ok": updated_today,
-            "exists": bool(existing),
-            "count": len(existing),
-            "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+            "ok": False,
+            "exists": False,
+            "count": 0,
+            "updated_display": "no file",
+            "description": upload_status_description(label),
         }
 
     def upload_status_item_from_chip_status(label):
         row = chip_status_rows_by_key().get(label)
         if not row:
             return None
-        market_open = time_in_madrid_window(datetime.now(MADRID_TZ), "15:30", "22:00")
+        today = datetime.now(MADRID_TZ).date()
         updated_at = parse_utc_database_datetime(row.get("updated_at") or row.get("synced_at"))
         updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else None
+        updated_today = bool(updated_at and updated_at.date() == today)
         return {
             "label": row.get("label") or label,
-            "ok": bool(row.get("ok")) and market_open,
+            "ok": bool(row.get("ok")) and updated_today,
             "exists": True,
             "count": int(row.get("file_count") or 0),
             "updated_display": row.get("updated_display") or (updated_at.strftime("%H:%M") if updated_at else "no file"),
+            "description": upload_status_description(row.get("label") or label),
         }
 
     def upload_status_item_from_database(label):
@@ -5155,6 +5206,7 @@ self.addEventListener("fetch", () => {});
             "exists": bool(row.get("exists_flag")),
             "count": int(row.get("file_count") or 0),
             "updated_display": updated_at.strftime("%H:%M") if updated_at else "no file",
+            "description": upload_status_description(label),
         }
 
     def news_impact_class(value):
@@ -6340,6 +6392,18 @@ self.addEventListener("fetch", () => {});
             return None
         return format_simulated_operation(dict(row))
 
+    def operation_opened_sort_key(item):
+        opened_at = parse_status_datetime(item.get("opened_at"))
+        closed_at = parse_status_datetime(item.get("closed_at"))
+        updated_at = parse_status_datetime(item.get("updated_at"))
+        primary = opened_at or closed_at or updated_at
+        secondary = closed_at or updated_at or opened_at
+        return (
+            primary.timestamp() if primary else 0,
+            secondary.timestamp() if secondary else 0,
+            str(item.get("symbol") or ""),
+        )
+
     def closed_operations_for_strategy(txt_name, limit=500, offset=0):
         if not txt_name:
             return []
@@ -6366,8 +6430,11 @@ self.addEventListener("fetch", () => {});
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
                       AND status = 'CLOSED'
-                    ORDER BY COALESCE(opened_at, closed_at, updated_at) DESC,
-                             COALESCE(closed_at, updated_at) DESC
+                    ORDER BY CASE WHEN opened_at IS NULL THEN 1 ELSE 0 END ASC,
+                             opened_at DESC,
+                             closed_at DESC,
+                             updated_at DESC,
+                             symbol ASC
                     {limit_clause}
                     {offset_clause}
                     """
@@ -6379,13 +6446,7 @@ self.addEventListener("fetch", () => {});
         except Exception:
             rollback_request_db()
             operations = closed_operations_from_file(txt_name, limit=None)
-        operations.sort(
-            key=lambda item: (
-                str(item.get("opened_at") or item.get("signal_date") or item.get("closed_at") or item.get("updated_at") or ""),
-                str(item.get("closed_at") or item.get("updated_at") or ""),
-            ),
-            reverse=True,
-        )
+        operations.sort(key=operation_opened_sort_key, reverse=True)
         if offset and not loaded_from_database:
             operations = operations[offset:]
         if limit is None:
@@ -6406,13 +6467,7 @@ self.addEventListener("fetch", () => {});
             if operation.get("txt_name") == txt_name
             and operation.get("status") == "CLOSED"
         ]
-        rows.sort(
-            key=lambda item: (
-                str(item.get("opened_at") or item.get("signal_date") or item.get("closed_at") or item.get("updated_at") or ""),
-                str(item.get("closed_at") or item.get("updated_at") or ""),
-            ),
-            reverse=True,
-        )
+        rows.sort(key=operation_opened_sort_key, reverse=True)
         if limit is not None:
             rows = rows[:limit]
         return [format_simulated_operation(dict(row)) for row in rows]

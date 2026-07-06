@@ -32,9 +32,6 @@
         <span>Capital base</span>
         <strong>{{ history_totalizer.invested_display }}</strong>
         <small class="d-block text-secondary">Actual {{ history_totalizer.current_capital_display }}</small>
-        {% if history_totalizer.max_open_operations %}
-          <small class="d-block text-secondary">Max abiertas {{ history_totalizer.max_open_operations }}</small>
-        {% endif %}
       </div>
       <div>
         <span>Media por operacion</span>

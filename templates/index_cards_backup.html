@@ -154,7 +154,7 @@
       <p class="mb-0 text-secondary">
         {% if totalizer.count %}
           Beneficio / perdida acumulado de {{ totalizer.count }} estrategias seleccionadas.
-          <span class="d-block small totalizer-return-line">Capital total: {{ totalizer.capital_display }} | Rentabilidad conjunta: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
+          <span class="d-block small totalizer-return-line">Capital base: {{ totalizer.capital_display }} | Capital actual: {{ totalizer.current_capital_display }} | Rentabilidad sobre capital base: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
         {% else %}
           Selecciona estrategias en sus tarjetas para incluirlas.
         {% endif %}
@@ -222,7 +222,7 @@
                 </dd>
               </div>
               <div class="strategy-return-breakdown">
-                <dt>Capital / operaciones</dt>
+                <dt>Capital base / operaciones</dt>
                 <dd>
                   <span>{{ strategy.return_metrics.capital }}</span>
                   <small>{{ strategy.return_metrics.operations }}</small>

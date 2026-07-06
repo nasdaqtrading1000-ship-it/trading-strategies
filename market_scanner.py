@@ -311,7 +311,10 @@ def filter_assets(filters, assets=None):
         key=lambda asset: asset.get(sort_by, 0),
         reverse=True,
     )
-    return filtered[: filters["limit"]], source, universe_total
+    limit = int(filters.get("limit") or 0)
+    if limit > 0:
+        filtered = filtered[:limit]
+    return filtered, source, universe_total
 
 
 def add_selected_metrics(asset, filters):

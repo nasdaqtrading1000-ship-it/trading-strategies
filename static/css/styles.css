@@ -6669,3 +6669,168 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
   }
 }
+
+/* Avisos actuales: split view with history-like list rows. */
+.strategy-signals-page .signals-workspace {
+  grid-template-columns: minmax(440px, 0.92fr) minmax(0, 1.08fr) !important;
+  gap: 0.8rem !important;
+}
+
+.strategy-signals-page .signals-sidebar {
+  padding: 0.65rem !important;
+}
+
+.strategy-signals-page .signals-sidebar,
+.strategy-signals-page .signals-diagnostic .diagnostic-panel,
+.strategy-signals-page .diagnostic-box {
+  background: var(--terminal-blue, #052b57) !important;
+  box-shadow: none !important;
+}
+
+.strategy-signals-page .signals-list-header,
+.strategy-signals-page .signal-row-main {
+  display: grid !important;
+  grid-template-columns: minmax(70px, 0.65fr) minmax(82px, 0.7fr) minmax(210px, 1.6fr) minmax(66px, 0.55fr) !important;
+  gap: 0.45rem !important;
+  align-items: center !important;
+}
+
+.strategy-signals-page .signals-list-header {
+  border: 1px solid rgba(73, 167, 255, 0.38) !important;
+  border-bottom: 0 !important;
+  color: #9fd6ff !important;
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+  padding: 0.32rem 0.42rem !important;
+  text-transform: uppercase !important;
+}
+
+.strategy-signals-page .signals-list-page {
+  max-height: calc(100vh - 178px) !important;
+  padding-right: 0.18rem !important;
+}
+
+.strategy-signals-page .signals-list-page li {
+  margin: 0 !important;
+}
+
+.strategy-signals-page .signal-mini-card,
+.strategy-signals-page .signal-mini-card.signal-new,
+.strategy-signals-page .signal-mini-card:hover,
+.strategy-signals-page .signal-mini-card.active,
+.strategy-signals-page .signal-mini-card.signal-new:hover,
+.strategy-signals-page .signal-mini-card.signal-new.active {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: rgba(73, 167, 255, 0.32) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  gap: 0.2rem !important;
+  padding: 0.36rem 0.42rem !important;
+  transform: none !important;
+}
+
+.strategy-signals-page .signal-mini-card.active {
+  border-color: #49a7ff !important;
+  box-shadow: inset 3px 0 0 #00ff88 !important;
+}
+
+.strategy-signals-page .signal-mini-card:hover {
+  border-color: rgba(159, 214, 255, 0.74) !important;
+}
+
+.strategy-signals-page .signal-mini-card.signal-new {
+  box-shadow: inset 3px 0 0 #ffd86b !important;
+}
+
+.strategy-signals-page .signal-row-main span {
+  min-width: 0 !important;
+}
+
+.strategy-signals-page .signal-symbol-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.28rem !important;
+  min-width: 0 !important;
+}
+
+.strategy-signals-page .signal-symbol {
+  color: #f4fbff !important;
+  font-size: 0.72rem !important;
+  line-height: 1.1 !important;
+}
+
+.strategy-signals-page .signal-date-chip,
+.strategy-signals-page .signal-count-chip,
+.strategy-signals-page .signal-price-chip,
+.strategy-signals-page .signal-row-meta > span:first-child {
+  background: transparent !important;
+  border: 1px solid rgba(73, 167, 255, 0.42) !important;
+  border-radius: 0 !important;
+  color: #b9ddff !important;
+  font-size: 0.58rem !important;
+  font-weight: 350 !important;
+  line-height: 1.05 !important;
+  padding: 0.14rem 0.24rem !important;
+}
+
+.strategy-signals-page .signal-line-preview {
+  color: #d9f0ff !important;
+  font-size: 0.62rem !important;
+  line-height: 1.15 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.strategy-signals-page .signal-performance {
+  font-size: 0.62rem !important;
+  line-height: 1.1 !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+}
+
+.strategy-signals-page .signal-row-meta {
+  display: flex !important;
+  gap: 0.35rem !important;
+  justify-content: flex-end !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.strategy-signals-page .signal-market-links {
+  display: inline-flex !important;
+  gap: 0.35rem !important;
+}
+
+.strategy-signals-page .signal-market-links a,
+.strategy-signals-page .btn {
+  background: transparent !important;
+  background-image: none !important;
+  border: 1px solid rgba(73, 167, 255, 0.55) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #b9ddff !important;
+  font-size: 0.62rem !important;
+  font-weight: 350 !important;
+  line-height: 1.05 !important;
+  padding: 0.18rem 0.36rem !important;
+  text-decoration: none !important;
+}
+
+.strategy-signals-page .signal-market-links a:hover,
+.strategy-signals-page .btn:hover {
+  border-color: #9fd6ff !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 991.98px) {
+  .strategy-signals-page .signals-workspace {
+    grid-template-columns: 1fr !important;
+  }
+
+  .strategy-signals-page .signals-sidebar {
+    position: static !important;
+    max-height: none !important;
+  }
+}

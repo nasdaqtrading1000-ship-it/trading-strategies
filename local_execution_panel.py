@@ -270,41 +270,55 @@ PAGE = """
     <title>Panel local de ejecucion</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-      body { background:#090d12; color:#f5f7fb; }
+      body { background:#090d12; color:#f5f7fb; font-size:.88rem; }
       .panel { background:#101722; border:1px solid rgba(255,255,255,.1); border-radius:8px; }
-      .task { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:1rem; }
-      .task-grid { display:grid; gap:.75rem; grid-template-columns:1fr; }
-      .clock-grid { display:grid; gap:.6rem; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
-      .clock-box { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.65rem; }
-      .clock-box span { color:#9aa7b7; display:block; font-size:.72rem; }
-      .clock-box strong { display:block; font-size:.9rem; margin-top:.15rem; }
-      .automation-form { background:rgba(13,202,240,.05); border:1px solid rgba(13,202,240,.16); border-radius:8px; padding:.75rem; }
-      .sticky-save-panel { position:sticky; top:.75rem; z-index:20; box-shadow:0 12px 28px rgba(0,0,0,.18); }
-      .runner-v2-note { background:rgba(13,202,240,.07); border:1px solid rgba(13,202,240,.18); border-radius:8px; color:#b8ecff; padding:.75rem; }
-      .strategy-settings-grid { display:grid; gap:1rem; grid-template-columns:minmax(0,1fr) minmax(230px,300px); }
+      .panel.p-4 { padding:.85rem !important; }
+      .panel.p-3 { padding:.65rem !important; }
+      .task { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.58rem; }
+      .task-grid { display:grid; gap:.45rem; grid-template-columns:1fr; }
+      .clock-grid { display:grid; gap:.35rem; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); }
+      .task .clock-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+      .clock-box { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:6px; padding:.38rem .45rem; min-width:0; }
+      .clock-box span { color:#9aa7b7; display:block; font-size:.64rem; line-height:1.05; }
+      .clock-box strong { display:block; font-size:.75rem; line-height:1.1; margin-top:.08rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .automation-form { background:rgba(13,202,240,.05); border:1px solid rgba(13,202,240,.16); border-radius:6px; padding:.5rem; }
+      .sticky-save-panel { position:sticky; top:.5rem; z-index:20; box-shadow:0 12px 28px rgba(0,0,0,.18); }
+      .runner-v2-note { background:rgba(13,202,240,.07); border:1px solid rgba(13,202,240,.18); border-radius:6px; color:#b8ecff; padding:.5rem; }
+      .strategy-settings-grid { display:grid; gap:.65rem; grid-template-columns:minmax(0,1fr) minmax(220px,280px); }
       .strategy-settings-main, .strategy-settings-side { min-width:0; }
-      .task-error { background:rgba(220,53,69,.08); border:1px solid rgba(220,53,69,.22); border-radius:8px; color:#ffb9c0; max-height:170px; overflow:auto; padding:.75rem; white-space:pre-wrap; }
-      .task-log-details { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.08); border-radius:8px; }
-      .task-log-details summary { color:#dbe7f3; cursor:pointer; font-size:.86rem; font-weight:700; list-style:none; padding:.55rem .7rem; }
+      .task-error { background:rgba(220,53,69,.08); border:1px solid rgba(220,53,69,.22); border-radius:6px; color:#ffb9c0; font-size:.74rem; max-height:92px; overflow:auto; padding:.45rem; white-space:pre-wrap; }
+      .task-log-details { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.08); border-radius:6px; }
+      .task-log-details summary { color:#dbe7f3; cursor:pointer; font-size:.76rem; font-weight:700; list-style:none; padding:.38rem .5rem; }
       .task-log-details summary::-webkit-details-marker { display:none; }
-      .task-log-details summary::after { content:"Abrir"; color:#9aa7b7; float:right; font-size:.72rem; font-weight:600; }
+      .task-log-details summary::after { content:"Abrir"; color:#9aa7b7; float:right; font-size:.66rem; font-weight:600; }
       .task-log-details[open] summary::after { content:"Cerrar"; }
-      .task-log-box { background:#05080d; border-top:1px solid rgba(255,255,255,.08); color:#dbe7f3; max-height:150px; overflow:auto; padding:.65rem .75rem; white-space:pre-wrap; }
-      .task-note { min-height:96px; }
-      .data-overview { display:grid; gap:.75rem; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
-      .data-card { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.75rem; }
-      .data-card span { color:#9aa7b7; display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; }
-      .data-card strong { display:block; font-size:1rem; margin-top:.15rem; }
-      .v2-strategy-grid { display:grid; gap:.45rem; grid-template-columns:1fr; }
-      .v2-strategy-option { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.45rem .55rem; }
+      .task-log-box { background:#05080d; border-top:1px solid rgba(255,255,255,.08); color:#dbe7f3; font-size:.74rem; max-height:105px; overflow:auto; padding:.45rem .5rem; white-space:pre-wrap; }
+      .task-note { min-height:58px; }
+      .task-tools-grid { display:grid; gap:.4rem; grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .data-overview { display:grid; gap:.5rem; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); }
+      .data-card { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:6px; padding:.5rem; }
+      .data-card span { color:#9aa7b7; display:block; font-size:.64rem; font-weight:700; text-transform:uppercase; }
+      .data-card strong { display:block; font-size:.85rem; margin-top:.1rem; }
+      .v2-strategy-grid { display:grid; gap:.32rem; grid-template-columns:1fr; }
+      .v2-strategy-option { background:rgba(255,255,255,.035); border:1px solid rgba(255,255,255,.08); border-radius:6px; padding:.32rem .42rem; }
+      .form-label { margin-bottom:.12rem; }
+      .form-control-sm, .form-select-sm, .btn-sm { font-size:.74rem; min-height:1.75rem; padding:.18rem .45rem; }
+      .form-check { min-height:1.15rem; }
+      .form-check-input { width:.9rem; height:.9rem; margin-top:.18rem; }
+      .badge { font-size:.64rem; font-weight:600; }
+      h1, h2, h3, p { line-height:1.2; }
+      .task h3 { font-size:.86rem; margin-bottom:.2rem !important; }
+      .task-description { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
       @media (max-width: 991.98px) { .strategy-settings-grid { grid-template-columns:1fr; } }
+      @media (max-width: 1199.98px) { .task .clock-grid, .task-tools-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+      @media (max-width: 575.98px) { .task .clock-grid, .task-tools-grid { grid-template-columns:1fr; } }
       .path-line { color:#9aa7b7; font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .diagnostics-preview { max-height:360px; }
       pre { background:#05080d; border:1px solid rgba(255,255,255,.12); border-radius:8px; color:#dbe7f3; max-height:520px; overflow:auto; padding:1rem; white-space:pre-wrap; }
     </style>
   </head>
   <body>
-    <main class="container py-4">
+    <main class="container-fluid px-3 py-3">
       <div class="panel p-4 mb-4">
         <p class="text-info fw-semibold mb-1">Solo local</p>
         <h1 class="h3 mb-2">Panel local de ejecucion</h1>
@@ -519,9 +533,9 @@ PAGE = """
         </div>
       </div>
 
-      <div class="row g-3 mb-4">
+      <div class="row g-2 mb-4">
         {% for key, task in tasks.items() %}
-          <div class="col-lg-6">
+          <div class="col-xl-4 col-lg-6">
             <div class="task h-100">
               <div class="task-grid">
                 <div>
@@ -533,7 +547,7 @@ PAGE = """
                       <span class="badge text-bg-secondary">Sin errores</span>
                     {% endif %}
                   </div>
-                  <p class="text-secondary small mb-2">{{ task.description }}</p>
+                  <p class="text-secondary small mb-2 task-description">{{ task.description }}</p>
                   <div class="d-flex flex-wrap gap-2">
                     <form method="post" action="{{ url_for('run_task', task_key=key) }}">
                       <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if state.running %}disabled{% endif %}>{{ task.button_label or "Ejecutar ahora" }}</button>
@@ -599,26 +613,30 @@ PAGE = """
                   </div>
                 </form>
 
-                <div>
-                  <div class="d-flex justify-content-between gap-2 align-items-center mb-2">
-                    <strong class="small">Errores</strong>
-                    <form method="post" action="{{ url_for('clear_task_error', task_key=key) }}">
-                      <button class="btn btn-outline-light btn-sm" type="submit">Limpiar</button>
+                <div class="task-tools-grid">
+                  <details class="task-log-details" {% if task_errors[key] %}open{% endif %}>
+                    <summary>Errores</summary>
+                    <div class="p-2 border-top border-secondary-subtle">
+                      <div class="task-error mb-2">{{ task_errors[key] or "Sin errores registrados." }}</div>
+                      <form method="post" action="{{ url_for('clear_task_error', task_key=key) }}">
+                        <button class="btn btn-outline-light btn-sm w-100" type="submit">Limpiar</button>
+                      </form>
+                    </div>
+                  </details>
+
+                  <details class="task-log-details">
+                    <summary>Log</summary>
+                    <div class="task-log-box">{{ task_logs[key] or "Sin log guardado para esta tarea." }}</div>
+                  </details>
+
+                  <details class="task-log-details">
+                    <summary>Notas</summary>
+                    <form class="p-2 border-top border-secondary-subtle" method="post" action="{{ url_for('save_task_note', task_key=key) }}" data-note-key="{{ key }}">
+                      <textarea class="form-control form-control-sm task-note" id="note-{{ key }}" name="note">{{ task_notes[key] }}</textarea>
+                      <button class="btn btn-outline-info btn-sm mt-2 w-100" type="submit">Guardar</button>
                     </form>
-                  </div>
-                  <div class="task-error">{{ task_errors[key] or "Sin errores registrados." }}</div>
+                  </details>
                 </div>
-
-                <details class="task-log-details">
-                  <summary>Log de esta tarea</summary>
-                  <div class="task-log-box">{{ task_logs[key] or "Sin log guardado para esta tarea." }}</div>
-                </details>
-
-                <form method="post" action="{{ url_for('save_task_note', task_key=key) }}" data-note-key="{{ key }}">
-                  <label class="form-label small" for="note-{{ key }}">Bloc de notas</label>
-                  <textarea class="form-control form-control-sm task-note" id="note-{{ key }}" name="note">{{ task_notes[key] }}</textarea>
-                  <button class="btn btn-outline-info btn-sm mt-2" type="submit">Guardar nota</button>
-                </form>
               </div>
             </div>
           </div>
@@ -769,6 +787,7 @@ PAGE = """
 
 @app.route("/")
 def index():
+    reconcile_stale_running_statuses()
     sync_upload_file_statuses_to_postgres()
     automation = load_automation()
     task_status = build_task_status()
@@ -1038,6 +1057,7 @@ def cancel_running_task():
 
 
 def run_command(task_key, task, trigger):
+    clear_other_running_statuses(task_key)
     write_text(task_log_path(task_key), "")
     add_task_log(task_key, "")
     started = datetime.now()
@@ -1663,6 +1683,7 @@ def build_automation_status(automation):
 
 
 def build_task_status():
+    reconcile_stale_running_statuses()
     raw = load_json(TASK_STATUS_FILE, {})
     output = {}
     for key in TASKS:
@@ -1677,6 +1698,42 @@ def build_task_status():
             "last_finished_at": item.get("last_finished_at", ""),
         }
     return output
+
+
+def reconcile_stale_running_statuses():
+    with TASK_LOCK:
+        active_key = TASK_STATE.get("task_key") if TASK_STATE.get("running") else ""
+    raw = load_json(TASK_STATUS_FILE, {})
+    changed = False
+    for key, item in raw.items():
+        if item.get("status") != "RUNNING":
+            continue
+        if key == active_key:
+            continue
+        item["status"] = "ERROR"
+        item["last_finished_at"] = item.get("last_finished_at") or now_text()
+        item["last_returncode"] = 130
+        item["duration_seconds"] = item.get("duration_seconds") or 0
+        item["message"] = "RUNNING antiguo liberado al reconciliar el panel local."
+        changed = True
+    if changed:
+        save_json(TASK_STATUS_FILE, raw)
+
+
+def clear_other_running_statuses(active_key):
+    raw = load_json(TASK_STATUS_FILE, {})
+    changed = False
+    for key, item in raw.items():
+        if key == active_key or item.get("status") != "RUNNING":
+            continue
+        item["status"] = "ERROR"
+        item["last_finished_at"] = item.get("last_finished_at") or now_text()
+        item["last_returncode"] = 130
+        item["duration_seconds"] = item.get("duration_seconds") or 0
+        item["message"] = f"RUNNING liberado antes de iniciar {TASKS.get(active_key, {}).get('label', active_key)}."
+        changed = True
+    if changed:
+        save_json(TASK_STATUS_FILE, raw)
 
 
 def update_task_status(task_key, updates):
@@ -1963,19 +2020,17 @@ def process_due_automations():
     automation = load_automation()
     now = datetime.now()
     changed = False
-    for key, config in automation.items():
-        if not config.get("enabled"):
-            continue
-        due_slot = due_schedule_slot(config, now)
-        if not due_slot:
-            continue
-        config["executed_slots"].append(due_slot)
-        config["executed_slots"] = clean_executed_slots(config["executed_slots"])
-        changed = True
+    due_items = due_automation_items(automation, now)
+    for due_item in due_items:
+        key = due_item["key"]
+        config = automation[key]
         task = TASKS[key]
         with TASK_LOCK:
             if TASK_STATE["running"]:
                 break
+            config["executed_slots"].append(due_item["slot_key"])
+            config["executed_slots"] = clean_executed_slots(config["executed_slots"])
+            changed = True
             TASK_STATE.update(
                 {
                     "running": True,
@@ -1986,21 +2041,48 @@ def process_due_automations():
                     "returncode": None,
                 }
             )
-        add_log(f"Reloj automatico lanza {task['label']} ({due_slot}).")
+        add_log(f"Reloj automatico lanza {task['label']} ({due_item['slot_key']}).")
         threading.Thread(target=run_command, args=(key, task, "automatico"), daemon=True).start()
         break
     if changed:
         save_json(AUTOMATION_FILE, automation)
 
 
+def due_automation_items(automation, now):
+    due_items = []
+    task_order = {key: index for index, key in enumerate(TASKS)}
+    for key, config in automation.items():
+        if key not in TASKS or not config.get("enabled"):
+            continue
+        for slot_time, slot_key in due_schedule_slots(config, now):
+            due_items.append(
+                {
+                    "key": key,
+                    "slot_time": slot_time,
+                    "slot_key": slot_key,
+                    "order": task_order.get(key, 999),
+                }
+            )
+    due_items.sort(key=lambda item: (item["slot_time"], item["order"], item["key"]))
+    return due_items
+
+
 def due_schedule_slot(config, now):
+    due_slots = due_schedule_slots(config, now)
+    if due_slots:
+        return due_slots[0][1]
+    return ""
+
+
+def due_schedule_slots(config, now):
     slots = schedule_slots_for_day(config, now)
     executed = set(config.get("executed_slots") or [])
+    due_slots = []
     for slot_time in slots:
         slot_key = slot_time.strftime("%Y-%m-%d|%H:%M")
         if now >= slot_time and slot_key not in executed:
-            return slot_key
-    return ""
+            due_slots.append((slot_time, slot_key))
+    return due_slots
 
 
 def next_schedule_time(config, now):

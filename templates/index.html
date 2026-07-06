@@ -38,7 +38,7 @@
     </div>
     <div class="upload-status-strip" aria-label="Estado de archivos locales sincronizables">
       {% for item in upload_file_statuses %}
-        <span class="upload-status-chip {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" data-upload-status-chip="{{ item.label }}" title="{{ item.updated_display }}{% if item.count > 1 %} Â· {{ item.count }} files{% endif %}">
+        <span class="upload-status-chip {% if item.ok %}is-fresh{% else %}is-stale{% endif %}" data-upload-status-chip="{{ item.label }}" title="{{ item.description or item.label }} | {{ item.updated_display }}{% if item.count > 1 %} - {{ item.count }} files{% endif %}">
           <span class="upload-status-dot"></span>
           <span>{{ item.label }}</span>
           <small data-upload-status-time>{{ item.updated_display }}</small>
@@ -587,7 +587,8 @@
         if (!item) return;
         chip.classList.toggle("is-fresh", Boolean(item.ok));
         chip.classList.toggle("is-stale", !item.ok);
-        chip.title = `${item.updated_display}${item.count > 1 ? ` Â· ${item.count} files` : ""}`;
+        const description = item.description || item.label || chip.dataset.uploadStatusChip;
+        chip.title = `${description} | ${item.updated_display}${item.count > 1 ? ` - ${item.count} files` : ""}`;
         const time = chip.querySelector("[data-upload-status-time]");
         if (time) time.textContent = item.updated_display;
       });

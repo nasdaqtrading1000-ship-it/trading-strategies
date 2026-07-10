@@ -681,7 +681,16 @@ def backtest_fingerprint():
         "path": str(BACKTEST_JSON_FILE),
         "size": stat.st_size,
         "mtime": int(stat.st_mtime),
+        "sha256": file_sha256(BACKTEST_JSON_FILE),
     }
+
+
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_backtest_summary_cache(fingerprint):
@@ -912,6 +921,12 @@ def summarize_period_returns_by_strategy(operations, strategy_capital, capital_p
     return result
 
 
+def is_backtest_final_close(operation):
+    close_reason = str(operation.get("close_reason") or "").upper()
+    operation_key = str(operation.get("operation_key") or "")
+    return operation_key.startswith("BACKTEST|") and "FIN_BACKTEST" in close_reason
+
+
 def summarize_period_return(operations, start, end, strategy_capital, capital_per_trade):
     closed = []
     open_operations = []
@@ -919,8 +934,9 @@ def summarize_period_return(operations, start, end, strategy_capital, capital_pe
     for operation in operations:
         opened_at = parse_datetime_value(operation.get("opened_at") or operation.get("signal_date"))
         closed_at = parse_datetime_value(operation.get("closed_at"))
+        period_closed_at = opened_at if is_backtest_final_close(operation) else closed_at
         include_open = operation.get("status") == "OPEN" and opened_at and start <= opened_at < end
-        include_closed = operation.get("status") == "CLOSED" and closed_at and start <= closed_at < end
+        include_closed = operation.get("status") == "CLOSED" and period_closed_at and start <= period_closed_at < end
         if opened_at and (include_open or include_closed):
             effective_close = closed_at
             if operation.get("status") == "OPEN" or not effective_close or effective_close < opened_at:

@@ -143,6 +143,15 @@ STRATEGIES = [
         "telegram_url": "https://t.me/tu_canal_gap_and_go",
         "signals_txt_name": "Gap_and_Go.txt",
     },
+    {
+        "name": "Entrada Dinero Direccional",
+        "description": "Busca activos liquidos con entrada fuerte de dinero frente a 120 dias y direccion alcista: precio sobre SMA20, SMA20 sobre SMA50 y rentabilidad 5D positiva.",
+        "risk_level": "Medio",
+        "signal_frequency": "Diaria / rotacion",
+        "historical_return": "Pendiente de seguimiento",
+        "telegram_url": "https://t.me/tu_canal_entrada_dinero_direccional",
+        "signals_txt_name": "Entrada_Dinero_Direccional.txt",
+    },
 ]
 
 

@@ -6671,13 +6671,36 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 }
 
 /* Avisos actuales: split view with history-like list rows. */
+.strategy-signals-page {
+  font-size: 0.78rem !important;
+}
+
+.strategy-signals-page .container-xl {
+  max-width: 1440px !important;
+}
+
+.strategy-signals-page h1 {
+  font-size: 1.18rem !important;
+  line-height: 1.15 !important;
+}
+
+.strategy-signals-page .signals-diagnostic h2 {
+  font-size: 1.1rem !important;
+  line-height: 1.12 !important;
+}
+
+.strategy-signals-page .signals-diagnostic h3 {
+  font-size: 0.82rem !important;
+  line-height: 1.12 !important;
+}
+
 .strategy-signals-page .signals-workspace {
-  grid-template-columns: minmax(440px, 0.92fr) minmax(0, 1.08fr) !important;
+  grid-template-columns: minmax(470px, 0.96fr) minmax(0, 1.04fr) !important;
   gap: 0.8rem !important;
 }
 
 .strategy-signals-page .signals-sidebar {
-  padding: 0.65rem !important;
+  padding: 0.72rem !important;
 }
 
 .strategy-signals-page .signals-sidebar,
@@ -6690,18 +6713,17 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 .strategy-signals-page .signals-list-header,
 .strategy-signals-page .signal-row-main {
   display: grid !important;
-  grid-template-columns: minmax(70px, 0.65fr) minmax(82px, 0.7fr) minmax(210px, 1.6fr) minmax(66px, 0.55fr) !important;
-  gap: 0.45rem !important;
+  grid-template-columns: minmax(74px, 0.82fr) minmax(62px, 0.68fr) minmax(62px, 0.68fr) minmax(58px, 0.62fr) minmax(58px, 0.62fr) minmax(66px, 0.58fr) !important;
+  gap: 0.42rem !important;
   align-items: center !important;
 }
 
 .strategy-signals-page .signals-list-header {
-  border: 1px solid rgba(73, 167, 255, 0.38) !important;
-  border-bottom: 0 !important;
+  border: 1px solid rgba(73, 167, 255, 0.42) !important;
   color: #9fd6ff !important;
-  font-size: 0.58rem !important;
-  line-height: 1 !important;
-  padding: 0.32rem 0.42rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1.08 !important;
+  padding: 0.36rem 0.5rem !important;
   text-transform: uppercase !important;
 }
 
@@ -6722,11 +6744,15 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 .strategy-signals-page .signal-mini-card.signal-new.active {
   background: transparent !important;
   background-image: none !important;
-  border-color: rgba(73, 167, 255, 0.32) !important;
+  border-color: rgba(73, 167, 255, 0.34) !important;
+  border-left: 1px solid rgba(73, 167, 255, 0.34) !important;
+  border-right: 1px solid rgba(73, 167, 255, 0.34) !important;
+  border-top: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  gap: 0.2rem !important;
-  padding: 0.36rem 0.42rem !important;
+  gap: 0.1rem !important;
+  min-height: 38px !important;
+  padding: 0.34rem 0.5rem !important;
   transform: none !important;
 }
 
@@ -6748,52 +6774,60 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 }
 
 .strategy-signals-page .signal-symbol-cell {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.28rem !important;
+  display: grid !important;
+  gap: 0.12rem !important;
   min-width: 0 !important;
 }
 
 .strategy-signals-page .signal-symbol {
   color: #f4fbff !important;
-  font-size: 0.72rem !important;
-  line-height: 1.1 !important;
+  font-size: 0.8rem !important;
+  line-height: 1.12 !important;
 }
 
-.strategy-signals-page .signal-date-chip,
+.strategy-signals-page .signal-row-date {
+  color: #9fd6ff !important;
+  display: block !important;
+  font-size: 0.58rem !important;
+  line-height: 1.08 !important;
+  opacity: 0.92 !important;
+  white-space: nowrap !important;
+}
+
 .strategy-signals-page .signal-count-chip,
-.strategy-signals-page .signal-price-chip,
-.strategy-signals-page .signal-row-meta > span:first-child {
+.strategy-signals-page .signal-price-chip {
   background: transparent !important;
   border: 1px solid rgba(73, 167, 255, 0.42) !important;
   border-radius: 0 !important;
   color: #b9ddff !important;
-  font-size: 0.58rem !important;
+  font-size: 0.6rem !important;
   font-weight: 350 !important;
-  line-height: 1.05 !important;
-  padding: 0.14rem 0.24rem !important;
+  line-height: 1.08 !important;
+  padding: 0.12rem 0.22rem !important;
 }
 
-.strategy-signals-page .signal-line-preview {
-  color: #d9f0ff !important;
-  font-size: 0.62rem !important;
-  line-height: 1.15 !important;
+.strategy-signals-page .signal-table-cell {
+  color: #f3f7fb !important;
+  display: block !important;
+  font-size: 0.74rem !important;
+  line-height: 1.12 !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
 }
 
 .strategy-signals-page .signal-performance {
-  font-size: 0.62rem !important;
-  line-height: 1.1 !important;
+  font-size: 0.74rem !important;
+  line-height: 1.12 !important;
   text-align: right !important;
   white-space: nowrap !important;
 }
 
 .strategy-signals-page .signal-row-meta {
   display: flex !important;
-  gap: 0.35rem !important;
+  gap: 0.28rem !important;
   justify-content: flex-end !important;
+  margin-top: 0.16rem !important;
   position: relative !important;
   z-index: 2 !important;
 }
@@ -6811,10 +6845,10 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
   border-radius: 0 !important;
   box-shadow: none !important;
   color: #b9ddff !important;
-  font-size: 0.62rem !important;
+  font-size: 0.58rem !important;
   font-weight: 350 !important;
-  line-height: 1.05 !important;
-  padding: 0.18rem 0.36rem !important;
+  line-height: 1.08 !important;
+  padding: 0.12rem 0.28rem !important;
   text-decoration: none !important;
 }
 
@@ -6822,6 +6856,68 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 .strategy-signals-page .btn:hover {
   border-color: #9fd6ff !important;
   color: #ffffff !important;
+}
+
+.strategy-signals-page .diagnostic-panel {
+  padding: 0.9rem !important;
+}
+
+.strategy-signals-page .diagnostic-panel > .d-flex:first-child {
+  margin-bottom: 0.72rem !important;
+}
+
+.strategy-signals-page .diagnostic-box {
+  padding: 0.72rem !important;
+}
+
+.strategy-signals-page .selected-operation-box {
+  padding: 0.68rem !important;
+}
+
+.strategy-signals-page .diagnostic-summary-grid {
+  gap: 0.36rem !important;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)) !important;
+}
+
+.strategy-signals-page .diagnostic-summary-grid div {
+  min-height: 0 !important;
+  padding: 0.38rem 0.44rem !important;
+}
+
+.strategy-signals-page .diagnostic-summary-grid span {
+  font-size: 0.62rem !important;
+  line-height: 1.08 !important;
+  margin-bottom: 0.16rem !important;
+}
+
+.strategy-signals-page .diagnostic-summary-grid strong {
+  font-size: 0.72rem !important;
+  line-height: 1.14 !important;
+}
+
+.strategy-signals-page .diagnostic-param-pills {
+  gap: 0.32rem !important;
+}
+
+.strategy-signals-page .diagnostic-param-pill {
+  padding: 0.28rem 0.42rem !important;
+}
+
+.strategy-signals-page .diagnostic-param-pill span {
+  font-size: 0.66rem !important;
+  line-height: 1.08 !important;
+}
+
+.strategy-signals-page .diagnostic-param-pill strong {
+  font-size: 0.72rem !important;
+  line-height: 1.12 !important;
+}
+
+.strategy-signals-page .diagnostic-box p,
+.strategy-signals-page .diagnostic-box li,
+.strategy-signals-page .diagnostic-box .alert {
+  font-size: 0.74rem !important;
+  line-height: 1.28 !important;
 }
 
 @media (max-width: 991.98px) {

@@ -49,6 +49,7 @@ STRATEGIES = [
     {"name": "Scalping The PullBacks", "file": "ScalpingThePullBacKs.py", "txt": "ScalpingThePullBacKs.txt"},
     {"name": "Gap and Go", "file": "Gap and Go.py", "txt": "Gap_and_Go.txt"},
     {"name": "Follow The Money", "file": "FollowTheMoney.py", "txt": "Follow_The_Money.txt"},
+    {"name": "Entrada Dinero Direccional", "file": "EntradaDineroDireccional.py", "txt": "Entrada_Dinero_Direccional.txt"},
     {"name": "Acumula Metales", "file": "AcumulaMetales.py", "txt": "Acumula_Metales.txt"},
     {"name": "Acumulacion", "file": "Acumulacion.py", "txt": "Acumulacion.txt"},
     {"name": "Reversion RSI 5", "file": "ReversionRSI5.py", "txt": "Reversion_RSI_5.txt"},

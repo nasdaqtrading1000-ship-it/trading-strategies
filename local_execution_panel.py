@@ -17,7 +17,10 @@ Este panel no sustituye al admin publico. Sirve para lanzar procesos locales:
 from __future__ import annotations
 
 import ast
+import copy
 import json
+import msvcrt
+import os
 import queue
 import subprocess
 import sys
@@ -45,6 +48,7 @@ ERRORS_DIR = PANEL_DATA_DIR / "errors"
 TASK_LOGS_DIR = PANEL_DATA_DIR / "task_logs"
 AUTOMATION_FILE = PANEL_DATA_DIR / "automation.json"
 TASK_STATUS_FILE = PANEL_DATA_DIR / "task_status.json"
+TASK_RUN_LOCK_FILE = PANEL_DATA_DIR / "task_runner.lock"
 WEB_SETTINGS_FILE = PANEL_DATA_DIR / "web_settings.json"
 RUNNER_CONFIG_FILE = STRATEGIES_DIR / "runner_config.txt"
 RUNNER_SELECTION_FILE = STRATEGIES_DIR / "estrategias_a_ejecutar.txt"
@@ -59,6 +63,7 @@ ACTIVE_PROCESS_LOCK = threading.Lock()
 ACTIVE_PROCESS = None
 AUTOMATION_THREAD_STARTED = False
 UPLOAD_STATUS_SYNC_LAST = 0.0
+PANEL_STARTED_AT = datetime.now()
 TASK_STATE = {
     "running": False,
     "task_key": "",
@@ -102,6 +107,7 @@ V2_STRATEGY_LABELS = [
     ("scalping_pullbacks", "Scalping The PullBacks"),
     ("gap_and_go", "Gap and Go"),
     ("follow_the_money", "Follow The Money"),
+    ("entrada_dinero_direccional", "Entrada Dinero Direccional"),
     ("acumula_metales", "Acumula Metales"),
     ("acumulacion", "Acumulacion"),
     ("extension_reversal", "Reversion RSI 5"),
@@ -548,10 +554,26 @@ PAGE = """
                     {% endif %}
                   </div>
                   <p class="text-secondary small mb-2 task-description">{{ task.description }}</p>
-                  <div class="d-flex flex-wrap gap-2">
-                    <form method="post" action="{{ url_for('run_task', task_key=key) }}">
-                      <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if state.running %}disabled{% endif %}>{{ task.button_label or "Ejecutar ahora" }}</button>
+                  {% if key == "backtest_5y" %}
+                    <form class="automation-form mb-2" method="post" action="{{ url_for('run_task', task_key=key) }}">
+                      <label class="form-label small" for="backtest-strategy">Estrategia del backtest</label>
+                      <div class="d-flex flex-column flex-sm-row gap-2">
+                        <select class="form-select form-select-sm" id="backtest-strategy" name="backtest_strategy">
+                          <option value="">Todas las estrategias V2 activas</option>
+                          {% for strategy in v2_runner.strategies %}
+                            <option value="{{ strategy.key }}">{{ strategy.label }}</option>
+                          {% endfor %}
+                        </select>
+                        <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if state.running %}disabled{% endif %}>{{ task.button_label or "Ejecutar ahora" }}</button>
+                      </div>
                     </form>
+                  {% endif %}
+                  <div class="d-flex flex-wrap gap-2">
+                    {% if key != "backtest_5y" %}
+                      <form method="post" action="{{ url_for('run_task', task_key=key) }}">
+                        <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if state.running %}disabled{% endif %}>{{ task.button_label or "Ejecutar ahora" }}</button>
+                      </form>
+                    {% endif %}
                     <form method="post" action="{{ url_for('clear_task_status', task_key=key) }}">
                       <button class="btn btn-outline-warning btn-sm" type="submit">Liberar RUNNING</button>
                     </form>
@@ -838,6 +860,7 @@ def run_task(task_key):
     if not task:
         add_log(f"Tarea desconocida: {task_key}")
         return redirect(url_for("index"))
+    task = task_for_manual_request(task_key, task, request.form)
     with TASK_LOCK:
         if TASK_STATE["running"]:
             add_log("Ya hay una tarea en ejecucion.")
@@ -854,6 +877,33 @@ def run_task(task_key):
         )
     threading.Thread(target=run_command, args=(task_key, task, "manual"), daemon=True).start()
     return redirect(url_for("index"))
+
+
+def task_for_manual_request(task_key, task, form):
+    if task_key != "backtest_5y":
+        return task
+    strategy_key = normalize_v2_strategy_key(form.get("backtest_strategy"))
+    if not strategy_key:
+        return task
+    selected_task = copy.deepcopy(task)
+    label = v2_strategy_label(strategy_key)
+    selected_task["label"] = f"{task['label']} - {label}"
+    selected_task["description"] = f"{task['description']} Estrategia seleccionada: {label}."
+    for item in selected_task.get("commands", []):
+        item["label"] = f"{item['label']} - {label}"
+        item["command"] = list(item["command"]) + ["--strategies", strategy_key]
+    add_log(f"Backtest historico manual limitado a {label}.")
+    return selected_task
+
+
+def normalize_v2_strategy_key(value):
+    key = str(value or "").strip().lower()
+    valid = {item_key for item_key, _label in V2_STRATEGY_LABELS}
+    return key if key in valid else ""
+
+
+def v2_strategy_label(key):
+    return dict(V2_STRATEGY_LABELS).get(key, key)
 
 
 @app.route("/automation/<task_key>", methods=["POST"])
@@ -1057,67 +1107,119 @@ def cancel_running_task():
 
 
 def run_command(task_key, task, trigger):
-    clear_other_running_statuses(task_key)
-    write_text(task_log_path(task_key), "")
-    add_task_log(task_key, "")
-    started = datetime.now()
-    add_task_log(task_key, f"=== {now_text()} | INICIO | {task['label']} | {trigger} ===")
-    update_task_status(
-        task_key,
-        {
-            "status": "RUNNING",
-            "last_started_at": now_text(),
-            "last_finished_at": "",
-            "last_returncode": None,
-            "last_trigger": trigger,
-            "duration_seconds": 0,
-        },
-    )
-    returncode = 0
-    error_lines = []
+    lock_handle = acquire_task_run_lock()
+    if not lock_handle:
+        add_log(f"No se lanza {task['label']}: otra tarea local ya esta en ejecucion.")
+        with TASK_LOCK:
+            if TASK_STATE.get("task_key") == task_key:
+                TASK_STATE.update(
+                    {
+                        "running": False,
+                        "task_key": "",
+                        "name": "",
+                        "finished_at": now_text(),
+                        "returncode": None,
+                    }
+                )
+        return
     try:
-        for item in task["commands"]:
-            add_task_log(task_key, f"--- {item['label']} ---")
-            returncode, command_errors = run_single_command(task_key, item)
-            error_lines.extend(command_errors)
-            if returncode != 0:
-                break
-    except Exception as error:
-        returncode = 1
-        error_message = f"ERROR LOCAL: {error}"
-        error_lines.append(error_message)
-        add_task_log(task_key, error_message)
-    duration_seconds = int((datetime.now() - started).total_seconds())
-    add_task_log(task_key, f"=== {now_text()} | FIN | {task['label']} | codigo {returncode} ===")
-    if returncode != 0 or error_lines:
-        save_task_error(task, returncode, error_lines)
-    update_task_status(
-        task_key,
-        {
-            "status": "OK" if returncode == 0 else "ERROR",
-            "last_finished_at": now_text(),
-            "last_returncode": returncode,
-            "duration_seconds": duration_seconds,
-        },
-    )
-    sync_upload_file_statuses_to_postgres(force=True)
-    with TASK_LOCK:
-        TASK_STATE.update(
+        clear_other_running_statuses(task_key)
+        write_text(task_log_path(task_key), "")
+        add_task_log(task_key, "")
+        started = datetime.now()
+        add_task_log(task_key, f"=== {now_text()} | INICIO | {task['label']} | {trigger} ===")
+        update_task_status(
+            task_key,
             {
-                "running": False,
-                "task_key": "",
-                "finished_at": now_text(),
-                "returncode": returncode,
-            }
+                "status": "RUNNING",
+                "last_started_at": now_text(),
+                "last_finished_at": "",
+                "last_returncode": None,
+                "last_trigger": trigger,
+                "duration_seconds": 0,
+            },
         )
+        returncode = 0
+        error_lines = []
+        try:
+            for item in task["commands"]:
+                add_task_log(task_key, f"--- {item['label']} ---")
+                returncode, command_errors = run_single_command(task_key, item)
+                error_lines.extend(command_errors)
+                if returncode != 0:
+                    break
+        except Exception as error:
+            returncode = 1
+            error_message = f"ERROR LOCAL: {error}"
+            error_lines.append(error_message)
+            add_task_log(task_key, error_message)
+        duration_seconds = int((datetime.now() - started).total_seconds())
+        returncode = normalize_returncode(returncode)
+        add_task_log(task_key, f"=== {now_text()} | FIN | {task['label']} | codigo {returncode} ===")
+        if returncode != 0 or error_lines:
+            save_task_error(task, returncode, error_lines)
+        update_task_status(
+            task_key,
+            {
+                "status": "OK" if returncode == 0 else "ERROR",
+                "last_finished_at": now_text(),
+                "last_returncode": returncode,
+                "duration_seconds": duration_seconds,
+            },
+        )
+        sync_upload_file_statuses_to_postgres(force=True)
+        with TASK_LOCK:
+            TASK_STATE.update(
+                {
+                    "running": False,
+                    "task_key": "",
+                    "finished_at": now_text(),
+                    "returncode": returncode,
+                }
+            )
+    finally:
+        release_task_run_lock(lock_handle)
+
+
+def acquire_task_run_lock():
+    TASK_RUN_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    handle = TASK_RUN_LOCK_FILE.open("a+b")
+    try:
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
+        handle.close()
+        return None
+    handle.seek(0)
+    handle.truncate()
+    handle.write(f"{os.getpid()} {now_text()}\n".encode("utf-8", errors="replace"))
+    handle.flush()
+    return handle
+
+
+def release_task_run_lock(handle):
+    if not handle:
+        return
+    try:
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+    except OSError:
+        pass
+    try:
+        handle.close()
+    except OSError:
+        pass
 
 
 def run_single_command(task_key, item):
     global ACTIVE_PROCESS
     timeout_seconds = int(item.get("timeout_seconds") or 3600)
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
     process = subprocess.Popen(
         item["command"],
         cwd=str(item["cwd"]),
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -1174,7 +1276,21 @@ def run_single_command(task_key, item):
             ACTIVE_PROCESS = None
     if timed_out and returncode == 0:
         returncode = 124
-    return returncode, error_lines
+    return normalize_returncode(returncode), error_lines
+
+
+def normalize_returncode(returncode):
+    if returncode is None:
+        return None
+    try:
+        code = int(returncode)
+    except (TypeError, ValueError):
+        return 1
+    if code > 2147483647:
+        code -= 4294967296
+    if code < -2147483648:
+        code = -1
+    return code
 
 
 def looks_like_error(line):
@@ -1710,9 +1826,9 @@ def reconcile_stale_running_statuses():
             continue
         if key == active_key:
             continue
-        item["status"] = "ERROR"
+        item["status"] = "IDLE"
         item["last_finished_at"] = item.get("last_finished_at") or now_text()
-        item["last_returncode"] = 130
+        item["last_returncode"] = None
         item["duration_seconds"] = item.get("duration_seconds") or 0
         item["message"] = "RUNNING antiguo liberado al reconciliar el panel local."
         changed = True
@@ -1726,9 +1842,9 @@ def clear_other_running_statuses(active_key):
     for key, item in raw.items():
         if key == active_key or item.get("status") != "RUNNING":
             continue
-        item["status"] = "ERROR"
+        item["status"] = "IDLE"
         item["last_finished_at"] = item.get("last_finished_at") or now_text()
-        item["last_returncode"] = 130
+        item["last_returncode"] = None
         item["duration_seconds"] = item.get("duration_seconds") or 0
         item["message"] = f"RUNNING liberado antes de iniciar {TASKS.get(active_key, {}).get('label', active_key)}."
         changed = True
@@ -1755,7 +1871,7 @@ def sync_task_status_to_postgres(task_key, item):
         "label": task.get("label", task_key),
         "status": status,
         "last_finished_at": finished_at,
-        "last_returncode": item.get("last_returncode"),
+        "last_returncode": normalize_returncode(item.get("last_returncode")),
         "duration_seconds": int(item.get("duration_seconds") or 0),
         "message": item.get("message") or "",
         "updated_at": updated_at,
@@ -2051,10 +2167,13 @@ def process_due_automations():
 def due_automation_items(automation, now):
     due_items = []
     task_order = {key: index for index, key in enumerate(TASKS)}
+    startup_cutoff = PANEL_STARTED_AT - timedelta(minutes=1)
     for key, config in automation.items():
         if key not in TASKS or not config.get("enabled"):
             continue
         for slot_time, slot_key in due_schedule_slots(config, now):
+            if slot_time < startup_cutoff:
+                continue
             due_items.append(
                 {
                     "key": key,

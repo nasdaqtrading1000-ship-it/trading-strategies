@@ -28,8 +28,10 @@
         {% if signal_groups %}
           <div class="signals-list-header" aria-hidden="true">
             <span>Activo</span>
-            <span>Fecha</span>
-            <span>Operacion</span>
+            <span>Entrada</span>
+            <span>Salida</span>
+            <span>SL</span>
+            <span>Precio</span>
             <span>P/L</span>
           </div>
           <ul class="signals-list signals-list-page">
@@ -46,25 +48,33 @@
                         {% if grouped_mode %}
                           <span class="signal-count-chip">{{ group.group_count_label }}</span>
                         {% endif %}
+                        <span class="signal-row-date">{{ group.notice_short_datetime }}</span>
                       </span>
-                      <span class="signal-date-chip">{{ group.notice_short_datetime }}</span>
-                      <span class="signal-line-preview signal-line-link">
                       {% if grouped_mode and group.operation_count %}
-                        Entrada media {{ group.average_entry|one_decimal }} &middot; Salida {{ group.target_price|one_decimal }} &middot; SL {{ group.stop_loss|one_decimal }}
+                        <span class="signal-table-cell">{{ group.average_entry|one_decimal }}</span>
+                        <span class="signal-table-cell">{{ group.target_price|one_decimal }}</span>
+                        <span class="signal-table-cell">{{ group.stop_loss|one_decimal }}</span>
                       {% elif signal.open_operation %}
-                        Entrada {{ signal.open_operation.entry_price|one_decimal }} &middot; Salida {{ signal.open_operation.target_price|one_decimal }} &middot; SL {{ signal.open_operation.stop_loss|one_decimal }}
+                        <span class="signal-table-cell">{{ signal.open_operation.entry_price|one_decimal }}</span>
+                        <span class="signal-table-cell">{{ signal.open_operation.target_price|one_decimal }}</span>
+                        <span class="signal-table-cell">{{ signal.open_operation.stop_loss|one_decimal }}</span>
                       {% else %}
-                        Entrada {{ signal.common.apertura|one_decimal if signal.common.apertura else "No indicada" }} &middot; Salida {{ signal.common.cierre|one_decimal if signal.common.cierre else "No indicada" }} &middot; SL {{ signal.common.stop|one_decimal if signal.common.stop else "No indicado" }}
+                        <span class="signal-table-cell">{{ signal.common.apertura|one_decimal if signal.common.apertura else "-" }}</span>
+                        <span class="signal-table-cell">{{ signal.common.cierre|one_decimal if signal.common.cierre else "-" }}</span>
+                        <span class="signal-table-cell">{{ signal.common.stop|one_decimal if signal.common.stop else "-" }}</span>
                       {% endif %}
-                      </span>
+                      {% if grouped_mode and group.operation_count %}
+                        <span class="signal-table-cell">{{ group.current_price|one_decimal }}</span>
+                      {% elif signal.open_operation %}
+                        <span class="signal-table-cell">{{ signal.open_operation.current_price|one_decimal }}</span>
+                      {% elif signal.common.precio_actual %}
+                        <span class="signal-table-cell">{{ signal.common.precio_actual|one_decimal }}</span>
+                      {% else %}
+                        <span class="signal-table-cell">-</span>
+                      {% endif %}
                       <span class="signal-performance {{ group.profit_class }}">{{ group.profit_pct_display }}</span>
                     </span>
                     <span class="signal-row-meta">
-                      {% if signal.open_operation %}
-                        <span data-bs-toggle="tooltip" title="Precio Actual">PA {{ signal.open_operation.current_price|one_decimal }}</span>
-                      {% elif signal.common.precio_actual %}
-                        <span data-bs-toggle="tooltip" title="Precio Actual">PA {{ signal.common.precio_actual|one_decimal }}</span>
-                      {% endif %}
                       <span class="signal-market-links">
                         <a href="https://finance.yahoo.com/quote/{{ group.symbol|urlencode }}" target="_blank" rel="noopener">Yahoo</a>
                         <a href="https://www.tradingview.com/symbols/{{ group.symbol|urlencode }}/" target="_blank" rel="noopener">TradingView</a>

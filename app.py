@@ -111,6 +111,7 @@ DEFAULT_STRATEGY_FILES = {
     "Scalping The PullBacks": "ScalpingThePullBacKs.py",
     "Gap and Go": "Gap and Go.py",
     "Follow The Money": "FollowTheMoney.py",
+    "Entrada Dinero Direccional": "EntradaDineroDireccional.py",
     "Acumula Metales": "AcumulaMetales.py",
     "Acumulacion": "Acumulacion.py",
     "Reversion RSI 5": "ReversionRSI5.py",
@@ -132,6 +133,7 @@ DEFAULT_STRATEGY_SCHEDULES = {
     "Scalping The PullBacks": {"start": "15:40", "end": "21:45", "interval": 10},
     "Gap and Go": {"start": "15:35", "end": "17:30", "interval": 10},
     "Follow The Money": {"start": "15:30", "end": "22:00", "interval": 60},
+    "Entrada Dinero Direccional": {"start": "22:05", "end": "22:20", "interval": 1440},
     "Acumula Metales": {"start": "15:30", "end": "22:00", "interval": 240},
     "Acumulacion": {"start": "15:30", "end": "22:00", "interval": 240},
     "Reversion RSI 5": {"start": "15:30", "end": "22:00", "interval": 10},
@@ -690,6 +692,7 @@ def terminal_file_group_status(paths):
 
 def terminal_local_file_event_lines():
     lines = []
+    today = datetime.now(MADRID_TZ).date()
     for label, path in terminal_watched_files():
         if not path:
             continue
@@ -698,9 +701,13 @@ def terminal_local_file_event_lines():
             stats = resolved.stat()
         except OSError:
             continue
-        updated_at = datetime.fromtimestamp(stats.st_mtime, MADRID_TZ).strftime("%d/%m/%Y %H:%M:%S")
+        updated_datetime = datetime.fromtimestamp(stats.st_mtime, MADRID_TZ)
+        updated_at = updated_datetime.strftime("%d/%m/%Y %H:%M:%S")
         lines.append(f"UPDATE :: LOCAL FILE {label} bytes={stats.st_size} mtime={updated_at}")
-        lines.append(f"LOCAL LOAD OK :: {label}")
+        if updated_datetime.date() == today:
+            lines.append(f"LOCAL LOAD OK :: {label}")
+        else:
+            lines.append(f"WARNING FILE :: {label} red stale updated={updated_at}")
     if not lines:
         lines.append("CHECK :: LOCAL FILES optional watch empty")
     return lines
@@ -871,6 +878,15 @@ DEFAULT_REAL_STRATEGIES = [
         "historical_return": "Pendiente de seguimiento",
         "telegram_url": "https://t.me/tu_canal_follow_the_money",
         "signals_txt_name": "Follow_The_Money.txt",
+    },
+    {
+        "name": "Entrada Dinero Direccional",
+        "description": "Busca activos liquidos con entrada fuerte de dinero frente a 120 dias y direccion alcista: precio sobre SMA20, SMA20 sobre SMA50 y rentabilidad 5D positiva.",
+        "risk_level": "Medio",
+        "signal_frequency": "Diaria / rotacion",
+        "historical_return": "Pendiente de seguimiento",
+        "telegram_url": "https://t.me/tu_canal_entrada_dinero_direccional",
+        "signals_txt_name": "Entrada_Dinero_Direccional.txt",
     },
     {
         "name": "Acumula Metales",
@@ -3186,7 +3202,7 @@ def create_app():
                         COUNT(*) AS total_ops,
                         SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS open_ops,
                         SUM(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END) AS closed_ops,
-                        SUM(COALESCE(profit_usd, 0)) AS profit_usd
+                        AVG(COALESCE(profit_pct, 0)) AS average_profit_pct
                     FROM simulated_operations
                     WHERE txt_name IN :txt_names
                       AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
@@ -3200,7 +3216,7 @@ def create_app():
         total_ops = int(rows.get("total_ops") or 0) if rows else 0
         open_ops = int(rows.get("open_ops") or 0) if rows else 0
         closed_ops = int(rows.get("closed_ops") or 0) if rows else 0
-        return_pct = simulator_selected_return_pct(strategy_rows)
+        return_pct = float(rows.get("average_profit_pct") or 0) if rows else 0.0
         profit = contributed * (return_pct / 100)
         current_capital = contributed + profit
         return {
@@ -5026,6 +5042,10 @@ self.addEventListener("fetch", () => {});
         market_open = time_in_madrid_window(now, "15:30", "22:00")
         items = []
         for key in keys:
+            execution_item = operation_execution_status_item(key, rows_by_key.get(key), now)
+            if execution_item:
+                items.append(execution_item)
+                continue
             row = rows_by_key.get(key)
             if not row:
                 return []
@@ -5048,6 +5068,59 @@ self.addEventListener("fetch", () => {});
                 }
             )
         return items
+
+    def operation_execution_status_item(key, chip_row, now):
+        if key not in {"strategies", "strategies_v2", "backtest_5y", "universe", "market_full", "news", "sync_sqlite"}:
+            return None
+        status_row = execution_status_row(key)
+        if not status_row and key == "strategies":
+            return classic_strategy_run_item(chip_row, now)
+        if not status_row:
+            return None
+        updated_at = parse_utc_database_datetime(status_row.get("last_finished_at") or status_row.get("updated_at"))
+        updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else None
+        updated_today = bool(updated_at and updated_at.date() == now.date())
+        status_ok = str(status_row.get("status") or "").upper() == "OK"
+        updated_display = updated_at.strftime("%H:%M %d/%m/%y") if updated_at else "sin fecha"
+        label = (chip_row or {}).get("label") or status_row.get("label") or key
+        description = operation_pilot_description(key, label)
+        return {
+            "key": key,
+            "label": label,
+            "ok": bool(status_ok and updated_today),
+            "updated_display": updated_display,
+            "description": description,
+            "title": f"{description} | {updated_display}",
+        }
+
+    def classic_strategy_run_item(chip_row, now):
+        try:
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT MAX(run_at) AS latest_run_at
+                    FROM strategies
+                    WHERE COALESCE(run_status, '') = 'OK'
+                    """
+                )
+            ).mappings().fetchone()
+        except Exception:
+            rollback_request_db()
+            return None
+        updated_at = parse_utc_database_datetime(row.get("latest_run_at")) if row else None
+        updated_at = updated_at.astimezone(MADRID_TZ) if updated_at else None
+        updated_today = bool(updated_at and updated_at.date() == now.date())
+        updated_display = updated_at.strftime("%H:%M %d/%m/%y") if updated_at else "sin fecha"
+        label = (chip_row or {}).get("label") or "Strategies"
+        description = operation_pilot_description("strategies", label)
+        return {
+            "key": "strategies",
+            "label": label,
+            "ok": updated_today,
+            "updated_display": updated_display,
+            "description": description,
+            "title": f"{description} | {updated_display}",
+        }
 
     def chip_status_rows_by_key():
         cached = getattr(g, "_chip_status_rows_by_key", None)
@@ -5306,6 +5379,7 @@ self.addEventListener("fetch", () => {});
             signal_lookup_key = signal.get("_operation_lookup_key", "")
             operation = signal.get("open_operation") or operations_by_signal.get(signal_lookup_key)
             if operation:
+                signal["open_operation"] = operation
                 signal["operation_summary"] = {
                     "status_label": operation["status_label"],
                     "profit_pct_display": operation["profit_pct_display"],
@@ -5491,7 +5565,15 @@ self.addEventListener("fetch", () => {});
     def strategy_uses_grouped_operations(strategy):
         strategy_name = str(strategy.get("name", "")).strip().lower()
         txt_name = str(strategy.get("signals_txt_name", "")).strip().lower()
-        return strategy_name == "reversion rsi 5" or txt_name == "reversion_rsi_5.txt"
+        return strategy_name in {
+            "acumula metales",
+            "acumulacion",
+            "reversion rsi 5",
+        } or txt_name in {
+            "acumula_metales.txt",
+            "acumulacion.txt",
+            "reversion_rsi_5.txt",
+        }
 
     def build_signal_groups(signals, grouped_mode=False):
         if not grouped_mode:
@@ -5525,6 +5607,7 @@ self.addEventListener("fetch", () => {});
                 group["operations"].append(operation)
 
         for group in ordered_groups:
+            group["operations"].sort(key=operation_opened_sort_key)
             group.update(build_operation_group_summary(group["operations"], group["signals"]))
         return ordered_groups
 
@@ -5598,9 +5681,17 @@ self.addEventListener("fetch", () => {});
         average_entry = invested / total_shares if total_shares else 0.0
         current_price = current_value / total_shares if total_shares else 0.0
         profit_pct = (profit_usd / invested * 100) if invested else 0.0
+        no_auto_close_group = any(
+            str(operation.get("strategy_name") or "").strip().lower() in {"acumula metales", "acumulacion"}
+            or str(operation.get("txt_name") or "").strip().lower() in {"acumula_metales.txt", "acumulacion.txt"}
+            for operation in operations
+        )
         if target_weight:
             target_price = weighted_target / target_weight
             target_label = "Objetivo medio"
+        elif no_auto_close_group:
+            target_price = 0.0
+            target_label = "Sin objetivo"
         else:
             target_price = average_entry * (0.95 if direction == "SHORT" else 1.05) if average_entry else 0.0
             target_label = "Objetivo grupo"
@@ -5620,6 +5711,7 @@ self.addEventListener("fetch", () => {});
             ),
             "average_entry": average_entry,
             "average_entry_display": f"{average_entry:.2f} USD" if average_entry else "Pendiente",
+            "current_price": current_price,
             "current_price_display": f"{current_price:.2f} USD" if current_price else "Pendiente",
             "target_label": target_label,
             "target_price": target_price,

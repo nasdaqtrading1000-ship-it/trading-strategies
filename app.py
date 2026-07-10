@@ -3202,10 +3202,13 @@ def create_app():
                         COUNT(*) AS total_ops,
                         SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END) AS open_ops,
                         SUM(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END) AS closed_ops,
-                        AVG(COALESCE(profit_pct, 0)) AS average_profit_pct
+                        SUM(COALESCE(profit_usd, 0)) AS profit_usd
                     FROM simulated_operations
                     WHERE txt_name IN :txt_names
-                      AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
+                      AND (
+                          operation_key LIKE 'BACKTEST|%'
+                          OR COALESCE(opened_at, closed_at, updated_at) >= :start_date
+                      )
                     """
                 ).bindparams(bindparam("txt_names", expanding=True)),
                 {"txt_names": selected_txt, "start_date": settings["start_date"]},
@@ -3216,8 +3219,8 @@ def create_app():
         total_ops = int(rows.get("total_ops") or 0) if rows else 0
         open_ops = int(rows.get("open_ops") or 0) if rows else 0
         closed_ops = int(rows.get("closed_ops") or 0) if rows else 0
-        return_pct = float(rows.get("average_profit_pct") or 0) if rows else 0.0
-        profit = contributed * (return_pct / 100)
+        profit = float(rows.get("profit_usd") or 0) if rows else 0.0
+        return_pct = (profit / contributed * 100) if contributed else 0.0
         current_capital = contributed + profit
         return {
             "selected_count": len(selected_txt),
@@ -3301,7 +3304,10 @@ def create_app():
                            close_reason, updated_at
                     FROM simulated_operations
                     WHERE txt_name IN :txt_names
-                      AND COALESCE(opened_at, closed_at, updated_at) >= :start_date
+                      AND (
+                          operation_key LIKE 'BACKTEST|%'
+                          OR COALESCE(opened_at, closed_at, updated_at) >= :start_date
+                      )
                     ORDER BY CASE WHEN opened_at IS NULL THEN 1 ELSE 0 END ASC,
                              opened_at DESC,
                              closed_at DESC,

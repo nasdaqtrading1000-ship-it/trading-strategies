@@ -7637,6 +7637,7 @@ def ensure_default_real_strategies(connection):
             "schedule_start_time": schedule["start"],
             "schedule_end_time": schedule["end"],
             "schedule_interval_minutes": schedule["interval"],
+            "force_active": 1 if strategy["name"] == "Entrada Dinero Direccional" else 0,
         }
         if strategy["name"] not in existing:
             connection.execute(
@@ -7685,6 +7686,10 @@ def ensure_default_real_strategies(connection):
                         WHEN schedule_start_time IN ('', '15:30') AND schedule_end_time IN ('', '21:30') AND schedule_interval_minutes = 30
                         THEN :schedule_interval_minutes
                         ELSE schedule_interval_minutes
+                    END,
+                    is_active = CASE
+                        WHEN :force_active = 1 THEN 1
+                        ELSE is_active
                     END
                 WHERE name = :name
                 """

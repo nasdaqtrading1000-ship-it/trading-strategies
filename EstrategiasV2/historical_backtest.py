@@ -539,10 +539,21 @@ def run_fast_accumulation_backtest(
     strategy_names = [strategy.name for strategy in strategies]
     metals_symbols = {
         str(symbol).strip().upper()
-        for symbol in (config.get("metals_symbols") or ["GLD", "SLV", "IAU", "GDX", "GDXJ", "SIL", "SILJ", "PPLT", "PALL", "COPX"])
+        for symbol in (
+            config.get("metals_symbols")
+            or [
+                "GLD", "SLV", "IAU", "GDX", "GDXJ", "SIL", "SILJ", "PPLT", "PALL", "COPX",
+                "NEM", "GOLD", "AEM", "WPM", "FNV", "RGLD", "PAAS", "AG", "HL", "CDE",
+                "EXK", "FSM", "FCX", "SCCO", "PICK", "XME",
+            ]
+        )
         if str(symbol).strip()
     }
     min_volume = float(config.get("min_avg_dollar_volume", 20_000_000))
+    rsi_limits = {
+        "acumula_metales": float(config.get("metals_rsi_max", 40)),
+        "acumulacion": float(config.get("accumulation_rsi_max", 30)),
+    }
 
     operations: list[BacktestOperation] = []
     open_operations: list[BacktestOperation] = []
@@ -570,7 +581,14 @@ def run_fast_accumulation_backtest(
             for strategy in strategies:
                 if strategy.key == "acumula_metales" and symbol not in metals_symbols:
                     continue
-                signal_payload = accumulation_signal_from_row(strategy.name, strategy.key, symbol, row, min_volume)
+                signal_payload = accumulation_signal_from_row(
+                    strategy.name,
+                    strategy.key,
+                    symbol,
+                    row,
+                    min_volume,
+                    rsi_limits.get(strategy.key, 30),
+                )
                 if not signal_payload:
                     continue
                 daily_key = (strategy.name, symbol, session_date.isoformat())
@@ -751,7 +769,7 @@ def entrada_dinero_candidate_from_row(
     }
 
 
-def accumulation_signal_from_row(strategy_name: str, strategy_key: str, symbol: str, row: pd.Series, min_volume: float) -> dict[str, Any] | None:
+def accumulation_signal_from_row(strategy_name: str, strategy_key: str, symbol: str, row: pd.Series, min_volume: float, rsi_limit: float = 30) -> dict[str, Any] | None:
     price = as_float(row.get("close"))
     daily_sma180 = as_float(row.get("daily_sma180"))
     weekly_sma120 = as_float(row.get("weekly_sma120"))
@@ -759,18 +777,18 @@ def accumulation_signal_from_row(strategy_name: str, strategy_key: str, symbol: 
     avg_dollar_volume = as_float(row.get("avg_dollar_volume_20d"))
     if None in [price, daily_sma180, weekly_sma120, rsi14, avg_dollar_volume] or avg_dollar_volume < min_volume:
         return None
-    if not (price < daily_sma180 and price < weekly_sma120 and rsi14 < 30):
+    if not (price < daily_sma180 and price < weekly_sma120 and rsi14 < rsi_limit):
         return None
     distance_daily = distance_pct(price, daily_sma180)
     distance_weekly = distance_pct(price, weekly_sma120)
     reason = (
-        "Metales por debajo de SMA180 diaria y SMA120 semanal con RSI14 bajo."
+        f"Metales por debajo de SMA180 diaria y SMA120 semanal con RSI14 menor que {rsi_limit:g}."
         if strategy_key == "acumula_metales"
         else "Acumulacion de activo castigado bajo medias largas y RSI14 bajo."
     )
     return {
         "price": float(price),
-        "score": round((30 - rsi14) * 2 + abs(distance_daily or 0), 2),
+        "score": round((rsi_limit - rsi14) * 2 + abs(distance_daily or 0), 2),
         "reason": reason,
         "metrics": {
             "price": price,

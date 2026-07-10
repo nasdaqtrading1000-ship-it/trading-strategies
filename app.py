@@ -3655,6 +3655,7 @@ def create_app():
             else:
                 strategy["selected_for_totalizer"] = 1 if strategy["id"] in user_totalizer_selection else 0
             strategies.append(strategy)
+        refresh_strategy_balances_from_operations(strategies)
         strategies.sort(
             key=lambda strategy: (
                 -int(strategy.get("public_visible") or 0),
@@ -3717,6 +3718,7 @@ def create_app():
             else:
                 strategy["selected_for_totalizer"] = 1 if strategy["id"] in user_totalizer_selection else 0
             strategies.append(strategy)
+        refresh_strategy_balances_from_operations(strategies)
         strategies.sort(
             key=lambda strategy: (
                 -int(strategy.get("public_visible") or 0),
@@ -5378,6 +5380,134 @@ self.addEventListener("fetch", () => {});
         strategy["return_badge"] = strategy_return_badge(return_source)
         strategy["return_badge_class"] = strategy_return_badge_class(return_source)
         return strategy
+
+    def refresh_strategy_balances_from_operations(strategies):
+        txt_names = sorted(
+            {
+                strategy.get("signals_txt_name")
+                for strategy in strategies
+                if strategy.get("signals_txt_name")
+            }
+        )
+        if not txt_names:
+            return
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT txt_name, status, opened_at, closed_at, signal_date,
+                           profit_usd, investment_value, operation_key, close_reason
+                    FROM simulated_operations
+                    WHERE txt_name IN :txt_names
+                    """
+                ).bindparams(bindparam("txt_names", expanding=True)),
+                {"txt_names": txt_names},
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            return
+        grouped = {txt_name: [] for txt_name in txt_names}
+        for row in rows:
+            grouped.setdefault(row["txt_name"], []).append(dict(row))
+        for strategy in strategies:
+            operations = grouped.get(strategy.get("signals_txt_name") or "", [])
+            if not operations:
+                continue
+            return_source = build_operation_balance_text(operations)
+            strategy["historical_return"] = return_source
+            strategy["historical_return_public"] = clean_public_return_text(return_source)
+            strategy["return_metrics"] = build_return_metrics(return_source)
+            strategy["return_badge"] = strategy_return_badge(return_source)
+            strategy["return_badge_class"] = strategy_return_badge_class(return_source)
+            strategy["closed_operations_count"] = sum(1 for op in operations if op.get("status") == "CLOSED")
+
+    def build_operation_balance_text(operations):
+        total_ops = len(operations)
+        open_ops = sum(1 for op in operations if op.get("status") == "OPEN")
+        closed_ops = sum(1 for op in operations if op.get("status") == "CLOSED")
+        profit_usd = sum(float_or_zero(op.get("profit_usd")) for op in operations)
+        max_open = max_open_operations_from_rows(operations)
+        capital_base = max(50_000.0, max_open * 1_000.0)
+        current_capital = capital_base + profit_usd
+        return_pct = (profit_usd / capital_base * 100) if capital_base else 0.0
+        return (
+            f"{profit_usd:+.2f} USD "
+            f"({return_pct:+.2f}%, capital base {capital_base:.2f} USD, "
+            f"capital actual {current_capital:.2f} USD, "
+            f"max abiertas {max_open}, "
+            f"{total_ops} ops, {open_ops} abiertas, {closed_ops} cerradas)"
+            f"{operation_period_labels(operations)}"
+        )
+
+    def operation_period_labels(operations):
+        now = datetime.now(MADRID_TZ)
+        ytd_start = datetime(now.year, 1, 1, tzinfo=MADRID_TZ)
+        prev_year_start = datetime(now.year - 1, 1, 1, tzinfo=MADRID_TZ)
+        prev_year_end = datetime(now.year, 1, 1, tzinfo=MADRID_TZ)
+        periods = [
+            ("Last 1M", now - timedelta(days=30), now),
+            ("Last 3M", now - timedelta(days=90), now),
+            ("Last 12M", now - timedelta(days=365), now),
+            (str(now.year), ytd_start, now),
+            (str(now.year - 1), prev_year_start, prev_year_end),
+        ]
+        return "".join(
+            f" | {format_operation_period_label(label, operations, start, end)}"
+            for label, start, end in periods
+        )
+
+    def format_operation_period_label(label, operations, start, end):
+        selected = []
+        for operation in operations:
+            opened_at = parse_status_datetime(operation.get("opened_at") or operation.get("signal_date"))
+            closed_at = parse_status_datetime(operation.get("closed_at"))
+            period_at = opened_at if operation_is_backtest_final_close(operation) else closed_at
+            if operation.get("status") == "OPEN":
+                period_at = opened_at
+            if period_at and start <= period_at < end:
+                selected.append(operation)
+        profit_usd = sum(float_or_zero(op.get("profit_usd")) for op in selected)
+        max_open = max_open_operations_from_rows(selected)
+        capital_base = max(50_000.0, max_open * 1_000.0)
+        return_pct = (profit_usd / capital_base * 100) if capital_base else 0.0
+        closed_ops = sum(1 for op in selected if op.get("status") == "CLOSED")
+        open_ops = sum(1 for op in selected if op.get("status") == "OPEN")
+        return (
+            f"{label} {profit_usd:+.2f} USD "
+            f"({return_pct:+.2f}%, capital base {capital_base:.2f} USD, "
+            f"max abiertas {max_open}, {closed_ops} cerradas, {open_ops} abiertas)"
+        )
+
+    def operation_is_backtest_final_close(operation):
+        operation_key = str(operation.get("operation_key") or "")
+        close_reason = str(operation.get("close_reason") or "").upper()
+        return operation_key.startswith("BACKTEST|") and "FIN_BACKTEST" in close_reason
+
+    def max_open_operations_from_rows(operations):
+        events = []
+        now = datetime.now(MADRID_TZ)
+        for operation in operations:
+            opened_at = parse_status_datetime(operation.get("opened_at") or operation.get("signal_date"))
+            if not opened_at:
+                continue
+            closed_at = parse_status_datetime(operation.get("closed_at"))
+            if operation.get("status") == "OPEN" or not closed_at or closed_at < opened_at:
+                closed_at = now
+            events.append((opened_at, 1))
+            events.append((closed_at, -1))
+        events.sort(key=lambda item: (item[0], -item[1]))
+        current = 0
+        maximum = 0
+        for _event_at, delta in events:
+            current += delta
+            maximum = max(maximum, current)
+        return maximum
+
+    def float_or_zero(value):
+        try:
+            return float(value or 0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def attach_simulated_operations_to_signals(strategy, signals):
         operations_by_signal = simulated_operations_for_signals(strategy, signals)

@@ -12,6 +12,10 @@
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-light" href="{{ url_for('admin_system') }}">Sistema</a>
+      <form id="strategies-bulk-form" method="post" action="{{ url_for('strategies_bulk_update') }}">
+        <div id="strategies-bulk-fields"></div>
+        <button class="btn btn-success fw-semibold" type="submit">Guardar todo</button>
+      </form>
       <form method="post" action="{{ url_for('strategies_deactivate_all') }}" onsubmit="return confirm('Ocultar/desactivar todas las estrategias de la web?');">
         <button class="btn btn-outline-warning" type="submit">Ocultar todas en web</button>
       </form>
@@ -323,5 +327,28 @@
     sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY || 0));
     window.location.reload();
   }, 30000);
+
+  document.getElementById("strategies-bulk-form")?.addEventListener("submit", (event) => {
+    const container = document.getElementById("strategies-bulk-fields");
+    if (!container) return;
+    container.replaceChildren();
+    document.querySelectorAll('form[id^="strategy-row-form-"]').forEach((rowForm) => {
+      const strategyId = rowForm.id.replace("strategy-row-form-", "");
+      const idInput = document.createElement("input");
+      idInput.type = "hidden";
+      idInput.name = "strategy_id";
+      idInput.value = strategyId;
+      container.appendChild(idInput);
+      document.querySelectorAll(`[form="${rowForm.id}"]`).forEach((control) => {
+        if (!control.name) return;
+        if (control.type === "checkbox" && !control.checked) return;
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = `${strategyId}__${control.name}`;
+        input.value = control.type === "checkbox" ? "on" : control.value;
+        container.appendChild(input);
+      });
+    });
+  });
 </script>
 {% endblock %}

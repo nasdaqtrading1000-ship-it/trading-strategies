@@ -4522,6 +4522,106 @@ self.addEventListener("fetch", () => {});
         flash("Estrategia actualizada desde el panel.", "success")
         return redirect(url_for("admin_dashboard", _anchor=f"strategy-{strategy_id}"))
 
+    @app.route("/admin/strategies/bulk-update", methods=["POST"])
+    @login_required
+    def strategies_bulk_update():
+        strategy_ids = []
+        for raw_id in request.form.getlist("strategy_id"):
+            try:
+                strategy_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if strategy_id not in strategy_ids:
+                strategy_ids.append(strategy_id)
+
+        if not strategy_ids:
+            flash("No hay estrategias para guardar.", "warning")
+            return redirect(url_for("admin_dashboard"))
+
+        errors = []
+        updates = []
+        existing_ids = {
+            int(row["id"])
+            for row in g.db.execute(
+                text("SELECT id FROM strategies WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)),
+                {"ids": strategy_ids},
+            ).mappings().fetchall()
+        }
+        for strategy_id in strategy_ids:
+            if strategy_id not in existing_ids:
+                errors.append(f"Estrategia {strategy_id}: no existe.")
+                continue
+            data = strategy_bulk_update_payload(strategy_id)
+            row_errors = validate_strategy_admin_payload(data)
+            errors.extend([f"{data['name'] or 'Estrategia ' + str(strategy_id)}: {error}" for error in row_errors])
+            updates.append({**data, "id": strategy_id})
+
+        if errors:
+            for error in errors[:8]:
+                flash(error, "danger")
+            if len(errors) > 8:
+                flash(f"{len(errors) - 8} errores mas. No se ha guardado ningun cambio.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        for data in updates:
+            g.db.execute(
+                text(
+                    """
+                    UPDATE strategies
+                    SET name = :name,
+                        risk_level = :risk_level,
+                        signal_frequency = :signal_frequency,
+                        historical_return = :historical_return,
+                        telegram_url = :telegram_url,
+                        has_telegram = :has_telegram,
+                        signals_txt_name = :signals_txt_name,
+                        python_file = :python_file,
+                        include_in_totalizer = :include_in_totalizer,
+                        public_visible = :public_visible,
+                        is_active = :is_active,
+                        run_locally = :run_locally
+                    WHERE id = :id
+                    """
+                ),
+                data,
+            )
+        g.db.commit()
+        flash(f"Guardadas {len(updates)} estrategias.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    def strategy_bulk_update_payload(strategy_id):
+        prefix = f"{strategy_id}__"
+        return {
+            "name": request.form.get(prefix + "name", "").strip(),
+            "risk_level": request.form.get(prefix + "risk_level", "Medio"),
+            "signal_frequency": request.form.get(prefix + "signal_frequency", "").strip(),
+            "historical_return": request.form.get(prefix + "historical_return", "").strip(),
+            "telegram_url": request.form.get(prefix + "telegram_url", "").strip(),
+            "has_telegram": 1 if request.form.get(prefix + "has_telegram") == "on" else 0,
+            "signals_txt_name": request.form.get(prefix + "signals_txt_name", "").strip(),
+            "python_file": request.form.get(prefix + "python_file", "").strip(),
+            "include_in_totalizer": 1 if request.form.get(prefix + "include_in_totalizer") == "on" else 0,
+            "public_visible": 1 if request.form.get(prefix + "public_visible") == "on" else 0,
+            "is_active": 1 if request.form.get(prefix + "is_active") == "on" else 0,
+            "run_locally": 1 if request.form.get(prefix + "run_locally") == "on" else 0,
+        }
+
+    def validate_strategy_admin_payload(data):
+        errors = []
+        if not data["name"]:
+            errors.append("El nombre es obligatorio.")
+        if data["risk_level"] not in {"Bajo", "Medio", "Alto"}:
+            errors.append("El nivel de riesgo no es valido.")
+        if data["has_telegram"] and not data["telegram_url"].startswith(
+            ("https://t.me/", "http://t.me/", "https://telegram.me/")
+        ):
+            errors.append("Usa un enlace valido de Telegram o desmarca Tiene Telegram.")
+        if data["signals_txt_name"] and not valid_txt_name(data["signals_txt_name"]):
+            errors.append("El nombre del TXT debe ser un archivo .txt sin carpetas.")
+        if data["python_file"] and not valid_python_filename(data["python_file"]):
+            errors.append("El archivo Python debe ser un .py sin carpetas.")
+        return errors
+
     @app.route("/admin/strategies/deactivate-all", methods=["POST"])
     @login_required
     def strategies_deactivate_all():

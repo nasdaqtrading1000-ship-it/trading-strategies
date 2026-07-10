@@ -124,25 +124,25 @@ def sync_active_strategies_from_selection():
     with engine.begin() as connection:
         for strategy in STRATEGIES:
             settings = selected.get(strategy["name"])
-            is_active = 1 if settings else 0
+            if not settings:
+                continue
             connection.execute(
                 text(
                     """
                     UPDATE strategies
-                    SET is_active = :is_active,
-                        schedule_start_time = CASE WHEN :is_active = 1 THEN :start_time ELSE schedule_start_time END,
-                        schedule_end_time = CASE WHEN :is_active = 1 THEN :end_time ELSE schedule_end_time END,
-                        schedule_interval_minutes = CASE WHEN :is_active = 1 THEN :interval_minutes ELSE schedule_interval_minutes END
+                    SET is_active = 1,
+                        schedule_start_time = :start_time,
+                        schedule_end_time = :end_time,
+                        schedule_interval_minutes = :interval_minutes
                     WHERE name = :name
                        OR python_file = :python_file
                        OR signals_txt_name = :txt_name
                     """
                 ),
                 {
-                    "is_active": is_active,
-                    "start_time": settings["start"] if settings else "15:30",
-                    "end_time": settings["end"] if settings else "22:00",
-                    "interval_minutes": settings["interval"] if settings else 60,
+                    "start_time": settings["start"],
+                    "end_time": settings["end"],
+                    "interval_minutes": settings["interval"],
                     "name": strategy["name"],
                     "python_file": strategy["file"],
                     "txt_name": strategy["txt"],

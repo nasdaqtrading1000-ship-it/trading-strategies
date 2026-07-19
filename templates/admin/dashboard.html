@@ -207,6 +207,9 @@
                       {% if user.has_access %}Quitar{% else %}Dar{% endif %}
                     </button>
                   </form>
+                  <form method="post" action="{{ url_for('admin_user_delete', user_id=user.id) }}" onsubmit="return confirm({{ ('Eliminar usuario ' ~ user.email ~ '? Esta accion no se puede deshacer.')|tojson }});">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">Eliminar</button>
+                  </form>
                 </div>
               </td>
             </tr>

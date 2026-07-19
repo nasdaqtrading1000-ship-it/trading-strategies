@@ -47,6 +47,7 @@ NOTES_DIR = PANEL_DATA_DIR / "notes"
 ERRORS_DIR = PANEL_DATA_DIR / "errors"
 TASK_LOGS_DIR = PANEL_DATA_DIR / "task_logs"
 AUTOMATION_FILE = PANEL_DATA_DIR / "automation.json"
+EXECUTION_QUEUE_FILE = PANEL_DATA_DIR / "execution_queue.json"
 TASK_STATUS_FILE = PANEL_DATA_DIR / "task_status.json"
 TASK_RUN_LOCK_FILE = PANEL_DATA_DIR / "task_runner.lock"
 WEB_SETTINGS_FILE = PANEL_DATA_DIR / "web_settings.json"
@@ -62,8 +63,10 @@ TASK_LOCK = threading.Lock()
 ACTIVE_PROCESS_LOCK = threading.Lock()
 ACTIVE_PROCESS = None
 AUTOMATION_THREAD_STARTED = False
+LAST_DAILY_QUEUE_RESET = ""
 UPLOAD_STATUS_SYNC_LAST = 0.0
 PANEL_STARTED_AT = datetime.now()
+QUEUE_DAILY_RESET_TIME = "22:00"
 TASK_STATE = {
     "running": False,
     "task_key": "",
@@ -539,6 +542,47 @@ PAGE = """
         </div>
       </div>
 
+      <div class="panel p-4 mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+          <div>
+            <h2 class="h5 mb-1">Cola de ejecuciones pendientes</h2>
+            <p class="text-secondary small mb-0">Si una automatizacion vence mientras otra tarea corre, queda aqui y se ejecuta por orden al liberarse el panel. A las 22:00 se limpia la cola y se liberan RUNNING.</p>
+          </div>
+          <div class="d-flex gap-2 align-self-lg-start">
+            <span class="badge text-bg-info">{{ execution_queue|length }} pendientes</span>
+            <form method="post" action="{{ url_for('clear_execution_queue') }}">
+              <button class="btn btn-outline-warning btn-sm" type="submit">Vaciar cola</button>
+            </form>
+          </div>
+        </div>
+        {% if execution_queue %}
+          <div class="table-responsive">
+            <table class="table table-dark align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Tarea</th>
+                  <th>Slot previsto</th>
+                  <th>Encolada</th>
+                  <th>Origen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in execution_queue %}
+                  <tr>
+                    <td><strong>{{ item.label }}</strong></td>
+                    <td>{{ item.slot_display }}</td>
+                    <td>{{ item.queued_display }}</td>
+                    <td>{{ item.trigger }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-secondary small">No hay ejecuciones pendientes en cola.</div>
+        {% endif %}
+      </div>
+
       <div class="row g-2 mb-4">
         {% for key, task in tasks.items() %}
           <div class="col-xl-4 col-lg-6">
@@ -824,6 +868,7 @@ def index():
         task_logs=load_all_task_logs(),
         automation=automation,
         automation_status=automation_status,
+        execution_queue=queue_for_display(),
         task_status=task_status,
         weekdays=WEEKDAYS,
         runner_days=RUNNER_DAYS,
@@ -836,6 +881,13 @@ def index():
         now_display=now_text(),
         active_automation_count=sum(1 for item in automation.values() if item.get("enabled")),
     )
+
+
+@app.route("/queue/clear", methods=["POST"])
+def clear_execution_queue():
+    clear_queue()
+    add_log("Cola de ejecuciones pendientes vaciada manualmente.")
+    return redirect(url_for("index"))
 
 
 @app.route("/files/<file_key>")
@@ -1106,10 +1158,17 @@ def cancel_running_task():
     return redirect(url_for("index"))
 
 
-def run_command(task_key, task, trigger):
+def run_command(task_key, task, trigger, queue_item=None):
     lock_handle = acquire_task_run_lock()
     if not lock_handle:
-        add_log(f"No se lanza {task['label']}: otra tarea local ya esta en ejecucion.")
+        add_log(f"{task['label']} queda en cola: otra tarea local ya esta en ejecucion.")
+        if queue_item:
+            queue_items = load_execution_queue()
+            if not any(item.get("id") == queue_item.get("id") for item in queue_items):
+                queue_items.insert(0, queue_item)
+                save_execution_queue(queue_items)
+        else:
+            enqueue_execution(task_key, trigger=clean_queue_trigger(trigger), front=True)
         with TASK_LOCK:
             if TASK_STATE.get("task_key") == task_key:
                 TASK_STATE.update(
@@ -1179,6 +1238,7 @@ def run_command(task_key, task, trigger):
             )
     finally:
         release_task_run_lock(lock_handle)
+        dispatch_next_queued_execution()
 
 
 def acquire_task_run_lock():
@@ -2123,6 +2183,7 @@ def format_duration(seconds):
 def scheduler_loop():
     while True:
         try:
+            reset_queue_at_market_close()
             process_due_automations()
         except Exception as error:
             add_log(f"ERROR reloj automatizacion: {error}")
@@ -2130,9 +2191,6 @@ def scheduler_loop():
 
 
 def process_due_automations():
-    with TASK_LOCK:
-        if TASK_STATE["running"]:
-            return
     automation = load_automation()
     now = datetime.now()
     changed = False
@@ -2141,27 +2199,197 @@ def process_due_automations():
         key = due_item["key"]
         config = automation[key]
         task = TASKS[key]
-        with TASK_LOCK:
-            if TASK_STATE["running"]:
-                break
-            config["executed_slots"].append(due_item["slot_key"])
-            config["executed_slots"] = clean_executed_slots(config["executed_slots"])
-            changed = True
-            TASK_STATE.update(
-                {
-                    "running": True,
-                    "task_key": key,
-                    "name": task["label"],
-                    "started_at": now_text(),
-                    "finished_at": "",
-                    "returncode": None,
-                }
-            )
-        add_log(f"Reloj automatico lanza {task['label']} ({due_item['slot_key']}).")
-        threading.Thread(target=run_command, args=(key, task, "automatico"), daemon=True).start()
-        break
+        config["executed_slots"].append(due_item["slot_key"])
+        config["executed_slots"] = clean_executed_slots(config["executed_slots"])
+        changed = True
+        if enqueue_execution(
+            key,
+            trigger="automatico",
+            slot_key=due_item["slot_key"],
+            slot_time=due_item["slot_time"],
+        ):
+            add_log(f"Reloj automatico encola {task['label']} ({due_item['slot_key']}).")
     if changed:
         save_json(AUTOMATION_FILE, automation)
+    dispatch_next_queued_execution()
+
+
+def load_execution_queue():
+    items = load_json(EXECUTION_QUEUE_FILE, [])
+    if not isinstance(items, list):
+        return []
+    cleaned = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        key = item.get("task_key")
+        if key not in TASKS:
+            continue
+        cleaned.append(
+            {
+                "id": str(item.get("id") or f"{key}|{item.get('slot_key', '')}|{item.get('queued_at', '')}"),
+                "task_key": key,
+                "label": str(item.get("label") or TASKS[key]["label"]),
+                "trigger": clean_queue_trigger(item.get("trigger") or "automatico"),
+                "slot_key": str(item.get("slot_key") or ""),
+                "slot_at": str(item.get("slot_at") or ""),
+                "queued_at": str(item.get("queued_at") or now_text()),
+            }
+        )
+    return cleaned
+
+
+def save_execution_queue(items):
+    save_json(EXECUTION_QUEUE_FILE, items)
+
+
+def clean_queue_trigger(trigger):
+    value = str(trigger or "automatico").strip()
+    parts = value.split()
+    while len(parts) > 1 and parts[0].lower() == "cola" and parts[1].lower() == "cola":
+        parts.pop(0)
+    return " ".join(parts) if parts else "automatico"
+
+
+def enqueue_execution(task_key, trigger="automatico", slot_key="", slot_time=None, front=False):
+    if task_key not in TASKS:
+        return False
+    queue_items = load_execution_queue()
+    slot_key = str(slot_key or f"manual|{datetime.now().isoformat(timespec='seconds')}")
+    queue_id = f"{task_key}|{slot_key}"
+    if any(item.get("id") == queue_id for item in queue_items):
+        return False
+    item = {
+        "id": queue_id,
+        "task_key": task_key,
+        "label": TASKS[task_key]["label"],
+        "trigger": clean_queue_trigger(trigger),
+        "slot_key": slot_key,
+        "slot_at": slot_time.isoformat(timespec="seconds") if slot_time else "",
+        "queued_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    if front:
+        queue_items.insert(0, item)
+    else:
+        queue_items.append(item)
+    save_execution_queue(queue_items)
+    return True
+
+
+def dispatch_next_queued_execution():
+    with TASK_LOCK:
+        if TASK_STATE["running"]:
+            return False
+    queue_items = load_execution_queue()
+    if not queue_items:
+        return False
+    if not task_run_lock_available():
+        return False
+    item = queue_items.pop(0)
+    save_execution_queue(queue_items)
+    task_key = item["task_key"]
+    task = TASKS[task_key]
+    with TASK_LOCK:
+        if TASK_STATE["running"]:
+            queue_items.insert(0, item)
+            save_execution_queue(queue_items)
+            return False
+        TASK_STATE.update(
+            {
+                "running": True,
+                "task_key": task_key,
+                "name": task["label"],
+                "started_at": now_text(),
+                "finished_at": "",
+                "returncode": None,
+            }
+        )
+    add_log(f"Cola lanza {task['label']} ({item.get('slot_key') or item.get('trigger')}).")
+    original_trigger = clean_queue_trigger(item.get("trigger", "automatico"))
+    trigger = original_trigger if original_trigger.startswith("cola ") else f"cola {original_trigger}"
+    threading.Thread(target=run_command, args=(task_key, task, trigger, item), daemon=True).start()
+    return True
+
+
+def task_run_lock_available():
+    handle = acquire_task_run_lock()
+    if not handle:
+        return False
+    release_task_run_lock(handle)
+    return True
+
+
+def queue_for_display():
+    output = []
+    for item in load_execution_queue():
+        queued_display = item.get("queued_at", "")
+        slot_display = item.get("slot_key", "")
+        try:
+            queued_display = datetime.fromisoformat(queued_display).strftime("%H:%M:%S %d/%m/%y")
+        except ValueError:
+            pass
+        try:
+            slot_display = datetime.fromisoformat(item.get("slot_at", "")).strftime("%H:%M:%S %d/%m/%y")
+        except ValueError:
+            slot_display = item.get("slot_key", "")
+        output.append({**item, "queued_display": queued_display, "slot_display": slot_display})
+    return output
+
+
+def clear_queue():
+    save_execution_queue([])
+
+
+def reset_queue_at_market_close():
+    global LAST_DAILY_QUEUE_RESET
+    now = datetime.now()
+    close_hour, close_minute = parse_time_parts(QUEUE_DAILY_RESET_TIME)
+    close_time = now.replace(hour=close_hour, minute=close_minute, second=0, microsecond=0)
+    reset_key = now.date().isoformat()
+    if now < close_time or LAST_DAILY_QUEUE_RESET == reset_key:
+        return
+    LAST_DAILY_QUEUE_RESET = reset_key
+    terminate_active_process_for_daily_reset()
+    clear_queue()
+    clear_all_running_statuses("Cierre diario 22:00: RUNNING liberado y cola limpiada.")
+    with TASK_LOCK:
+        TASK_STATE.update(
+            {
+                "running": False,
+                "task_key": "",
+                "name": "",
+                "finished_at": now_text(),
+                "returncode": 130,
+            }
+        )
+    add_log("Cierre diario 22:00: cola limpiada, proceso activo terminado y tarjetas RUNNING liberadas.")
+
+
+def terminate_active_process_for_daily_reset():
+    with ACTIVE_PROCESS_LOCK:
+        process = ACTIVE_PROCESS
+    if process and process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+
+def clear_all_running_statuses(message):
+    raw = load_json(TASK_STATUS_FILE, {})
+    changed = False
+    for item in raw.values():
+        if item.get("status") != "RUNNING":
+            continue
+        item["status"] = "IDLE"
+        item["last_finished_at"] = now_text()
+        item["last_returncode"] = 130
+        item["duration_seconds"] = item.get("duration_seconds") or 0
+        item["message"] = message
+        changed = True
+    if changed:
+        save_json(TASK_STATUS_FILE, raw)
 
 
 def due_automation_items(automation, now):

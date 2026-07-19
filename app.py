@@ -1,12 +1,14 @@
 import json
 import os
 import re
+import hmac
 import hashlib
 import subprocess
 import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from hmac import compare_digest
 from functools import wraps
@@ -24,6 +26,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
@@ -2962,6 +2965,7 @@ def create_app():
         path = request.path or ""
         allowed_endpoints = {
             "static",
+            "favicon",
             "site_login",
             "login",
             "logout",
@@ -2970,12 +2974,25 @@ def create_app():
             "user_logout",
             "account",
             "membership",
+            "payment_page",
+            "payment_start",
+            "payment_success",
+            "payment_cancelled",
+            "stripe_webhook",
         }
         if endpoint in allowed_endpoints:
             return False
         if path.startswith("/admin"):
             return False
         return True
+
+    @app.route("/favicon.ico")
+    def favicon():
+        return send_from_directory(
+            app.static_folder,
+            "favicon.svg",
+            mimetype="image/svg+xml",
+        )
 
     def require_site_password():
         if request.method == "GET":
@@ -3411,6 +3428,208 @@ def create_app():
     def membership_payment_url():
         return os.environ.get("MEMBERSHIP_PAYMENT_URL", "").strip()
 
+    def payment_product_catalog():
+        return {
+            "trading_premium": {
+                "name": "Code Markets Premium",
+                "description": "Acceso completo a estrategias, avisos, historiales y panel de cuenta.",
+                "subject_type": "membership",
+                "plans": {
+                    "monthly": {
+                        "label": "Mensual",
+                        "price_text": os.environ.get("MEMBERSHIP_PRICE_TEXT", "29 EUR/mes").strip() or "29 EUR/mes",
+                        "stripe_price_id": os.environ.get("STRIPE_PRICE_TRADING_MONTHLY", "").strip(),
+                        "mode": "subscription",
+                    },
+                    "yearly": {
+                        "label": "Anual",
+                        "price_text": os.environ.get("MEMBERSHIP_PRICE_YEARLY_TEXT", "290 EUR/ano").strip() or "290 EUR/ano",
+                        "stripe_price_id": os.environ.get("STRIPE_PRICE_TRADING_YEARLY", "").strip(),
+                        "mode": "subscription",
+                    },
+                },
+            },
+        }
+
+    def payment_product(product_key):
+        return payment_product_catalog().get(product_key or "trading_premium")
+
+    def stripe_secret_key():
+        return os.environ.get("STRIPE_SECRET_KEY", "").strip()
+
+    def stripe_publishable_key():
+        return os.environ.get("STRIPE_PUBLISHABLE_KEY", "").strip()
+
+    def stripe_webhook_secret():
+        return os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+
+    def stripe_configured():
+        return bool(stripe_secret_key() and stripe_publishable_key())
+
+    def create_payment_record(user, product_key, plan_key, product, plan):
+        now = datetime.now(UTC).replace(tzinfo=None)
+        result = g.db.execute(
+            text(
+                """
+                INSERT INTO payments
+                (user_id, product_key, plan_key, subject_type, subject_id, provider,
+                 provider_session_id, provider_customer_id, provider_subscription_id,
+                 status, mode, amount_text, currency, metadata_json, created_at, updated_at)
+                VALUES (:user_id, :product_key, :plan_key, :subject_type, :subject_id, 'stripe',
+                        '', '', '', 'created', :mode, :amount_text, 'EUR',
+                        :metadata_json, :created_at, :updated_at)
+                RETURNING id
+                """
+            )
+            if engine.dialect.name == "postgresql"
+            else text(
+                """
+                INSERT INTO payments
+                (user_id, product_key, plan_key, subject_type, subject_id, provider,
+                 provider_session_id, provider_customer_id, provider_subscription_id,
+                 status, mode, amount_text, currency, metadata_json, created_at, updated_at)
+                VALUES (:user_id, :product_key, :plan_key, :subject_type, :subject_id, 'stripe',
+                        '', '', '', 'created', :mode, :amount_text, 'EUR',
+                        :metadata_json, :created_at, :updated_at)
+                """
+            ),
+            {
+                "user_id": user["id"],
+                "product_key": product_key,
+                "plan_key": plan_key,
+                "subject_type": product.get("subject_type", product_key),
+                "subject_id": str(user["id"]),
+                "mode": plan.get("mode", "payment"),
+                "amount_text": plan.get("price_text", ""),
+                "metadata_json": json.dumps({"product_key": product_key, "plan_key": plan_key}),
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+        if engine.dialect.name == "postgresql":
+            return result.scalar_one()
+        return g.db.execute(text("SELECT last_insert_rowid()")).scalar_one()
+
+    def update_payment_record(payment_id, status, **fields):
+        allowed = {
+            "provider_session_id",
+            "provider_customer_id",
+            "provider_subscription_id",
+            "metadata_json",
+        }
+        assignments = ["status = :status", "updated_at = :updated_at"]
+        params = {
+            "id": payment_id,
+            "status": status,
+            "updated_at": datetime.now(UTC).replace(tzinfo=None),
+        }
+        for key, value in fields.items():
+            if key in allowed:
+                assignments.append(f"{key} = :{key}")
+                params[key] = value or ""
+        g.db.execute(
+            text(f"UPDATE payments SET {', '.join(assignments)} WHERE id = :id"),
+            params,
+        )
+
+    def mark_user_membership_paid(user_id, amount_text="", customer_id="", subscription_id=""):
+        now = datetime.now(UTC).replace(tzinfo=None)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET has_access = 1,
+                    payment_status = 'active',
+                    membership_plan = 'Code Markets Premium',
+                    membership_amount = COALESCE(NULLIF(:amount_text, ''), membership_amount),
+                    membership_started_at = COALESCE(membership_started_at, :now),
+                    stripe_customer_id = COALESCE(NULLIF(:customer_id, ''), stripe_customer_id),
+                    stripe_subscription_id = COALESCE(NULLIF(:subscription_id, ''), stripe_subscription_id)
+                WHERE id = :id
+                """
+            ),
+            {
+                "id": user_id,
+                "amount_text": amount_text,
+                "customer_id": customer_id,
+                "subscription_id": subscription_id,
+                "now": now,
+            },
+        )
+
+    def stripe_checkout_session(product_key, plan_key, plan, payment_id, user):
+        price_id = plan.get("stripe_price_id", "").strip()
+        if not stripe_configured() or not price_id:
+            return None, "missing_config"
+        success_url = url_for("payment_success", _external=True) + "?session_id={CHECKOUT_SESSION_ID}"
+        cancel_url = url_for("payment_cancelled", product=product_key, plan=plan_key, _external=True)
+        payload = {
+            "mode": plan.get("mode", "subscription"),
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            "client_reference_id": str(payment_id),
+            "customer_email": user.get("email") or "",
+            "line_items[0][price]": price_id,
+            "line_items[0][quantity]": "1",
+            "metadata[payment_id]": str(payment_id),
+            "metadata[user_id]": str(user["id"]),
+            "metadata[product_key]": product_key,
+            "metadata[plan_key]": plan_key,
+            "allow_promotion_codes": "true",
+        }
+        request_data = urllib.parse.urlencode(payload).encode("utf-8")
+        stripe_request = urllib.request.Request(
+            "https://api.stripe.com/v1/checkout/sessions",
+            data=request_data,
+            headers={
+                "Authorization": f"Bearer {stripe_secret_key()}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(stripe_request, timeout=20) as response:
+                return json.loads(response.read().decode("utf-8")), ""
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = exc.read().decode("utf-8")
+            except Exception:
+                detail = str(exc)
+            return None, detail
+        except Exception as exc:
+            return None, str(exc)
+
+    def stripe_retrieve_session(session_id):
+        if not stripe_secret_key() or not session_id:
+            return None
+        stripe_request = urllib.request.Request(
+            f"https://api.stripe.com/v1/checkout/sessions/{urllib.parse.quote(session_id)}",
+            headers={"Authorization": f"Bearer {stripe_secret_key()}"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(stripe_request, timeout=20) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception:
+            return None
+
+    def stripe_signature_valid(payload, signature_header):
+        secret = stripe_webhook_secret()
+        if not secret:
+            return False
+        parts = {}
+        for item in (signature_header or "").split(","):
+            if "=" in item:
+                key, value = item.split("=", 1)
+                parts.setdefault(key, []).append(value)
+        timestamp = (parts.get("t") or [""])[0]
+        signatures = parts.get("v1") or []
+        if not timestamp or not signatures:
+            return False
+        signed_payload = f"{timestamp}.".encode("utf-8") + payload
+        expected = hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
+        return any(compare_digest(expected, signature) for signature in signatures)
+
     def empty_to_none(value):
         value = (value or "").strip()
         return value or None
@@ -3516,15 +3735,155 @@ def create_app():
             payment_url = membership_payment_url()
             if payment_url:
                 return redirect(payment_url)
-            flash("Solicitud de membresia registrada. Activa el pago manualmente desde el admin.", "info")
-            return redirect(url_for("account"))
+            return redirect(url_for("payment_page", product="trading_premium", plan="monthly"))
 
         return render_template(
             "membership.html",
             user=user,
-            payment_url=membership_payment_url(),
+            payment_url=url_for("payment_page", product="trading_premium", plan="monthly"),
             price_text=membership_price_text(),
         )
+
+    @app.route("/pago", methods=["GET"])
+    def payment_page():
+        user = current_user()
+        if not user:
+            flash("Entra o crea una cuenta antes de pagar.", "warning")
+            return redirect(url_for("user_login"))
+        product_key = request.args.get("product", "trading_premium").strip() or "trading_premium"
+        product = payment_product(product_key)
+        if product is None:
+            abort(404)
+        requested_plan = request.args.get("plan", "monthly").strip() or "monthly"
+        plans = product.get("plans", {})
+        selected_plan = requested_plan if requested_plan in plans else next(iter(plans), "")
+        return render_template(
+            "payment.html",
+            user=user,
+            product_key=product_key,
+            product=product,
+            plans=plans,
+            selected_plan=selected_plan,
+            stripe_configured=stripe_configured(),
+        )
+
+    @app.route("/pago/iniciar", methods=["POST"])
+    def payment_start():
+        user = current_user()
+        if not user:
+            flash("Entra o crea una cuenta antes de pagar.", "warning")
+            return redirect(url_for("user_login"))
+        product_key = request.form.get("product", "trading_premium").strip() or "trading_premium"
+        plan_key = request.form.get("plan", "monthly").strip() or "monthly"
+        product = payment_product(product_key)
+        if product is None:
+            abort(404)
+        plan = product.get("plans", {}).get(plan_key)
+        if plan is None:
+            flash("Ese plan no esta disponible.", "warning")
+            return redirect(url_for("payment_page", product=product_key))
+
+        payment_id = create_payment_record(user, product_key, plan_key, product, plan)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET payment_status = 'payment_pending',
+                    membership_plan = 'Code Markets Premium',
+                    membership_amount = :membership_amount
+                WHERE id = :id
+                """
+            ),
+            {"membership_amount": plan.get("price_text", membership_price_text()), "id": user["id"]},
+        )
+        g.db.commit()
+
+        session_payload, error = stripe_checkout_session(product_key, plan_key, plan, payment_id, user)
+        if session_payload and session_payload.get("url"):
+            update_payment_record(
+                payment_id,
+                "checkout_created",
+                provider_session_id=session_payload.get("id", ""),
+                provider_customer_id=session_payload.get("customer", ""),
+                provider_subscription_id=session_payload.get("subscription", ""),
+                metadata_json=json.dumps(session_payload.get("metadata") or {}),
+            )
+            g.db.commit()
+            return redirect(session_payload["url"])
+
+        update_payment_record(payment_id, "configuration_pending", metadata_json=json.dumps({"error": error[:500]}))
+        g.db.commit()
+        flash("Pago preparado, pero falta configurar el precio de Stripe o la conexion. Revisa los pasos de la pagina.", "warning")
+        return redirect(url_for("payment_page", product=product_key, plan=plan_key))
+
+    @app.route("/pago/exito")
+    def payment_success():
+        user = current_user()
+        session_id = request.args.get("session_id", "").strip()
+        session_payload = stripe_retrieve_session(session_id)
+        payment_id = ""
+        if session_payload:
+            metadata = session_payload.get("metadata") or {}
+            payment_id = metadata.get("payment_id") or session_payload.get("client_reference_id") or ""
+            user_id = metadata.get("user_id") or (str(user["id"]) if user else "")
+            if payment_id:
+                update_payment_record(
+                    int(payment_id),
+                    "completed",
+                    provider_session_id=session_payload.get("id", ""),
+                    provider_customer_id=session_payload.get("customer", ""),
+                    provider_subscription_id=session_payload.get("subscription", ""),
+                    metadata_json=json.dumps(metadata),
+                )
+            if user_id:
+                mark_user_membership_paid(
+                    int(user_id),
+                    membership_price_text(),
+                    session_payload.get("customer", "") or "",
+                    session_payload.get("subscription", "") or "",
+                )
+            g.db.commit()
+        else:
+            flash("Stripe ha devuelto el pago, pero no se pudo verificar automaticamente. El webhook o admin lo terminara de confirmar.", "warning")
+        return render_template("payment_success.html", session_id=session_id)
+
+    @app.route("/pago/cancelado")
+    def payment_cancelled():
+        flash("Pago cancelado. No se ha activado ningun cargo.", "info")
+        return redirect(url_for("payment_page", product=request.args.get("product", "trading_premium"), plan=request.args.get("plan", "monthly")))
+
+    @app.route("/stripe/webhook", methods=["POST"])
+    def stripe_webhook():
+        payload = request.get_data()
+        if stripe_webhook_secret() and not stripe_signature_valid(payload, request.headers.get("Stripe-Signature", "")):
+            return jsonify({"error": "invalid_signature"}), 400
+        try:
+            event = json.loads(payload.decode("utf-8"))
+        except json.JSONDecodeError:
+            return jsonify({"error": "invalid_payload"}), 400
+        if event.get("type") == "checkout.session.completed":
+            session_object = (event.get("data") or {}).get("object") or {}
+            metadata = session_object.get("metadata") or {}
+            payment_id = metadata.get("payment_id") or session_object.get("client_reference_id")
+            user_id = metadata.get("user_id")
+            if payment_id:
+                update_payment_record(
+                    int(payment_id),
+                    "completed",
+                    provider_session_id=session_object.get("id", ""),
+                    provider_customer_id=session_object.get("customer", ""),
+                    provider_subscription_id=session_object.get("subscription", ""),
+                    metadata_json=json.dumps(metadata),
+                )
+            if user_id:
+                mark_user_membership_paid(
+                    int(user_id),
+                    membership_price_text(),
+                    session_object.get("customer", "") or "",
+                    session_object.get("subscription", "") or "",
+                )
+            g.db.commit()
+        return jsonify({"received": True})
 
     @app.route("/entrar", methods=["GET", "POST"])
     def user_login():
@@ -3658,6 +4017,7 @@ def create_app():
         refresh_strategy_balances_from_operations(strategies)
         strategies.sort(
             key=lambda strategy: (
+                -int(strategy.get("selected_for_totalizer") or 0),
                 -int(strategy.get("public_visible") or 0),
                 -int(strategy.get("signals_count") or 0),
                 strategy.get("name", ""),
@@ -3721,6 +4081,7 @@ def create_app():
         refresh_strategy_balances_from_operations(strategies)
         strategies.sort(
             key=lambda strategy: (
+                -int(strategy.get("selected_for_totalizer") or 0),
                 -int(strategy.get("public_visible") or 0),
                 -int(strategy.get("signals_count") or 0),
                 strategy.get("name", ""),
@@ -4227,6 +4588,38 @@ self.addEventListener("fetch", () => {});
         g.db.commit()
         flash("Usuario actualizado.", "success")
         return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
+
+    @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+    @login_required
+    def admin_user_delete(user_id):
+        existing = g.db.execute(
+            text("SELECT id, email FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).mappings().fetchone()
+        if existing is None:
+            abort(404)
+
+        cleanup_tables = (
+            "user_strategy_selections",
+            "user_simulator_settings",
+            "user_simulator_strategies",
+            "payments",
+        )
+        for table_name in cleanup_tables:
+            g.db.execute(
+                text(f"DELETE FROM {table_name} WHERE user_id = :user_id"),
+                {"user_id": user_id},
+            )
+        g.db.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
+        g.db.commit()
+
+        if session.get("user_id") == user_id:
+            session.pop("user_id", None)
+            session.pop("user_email", None)
+            session.pop("user_name", None)
+
+        flash(f"Usuario eliminado: {existing['email']}", "success")
+        return redirect(url_for("admin_dashboard", _anchor="admin-users"))
 
     @app.route("/admin/users/create", methods=["POST"])
     @login_required
@@ -5815,6 +6208,28 @@ self.addEventListener("fetch", () => {});
         if not grouped_mode:
             return [build_single_signal_group(signal) for signal in signals if signal.get("symbol")]
 
+        def signal_group_datetime(signal):
+            return parse_notice_datetime(signal.get("notice_time"), signal.get("fields", {}))
+
+        def signal_group_sort_key(group):
+            signal_dates = [
+                parsed.timestamp()
+                for parsed in (signal_group_datetime(signal) for signal in group.get("signals", []))
+                if parsed
+            ]
+            operation_dates = [
+                parsed.timestamp()
+                for parsed in (
+                    parse_status_datetime(operation.get("updated_at"))
+                    or parse_status_datetime(operation.get("opened_at"))
+                    or parse_status_datetime(operation.get("signal_date"))
+                    for operation in group.get("operations", [])
+                )
+                if parsed
+            ]
+            latest_date = max(signal_dates + operation_dates, default=0)
+            return (latest_date, group.get("profit_usd") or 0, group.get("symbol") or "")
+
         groups_by_symbol = {}
         ordered_groups = []
         for signal in signals:
@@ -5843,8 +6258,18 @@ self.addEventListener("fetch", () => {});
                 group["operations"].append(operation)
 
         for group in ordered_groups:
+            group["signals"].sort(
+                key=lambda signal: (
+                    signal_group_datetime(signal).timestamp() if signal_group_datetime(signal) else 0,
+                    signal.get("symbol") or "",
+                ),
+                reverse=True,
+            )
+            group["first_signal"] = group["signals"][0] if group["signals"] else group["first_signal"]
+            group["notice_short_datetime"] = group["first_signal"].get("notice_short_datetime", group["notice_short_datetime"])
             group["operations"].sort(key=operation_opened_sort_key)
             group.update(build_operation_group_summary(group["operations"], group["signals"]))
+        ordered_groups.sort(key=signal_group_sort_key, reverse=True)
         return ordered_groups
 
     def build_single_signal_group(signal):
@@ -6559,6 +6984,7 @@ self.addEventListener("fetch", () => {});
             "symbol": symbol,
             "side": side,
             "fields": fields,
+            "notice_time": notice_time,
             "detail_fields": detail_signal_fields(fields),
             "common": common_signal_fields(side, fields),
             "notice_datetime": format_notice_datetime(notice_time, fields),
@@ -7438,6 +7864,9 @@ def init_db():
         add_user_column(connection, "membership_started_at", "TIMESTAMP")
         add_user_column(connection, "membership_expires_at", "TIMESTAMP")
         add_user_column(connection, "admin_notes", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "stripe_customer_id", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "stripe_subscription_id", "TEXT NOT NULL DEFAULT ''")
+        ensure_payments_table(connection)
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
         ensure_simulated_operations_table(connection)
@@ -7981,10 +8410,45 @@ def ensure_users_table(connection):
                 membership_started_at TIMESTAMP,
                 membership_expires_at TIMESTAMP,
                 admin_notes TEXT NOT NULL DEFAULT '',
+                stripe_customer_id TEXT NOT NULL DEFAULT '',
+                stripe_subscription_id TEXT NOT NULL DEFAULT '',
                 age_confirmed INTEGER NOT NULL DEFAULT 0,
                 risk_accepted INTEGER NOT NULL DEFAULT 0,
                 accepted_terms_at TIMESTAMP,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+
+
+def ensure_payments_table(connection):
+    id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS payments (
+                id {id_column},
+                user_id INTEGER,
+                product_key TEXT NOT NULL DEFAULT '',
+                plan_key TEXT NOT NULL DEFAULT '',
+                subject_type TEXT NOT NULL DEFAULT '',
+                subject_id TEXT NOT NULL DEFAULT '',
+                provider TEXT NOT NULL DEFAULT 'stripe',
+                provider_session_id TEXT NOT NULL DEFAULT '',
+                provider_customer_id TEXT NOT NULL DEFAULT '',
+                provider_subscription_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'created',
+                mode TEXT NOT NULL DEFAULT 'payment',
+                amount_text TEXT NOT NULL DEFAULT '',
+                currency TEXT NOT NULL DEFAULT 'EUR',
+                metadata_json TEXT NOT NULL DEFAULT '',
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """
         )

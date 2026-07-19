@@ -355,6 +355,76 @@ html {
   padding-left: 1.2rem;
 }
 
+.payment-shell {
+  max-width: 1040px;
+}
+
+.payment-header,
+.payment-card {
+  background: rgba(16, 23, 34, 0.92);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  padding: 1.25rem;
+}
+
+.payment-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+}
+
+.payment-plan-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.payment-plan {
+  align-items: center;
+  border: 1px solid rgba(125, 223, 150, 0.22);
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: auto 1fr auto;
+  padding: 0.9rem;
+}
+
+.payment-plan.active {
+  background: rgba(125, 223, 150, 0.08);
+  border-color: rgba(125, 223, 150, 0.55);
+}
+
+.payment-plan strong,
+.payment-plan small,
+.payment-plan em {
+  display: block;
+}
+
+.payment-plan small,
+.payment-plan em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.payment-check-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.payment-check-list > div {
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0.65rem;
+}
+
+.payment-check-list > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .risk-acceptance-box {
   background: rgba(123, 101, 75, 0.12);
   border: 1px solid rgba(123, 101, 75, 0.3);
@@ -6918,6 +6988,64 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 .strategy-signals-page .diagnostic-box .alert {
   font-size: 0.74rem !important;
   line-height: 1.28 !important;
+}
+
+/* Avisos actuales: listado mas legible y columnas menos separadas. */
+.strategy-signals-page .signals-workspace {
+  grid-template-columns: minmax(520px, 0.94fr) minmax(0, 1.06fr) !important;
+}
+
+.strategy-signals-page .signals-list-header,
+.strategy-signals-page .signal-row-main {
+  grid-template-columns: minmax(136px, 146px) repeat(3, minmax(44px, 50px)) minmax(50px, 56px) minmax(58px, 64px) !important;
+  column-gap: 0.34rem !important;
+  justify-content: start !important;
+}
+
+.strategy-signals-page .signal-symbol-cell {
+  min-width: 0 !important;
+}
+
+.strategy-signals-page .signal-symbol-cell .text-info {
+  display: block !important;
+  max-width: 126px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.strategy-signals-page .signals-list-header {
+  font-size: 0.72rem !important;
+  padding: 0.42rem 0.52rem !important;
+}
+
+.strategy-signals-page .signal-mini-card,
+.strategy-signals-page .signal-mini-card.signal-new,
+.strategy-signals-page .signal-mini-card:hover,
+.strategy-signals-page .signal-mini-card.active,
+.strategy-signals-page .signal-mini-card.signal-new:hover,
+.strategy-signals-page .signal-mini-card.signal-new.active {
+  min-height: 44px !important;
+  padding: 0.42rem 0.52rem !important;
+}
+
+.strategy-signals-page .signal-symbol {
+  font-size: 0.88rem !important;
+}
+
+.strategy-signals-page .signal-row-date {
+  font-size: 0.62rem !important;
+}
+
+.strategy-signals-page .signal-table-cell,
+.strategy-signals-page .signal-performance {
+  font-size: 0.82rem !important;
+  font-weight: 650 !important;
+}
+
+.strategy-signals-page .signal-market-links a,
+.strategy-signals-page .btn {
+  font-size: 0.62rem !important;
 }
 
 @media (max-width: 991.98px) {

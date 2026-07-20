@@ -33,6 +33,8 @@ TABLES_TO_COPY = [
     "top_money_volume_assets",
     "strategy_diagnostics",
     "market_news",
+    "execution_status",
+    "upload_file_status",
     "chip_status",
 ]
 

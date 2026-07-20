@@ -498,7 +498,7 @@ def operation_pilot_description(key, label=None):
 def terminal_upload_status_event_lines():
     lines = ["CHECK :: upload file status panel"]
     upload_labels = [label for label, _paths in terminal_upload_watch_groups()]
-    db_items = database_chip_status_payload(upload_labels) or database_upload_status_payload()
+    db_items = database_upload_status_payload() or database_chip_status_payload(upload_labels)
     if db_items:
         for item in db_items:
             prefix = "OK FILE" if item["ok"] else "WARNING FILE"
@@ -524,7 +524,7 @@ def terminal_upload_status_event_lines():
 
 def terminal_upload_status_payload():
     upload_labels = [label for label, _paths in terminal_upload_watch_groups()]
-    db_items = database_chip_status_payload(upload_labels) or database_upload_status_payload()
+    db_items = database_upload_status_payload() or database_chip_status_payload(upload_labels)
     if db_items:
         return db_items
     today = datetime.now(MADRID_TZ).date()
@@ -5676,28 +5676,15 @@ self.addEventListener("fetch", () => {});
 
     def operation_status_pilots():
         now = datetime.now(MADRID_TZ)
-        pilot_keys = [
-            "strategies",
-            "strategies_v2",
-            "backtest_5y",
-            "universe",
-            "market_full",
-            "news",
-            "sync_sqlite",
-            "market-hours",
-        ]
-        chip_items = chip_status_items_from_database(pilot_keys)
-        if chip_items:
-            return chip_items
         market_open = time_in_madrid_window(now, "15:30", "22:00")
         return [
-            missing_pilot_status_item("strategies", "Strategies"),
-            missing_pilot_status_item("strategies_v2", "Engine V2"),
-            missing_pilot_status_item("backtest_5y", "Backset"),
-            missing_pilot_status_item("universe", "Universe"),
-            missing_pilot_status_item("market_full", "Market Full"),
-            missing_pilot_status_item("news", "Notices"),
-            missing_pilot_status_item("sync_sqlite", "Post Sync"),
+            operation_status_item("strategies", "Strategies"),
+            operation_status_item("strategies_v2", "Engine V2"),
+            operation_status_item("backtest_5y", "Backset"),
+            operation_status_item("universe", "Universe"),
+            operation_status_item("market_full", "Market Full"),
+            operation_status_item("news", "Notices"),
+            operation_status_item("sync_sqlite", "Post Sync"),
             {
                 "key": "market-hours",
                 "label": "STATUS",
@@ -5707,6 +5694,16 @@ self.addEventListener("fetch", () => {});
                 "title": f"{operation_pilot_description('market-hours', 'STATUS')} | {'15:30-22:00' if market_open else '22:00-15:30'}",
             },
         ]
+
+    def operation_status_item(key, label):
+        now = datetime.now(MADRID_TZ)
+        execution_item = operation_execution_status_item(key, chip_status_rows_by_key().get(key), now)
+        if execution_item:
+            return execution_item
+        chip_item = chip_status_items_from_database([key])
+        if chip_item:
+            return chip_item[0]
+        return missing_pilot_status_item(key, label)
 
     def missing_pilot_status_item(key, label):
         return {
@@ -5905,12 +5902,12 @@ self.addEventListener("fetch", () => {});
         return now >= start or now < end
 
     def upload_status_item(label, path=None, files=None):
-        chip_item = upload_status_item_from_chip_status(label)
-        if chip_item:
-            return chip_item
         db_item = upload_status_item_from_database(label)
         if db_item:
             return db_item
+        chip_item = upload_status_item_from_chip_status(label)
+        if chip_item:
+            return chip_item
         return {
             "label": label,
             "ok": False,

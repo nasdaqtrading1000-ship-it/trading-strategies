@@ -4423,17 +4423,25 @@ self.addEventListener("fetch", () => {});
         operation_limit = None if show_all else requested_limit
         operations = closed_operations_for_strategy(txt_name, limit=operation_limit)
         return_text = strategy.get("historical_return", "")
-        total_profit = parse_profit_usd(return_text) if has_profit_usd(return_text) else sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
+        closed_summary = closed_operations_summary_for_strategy(txt_name)
+        summary_closed_count = int(closed_summary.get("count") or 0)
+        if summary_closed_count:
+            total_closed_count = summary_closed_count
+        total_profit = (
+            parse_display_float(closed_summary.get("profit_usd"))
+            if summary_closed_count
+            else parse_profit_usd(return_text) if has_profit_usd(return_text) else sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
+        )
         capital_base = parse_strategy_capital_usd(return_text)
-        total_pct = parse_return_percent(return_text)
-        average_pct = (
+        total_pct = (total_profit / capital_base * 100) if capital_base else parse_return_percent(return_text)
+        average_pct = parse_display_float(closed_summary.get("average_pct")) if summary_closed_count else (
             sum(parse_display_float(operation.get("profit_pct")) for operation in operations) / len(operations)
             if operations
             else 0.0
         )
-        winning_count = sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) > 0)
-        losing_count = sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) < 0)
-        flat_count = max(0, len(operations) - winning_count - losing_count)
+        winning_count = int(closed_summary.get("winning_count") or 0) if summary_closed_count else sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) > 0)
+        losing_count = int(closed_summary.get("losing_count") or 0) if summary_closed_count else sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) < 0)
+        flat_count = int(closed_summary.get("flat_count") or 0) if summary_closed_count else max(0, len(operations) - winning_count - losing_count)
         history_totalizer = {
             "count": total_closed_count,
             "loaded_count": len(operations),
@@ -7352,6 +7360,45 @@ self.addEventListener("fetch", () => {});
             secondary.timestamp() if secondary else 0,
             str(item.get("symbol") or ""),
         )
+
+    def closed_operations_summary_for_strategy(txt_name):
+        if not txt_name:
+            return {}
+        try:
+            row = g.db.execute(
+                text(
+                    """
+                    SELECT COUNT(*) AS count,
+                           COALESCE(SUM(profit_usd), 0) AS profit_usd,
+                           COALESCE(AVG(profit_pct), 0) AS average_pct,
+                           COALESCE(SUM(CASE WHEN profit_usd > 0 THEN 1 ELSE 0 END), 0) AS winning_count,
+                           COALESCE(SUM(CASE WHEN profit_usd < 0 THEN 1 ELSE 0 END), 0) AS losing_count,
+                           COALESCE(SUM(CASE WHEN profit_usd = 0 THEN 1 ELSE 0 END), 0) AS flat_count
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'CLOSED'
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).mappings().first()
+            return dict(row or {})
+        except Exception:
+            rollback_request_db()
+        operations = closed_operations_from_file(txt_name, limit=None)
+        if not operations:
+            return {}
+        profit_values = [parse_display_float(operation.get("profit_usd")) for operation in operations]
+        pct_values = [parse_display_float(operation.get("profit_pct")) for operation in operations]
+        winning_count = sum(1 for value in profit_values if value > 0)
+        losing_count = sum(1 for value in profit_values if value < 0)
+        return {
+            "count": len(operations),
+            "profit_usd": sum(profit_values),
+            "average_pct": (sum(pct_values) / len(pct_values)) if pct_values else 0.0,
+            "winning_count": winning_count,
+            "losing_count": losing_count,
+            "flat_count": max(0, len(operations) - winning_count - losing_count),
+        }
 
     def closed_operations_for_strategy(txt_name, limit=500, offset=0):
         if not txt_name:

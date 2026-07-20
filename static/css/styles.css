@@ -2435,6 +2435,43 @@ html {
   width: 100%;
 }
 
+.report-tooltip-btn {
+  position: relative;
+}
+
+.report-tooltip-btn::after {
+  background: #f4fbff;
+  border: 1px solid rgba(117, 215, 255, 0.64);
+  border-radius: 4px;
+  bottom: calc(100% + 0.34rem);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  color: #012456;
+  content: attr(data-tooltip);
+  font-size: 0.66rem;
+  font-weight: 800;
+  left: 50%;
+  line-height: 1.1;
+  max-width: 150px;
+  opacity: 0;
+  padding: 0.28rem 0.38rem;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%) translateY(3px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  visibility: hidden;
+  white-space: normal;
+  width: max-content;
+  z-index: 20;
+}
+
+.report-tooltip-btn:hover::after,
+.report-tooltip-btn:focus::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  visibility: visible;
+}
+
 .capital-breakdown {
   display: grid;
   gap: 0.08rem;

@@ -297,7 +297,7 @@
                 <td class="text-secondary small">{{ strategy.signals_updated_at or "Sin actualizar" }}</td>
                 <td>
                   <div class="report-actions">
-                    <a class="btn btn-outline-info btn-sm report-signals-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                    <a class="btn btn-outline-info btn-sm report-signals-btn report-tooltip-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" data-tooltip="Avisos y operaciones abiertas" aria-label="Avisos y operaciones abiertas de {{ strategy.name }}" title="Avisos y operaciones abiertas" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                       Avisos {{ strategy.signals_count|compact_count }}
                     </a>
                     <a class="btn btn-outline-light btn-sm report-history-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>

@@ -4151,7 +4151,9 @@ def create_app():
                python_file, auto_execute, schedule_start_time, schedule_end_time,
                schedule_interval_minutes, run_status, run_message, run_at,
                run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
-               closed_operations_count, average_close_duration, success_rate, first_operation_display
+               closed_operations_count, winning_operations_count, losing_operations_count,
+               flat_operations_count, average_operation_return_pct,
+               average_close_duration, success_rate, first_operation_display
         FROM strategies
         WHERE is_active = 1
         ORDER BY created_at DESC
@@ -4167,7 +4169,6 @@ def create_app():
             else:
                 strategy["selected_for_totalizer"] = 1 if strategy["id"] in user_totalizer_selection else 0
             strategies.append(strategy)
-        refresh_strategy_balances_from_operations(strategies)
         strategies.sort(
             key=lambda strategy: (
                 -int(strategy.get("selected_for_totalizer") or 0),
@@ -4215,7 +4216,10 @@ def create_app():
                historical_return, telegram_url, has_telegram, signals_txt_name,
                python_file, auto_execute, schedule_start_time, schedule_end_time,
                schedule_interval_minutes, run_status, run_message, run_at,
-               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active
+               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
+               closed_operations_count, winning_operations_count, losing_operations_count,
+               flat_operations_count, average_operation_return_pct,
+               average_close_duration, success_rate, first_operation_display
         FROM strategies
         WHERE is_active = 1
         ORDER BY created_at DESC
@@ -4231,7 +4235,6 @@ def create_app():
             else:
                 strategy["selected_for_totalizer"] = 1 if strategy["id"] in user_totalizer_selection else 0
             strategies.append(strategy)
-        refresh_strategy_balances_from_operations(strategies)
         strategies.sort(
             key=lambda strategy: (
                 -int(strategy.get("selected_for_totalizer") or 0),
@@ -4423,25 +4426,13 @@ self.addEventListener("fetch", () => {});
         operation_limit = None if show_all else requested_limit
         operations = closed_operations_for_strategy(txt_name, limit=operation_limit)
         return_text = strategy.get("historical_return", "")
-        closed_summary = closed_operations_summary_for_strategy(txt_name)
-        summary_closed_count = int(closed_summary.get("count") or 0)
-        if summary_closed_count:
-            total_closed_count = summary_closed_count
-        total_profit = (
-            parse_display_float(closed_summary.get("profit_usd"))
-            if summary_closed_count
-            else parse_profit_usd(return_text) if has_profit_usd(return_text) else sum(parse_display_float(operation.get("profit_usd")) for operation in operations)
-        )
+        total_profit = parse_profit_usd(return_text) if has_profit_usd(return_text) else 0.0
         capital_base = parse_strategy_capital_usd(return_text)
-        total_pct = (total_profit / capital_base * 100) if capital_base else parse_return_percent(return_text)
-        average_pct = parse_display_float(closed_summary.get("average_pct")) if summary_closed_count else (
-            sum(parse_display_float(operation.get("profit_pct")) for operation in operations) / len(operations)
-            if operations
-            else 0.0
-        )
-        winning_count = int(closed_summary.get("winning_count") or 0) if summary_closed_count else sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) > 0)
-        losing_count = int(closed_summary.get("losing_count") or 0) if summary_closed_count else sum(1 for operation in operations if parse_display_float(operation.get("profit_usd")) < 0)
-        flat_count = int(closed_summary.get("flat_count") or 0) if summary_closed_count else max(0, len(operations) - winning_count - losing_count)
+        total_pct = parse_return_percent(return_text)
+        average_pct = parse_display_float(strategy.get("average_operation_return_pct"))
+        winning_count = int(strategy.get("winning_operations_count") or 0)
+        losing_count = int(strategy.get("losing_operations_count") or 0)
+        flat_count = int(strategy.get("flat_operations_count") or 0)
         history_totalizer = {
             "count": total_closed_count,
             "loaded_count": len(operations),
@@ -4480,10 +4471,6 @@ self.addEventListener("fetch", () => {});
             return jsonify({"error": "login_required"}), 403
         txt_name = strategy.get("signals_txt_name", "")
         total_closed_count = int(strategy.get("closed_operations_count") or 0)
-        closed_summary = closed_operations_summary_for_strategy(txt_name)
-        summary_closed_count = int(closed_summary.get("count") or 0)
-        if summary_closed_count:
-            total_closed_count = summary_closed_count
         offset = parse_int_arg(request.args.get("offset"), 0, 0, max(total_closed_count, 0))
         show_all = request.args.get("all") == "1"
         limit = (
@@ -4614,7 +4601,10 @@ self.addEventListener("fetch", () => {});
                    schedule_interval_minutes, schedule_last_status, schedule_last_message,
                    schedule_last_run_at, run_status, run_message, run_at,
                    run_txt_updated, run_returncode, include_in_totalizer,
-                   public_visible, run_locally, is_active, created_at
+                   public_visible, run_locally, is_active, created_at,
+                   closed_operations_count, winning_operations_count, losing_operations_count,
+                   flat_operations_count, average_operation_return_pct,
+                   average_close_duration, success_rate, first_operation_display
             FROM strategies
             ORDER BY is_active DESC, created_at DESC
             """
@@ -6052,6 +6042,10 @@ self.addEventListener("fetch", () => {});
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
         strategy["closed_operations_count"] = int(strategy.get("closed_operations_count") or 0)
+        strategy["winning_operations_count"] = int(strategy.get("winning_operations_count") or 0)
+        strategy["losing_operations_count"] = int(strategy.get("losing_operations_count") or 0)
+        strategy["flat_operations_count"] = int(strategy.get("flat_operations_count") or 0)
+        strategy["average_operation_return_pct"] = parse_display_float(strategy.get("average_operation_return_pct"))
         strategy["average_close_duration"] = strategy.get("average_close_duration") or "Sin cierres todavia"
         strategy["success_rate"] = strategy.get("success_rate") or "Sin cierres todavia"
         strategy["_signals_updated_at_datetime"] = signals_updated_at
@@ -6066,134 +6060,6 @@ self.addEventListener("fetch", () => {});
         strategy["return_badge"] = strategy_return_badge(return_source)
         strategy["return_badge_class"] = strategy_return_badge_class(return_source)
         return strategy
-
-    def refresh_strategy_balances_from_operations(strategies):
-        txt_names = sorted(
-            {
-                strategy.get("signals_txt_name")
-                for strategy in strategies
-                if strategy.get("signals_txt_name")
-            }
-        )
-        if not txt_names:
-            return
-        try:
-            rows = g.db.execute(
-                text(
-                    """
-                    SELECT txt_name, status, opened_at, closed_at, signal_date,
-                           profit_usd, investment_value, operation_key, close_reason
-                    FROM simulated_operations
-                    WHERE txt_name IN :txt_names
-                    """
-                ).bindparams(bindparam("txt_names", expanding=True)),
-                {"txt_names": txt_names},
-            ).mappings().fetchall()
-        except Exception:
-            rollback_request_db()
-            return
-        grouped = {txt_name: [] for txt_name in txt_names}
-        for row in rows:
-            grouped.setdefault(row["txt_name"], []).append(dict(row))
-        for strategy in strategies:
-            operations = grouped.get(strategy.get("signals_txt_name") or "", [])
-            if not operations:
-                continue
-            return_source = build_operation_balance_text(operations)
-            strategy["historical_return"] = return_source
-            strategy["historical_return_public"] = clean_public_return_text(return_source)
-            strategy["return_metrics"] = build_return_metrics(return_source)
-            strategy["return_badge"] = strategy_return_badge(return_source)
-            strategy["return_badge_class"] = strategy_return_badge_class(return_source)
-            strategy["closed_operations_count"] = sum(1 for op in operations if op.get("status") == "CLOSED")
-
-    def build_operation_balance_text(operations):
-        total_ops = len(operations)
-        open_ops = sum(1 for op in operations if op.get("status") == "OPEN")
-        closed_ops = sum(1 for op in operations if op.get("status") == "CLOSED")
-        profit_usd = sum(float_or_zero(op.get("profit_usd")) for op in operations)
-        max_open = max_open_operations_from_rows(operations)
-        capital_base = max(50_000.0, max_open * 1_000.0)
-        current_capital = capital_base + profit_usd
-        return_pct = (profit_usd / capital_base * 100) if capital_base else 0.0
-        return (
-            f"{profit_usd:+.2f} USD "
-            f"({return_pct:+.2f}%, capital base {capital_base:.2f} USD, "
-            f"capital actual {current_capital:.2f} USD, "
-            f"max abiertas {max_open}, "
-            f"{total_ops} ops, {open_ops} abiertas, {closed_ops} cerradas)"
-            f"{operation_period_labels(operations)}"
-        )
-
-    def operation_period_labels(operations):
-        now = datetime.now(MADRID_TZ)
-        ytd_start = datetime(now.year, 1, 1, tzinfo=MADRID_TZ)
-        prev_year_start = datetime(now.year - 1, 1, 1, tzinfo=MADRID_TZ)
-        prev_year_end = datetime(now.year, 1, 1, tzinfo=MADRID_TZ)
-        periods = [
-            ("Last 1M", now - timedelta(days=30), now),
-            ("Last 3M", now - timedelta(days=90), now),
-            ("Last 12M", now - timedelta(days=365), now),
-            (str(now.year), ytd_start, now),
-            (str(now.year - 1), prev_year_start, prev_year_end),
-        ]
-        return "".join(
-            f" | {format_operation_period_label(label, operations, start, end)}"
-            for label, start, end in periods
-        )
-
-    def format_operation_period_label(label, operations, start, end):
-        selected = []
-        for operation in operations:
-            opened_at = parse_status_datetime(operation.get("opened_at") or operation.get("signal_date"))
-            closed_at = parse_status_datetime(operation.get("closed_at"))
-            period_at = opened_at if operation_is_backtest_final_close(operation) else closed_at
-            if operation.get("status") == "OPEN":
-                period_at = opened_at
-            if period_at and start <= period_at < end:
-                selected.append(operation)
-        profit_usd = sum(float_or_zero(op.get("profit_usd")) for op in selected)
-        max_open = max_open_operations_from_rows(selected)
-        capital_base = max(50_000.0, max_open * 1_000.0)
-        return_pct = (profit_usd / capital_base * 100) if capital_base else 0.0
-        closed_ops = sum(1 for op in selected if op.get("status") == "CLOSED")
-        open_ops = sum(1 for op in selected if op.get("status") == "OPEN")
-        return (
-            f"{label} {profit_usd:+.2f} USD "
-            f"({return_pct:+.2f}%, capital base {capital_base:.2f} USD, "
-            f"max abiertas {max_open}, {closed_ops} cerradas, {open_ops} abiertas)"
-        )
-
-    def operation_is_backtest_final_close(operation):
-        operation_key = str(operation.get("operation_key") or "")
-        close_reason = str(operation.get("close_reason") or "").upper()
-        return operation_key.startswith("BACKTEST|") and "FIN_BACKTEST" in close_reason
-
-    def max_open_operations_from_rows(operations):
-        events = []
-        now = datetime.now(MADRID_TZ)
-        for operation in operations:
-            opened_at = parse_status_datetime(operation.get("opened_at") or operation.get("signal_date"))
-            if not opened_at:
-                continue
-            closed_at = parse_status_datetime(operation.get("closed_at"))
-            if operation.get("status") == "OPEN" or not closed_at or closed_at < opened_at:
-                closed_at = now
-            events.append((opened_at, 1))
-            events.append((closed_at, -1))
-        events.sort(key=lambda item: (item[0], -item[1]))
-        current = 0
-        maximum = 0
-        for _event_at, delta in events:
-            current += delta
-            maximum = max(maximum, current)
-        return maximum
-
-    def float_or_zero(value):
-        try:
-            return float(value or 0)
-        except (TypeError, ValueError):
-            return 0.0
 
     def attach_simulated_operations_to_signals(strategy, signals):
         operations_by_signal = simulated_operations_for_signals(strategy, signals)
@@ -7365,45 +7231,6 @@ self.addEventListener("fetch", () => {});
             str(item.get("symbol") or ""),
         )
 
-    def closed_operations_summary_for_strategy(txt_name):
-        if not txt_name:
-            return {}
-        try:
-            row = g.db.execute(
-                text(
-                    """
-                    SELECT COUNT(*) AS count,
-                           COALESCE(SUM(profit_usd), 0) AS profit_usd,
-                           COALESCE(AVG(profit_pct), 0) AS average_pct,
-                           COALESCE(SUM(CASE WHEN profit_usd > 0 THEN 1 ELSE 0 END), 0) AS winning_count,
-                           COALESCE(SUM(CASE WHEN profit_usd < 0 THEN 1 ELSE 0 END), 0) AS losing_count,
-                           COALESCE(SUM(CASE WHEN profit_usd = 0 THEN 1 ELSE 0 END), 0) AS flat_count
-                    FROM simulated_operations
-                    WHERE txt_name = :txt_name
-                      AND status = 'CLOSED'
-                    """
-                ),
-                {"txt_name": txt_name},
-            ).mappings().first()
-            return dict(row or {})
-        except Exception:
-            rollback_request_db()
-        operations = closed_operations_from_file(txt_name, limit=None)
-        if not operations:
-            return {}
-        profit_values = [parse_display_float(operation.get("profit_usd")) for operation in operations]
-        pct_values = [parse_display_float(operation.get("profit_pct")) for operation in operations]
-        winning_count = sum(1 for value in profit_values if value > 0)
-        losing_count = sum(1 for value in profit_values if value < 0)
-        return {
-            "count": len(operations),
-            "profit_usd": sum(profit_values),
-            "average_pct": (sum(pct_values) / len(pct_values)) if pct_values else 0.0,
-            "winning_count": winning_count,
-            "losing_count": losing_count,
-            "flat_count": max(0, len(operations) - winning_count - losing_count),
-        }
-
     def closed_operations_for_strategy(txt_name, limit=500, offset=0):
         if not txt_name:
             return []
@@ -8122,6 +7949,10 @@ def init_db():
                     public_visible INTEGER NOT NULL DEFAULT 0,
                     run_locally INTEGER NOT NULL DEFAULT 1,
                     closed_operations_count INTEGER NOT NULL DEFAULT 0,
+                    winning_operations_count INTEGER NOT NULL DEFAULT 0,
+                    losing_operations_count INTEGER NOT NULL DEFAULT 0,
+                    flat_operations_count INTEGER NOT NULL DEFAULT 0,
+                    average_operation_return_pct FLOAT NOT NULL DEFAULT 0,
                     average_close_duration TEXT NOT NULL DEFAULT '',
                     success_rate TEXT NOT NULL DEFAULT '',
                     first_operation_display TEXT NOT NULL DEFAULT '',
@@ -8174,6 +8005,10 @@ def init_db():
         add_strategy_column(connection, "public_visible", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "run_locally", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "closed_operations_count", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "winning_operations_count", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "losing_operations_count", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "flat_operations_count", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "average_operation_return_pct", "FLOAT NOT NULL DEFAULT 0")
         add_strategy_column(connection, "average_close_duration", "TEXT NOT NULL DEFAULT ''")
         add_strategy_column(connection, "success_rate", "TEXT NOT NULL DEFAULT ''")
         add_strategy_column(connection, "first_operation_display", "TEXT NOT NULL DEFAULT ''")

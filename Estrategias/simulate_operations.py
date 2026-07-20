@@ -888,6 +888,8 @@ def calculate_strategy_performance(
         closed_ops = int(live.get("closed_ops", 0)) + int(historical.get("closed_ops", 0))
         wins = int(live.get("wins", 0)) + int(historical.get("wins", 0))
         losses = int(live.get("losses", 0)) + int(historical.get("losses", 0))
+        flat = max(0, closed_ops - wins - losses)
+        closed_profit_pct_sum = float(live.get("closed_profit_pct_sum", 0)) + float(historical.get("closed_profit_pct_sum", 0))
         profit_usd = float(live.get("profit_usd", 0)) + float(historical.get("profit_usd", 0))
         closed_duration_seconds = float(combined.get("closed_duration_seconds", 0))
         first_operation_at = combined.get("first_operation_at", "")
@@ -927,6 +929,7 @@ def calculate_strategy_performance(
         )
         average_close_seconds = (closed_duration_seconds / closed_ops) if closed_ops else 0.0
         success_rate = (wins / closed_ops * 100) if closed_ops else 0.0
+        average_operation_return_pct = (closed_profit_pct_sum / closed_ops) if closed_ops else 0.0
         rows.append(
             {
                 "strategy_name": strategy["name"],
@@ -944,6 +947,8 @@ def calculate_strategy_performance(
                 "closed_ops": closed_ops,
                 "wins": wins,
                 "losses": losses,
+                "flat": flat,
+                "average_operation_return_pct": average_operation_return_pct,
                 "average_close_duration": format_duration_seconds(average_close_seconds),
                 "success_rate": f"{success_rate:.1f}%" if closed_ops else "Sin cierres todavia",
                 "first_operation_display": format_short_date(first_operation_at),
@@ -1067,6 +1072,7 @@ def summarize_operations_by_strategy(operations):
             summary["closed_ops"] += 1
             summary["closed_profit_usd"] += profit
             summary["profit_usd"] += profit
+            summary["closed_profit_pct_sum"] += float_value(operation.get("profit_pct"))
             closed_at_for_duration = parse_datetime_value(operation.get("closed_at"))
             if opened_at and closed_at_for_duration and closed_at_for_duration >= opened_at:
                 summary["closed_duration_seconds"] += (closed_at_for_duration - opened_at).total_seconds()
@@ -1106,6 +1112,7 @@ def empty_performance_summary(strategy):
         "profit_usd": 0.0,
         "closed_profit_usd": 0.0,
         "open_profit_usd": 0.0,
+        "closed_profit_pct_sum": 0.0,
         "closed_duration_seconds": 0.0,
         "first_operation_at": "",
         "max_open_operations": 0,
@@ -1257,7 +1264,7 @@ def normalize_signal_date(value):
 
 def write_strategy_performance_txt(rows):
     lines = [
-        "# strategy | txt | historical_return | return_pct | profit_usd | capital_base | current_capital | max_open | total_ops | open_ops | closed_ops | wins | losses | average_close_duration | success_rate | first_operation | updated_at"
+        "# strategy | txt | historical_return | return_pct | profit_usd | capital_base | current_capital | max_open | total_ops | open_ops | closed_ops | wins | losses | flat | average_operation_return_pct | average_close_duration | success_rate | first_operation | updated_at"
     ]
     for row in rows:
         lines.append(
@@ -1276,6 +1283,8 @@ def write_strategy_performance_txt(rows):
                     str(row["closed_ops"]),
                     str(row["wins"]),
                     str(row["losses"]),
+                    str(row["flat"]),
+                    f"{row['average_operation_return_pct']:.4f}",
                     row["average_close_duration"],
                     row["success_rate"],
                     row["first_operation_display"],
@@ -1639,6 +1648,10 @@ def sync_strategy_performance(connection, performance_rows):
                 UPDATE strategies
                 SET historical_return = :historical_return,
                     closed_operations_count = :closed_operations_count,
+                    winning_operations_count = :winning_operations_count,
+                    losing_operations_count = :losing_operations_count,
+                    flat_operations_count = :flat_operations_count,
+                    average_operation_return_pct = :average_operation_return_pct,
                     average_close_duration = :average_close_duration,
                     success_rate = :success_rate,
                     first_operation_display = :first_operation_display
@@ -1649,6 +1662,10 @@ def sync_strategy_performance(connection, performance_rows):
             {
                 "historical_return": row["historical_return"],
                 "closed_operations_count": int(row["closed_ops"]),
+                "winning_operations_count": int(row["wins"]),
+                "losing_operations_count": int(row["losses"]),
+                "flat_operations_count": int(row["flat"]),
+                "average_operation_return_pct": float(row["average_operation_return_pct"]),
                 "average_close_duration": row["average_close_duration"],
                 "success_rate": row["success_rate"],
                 "first_operation_display": row["first_operation_display"],
@@ -1663,6 +1680,10 @@ def sync_strategy_performance(connection, performance_rows):
 def ensure_strategy_performance_columns(connection):
     column_defs = [
         ("closed_operations_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("winning_operations_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("losing_operations_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("flat_operations_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("average_operation_return_pct", "FLOAT NOT NULL DEFAULT 0"),
         ("average_close_duration", "TEXT NOT NULL DEFAULT ''"),
         ("success_rate", "TEXT NOT NULL DEFAULT ''"),
         ("first_operation_display", "TEXT NOT NULL DEFAULT ''"),

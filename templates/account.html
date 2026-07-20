@@ -101,6 +101,11 @@
       {% if not user.has_access %}
         <a class="btn btn-warning fw-semibold" href="{{ url_for('membership') }}">Hacerme miembro</a>
       {% endif %}
+      {% if stripe_customer_id %}
+        <form method="post" action="{{ url_for('subscription_portal') }}">
+          <button class="btn btn-outline-warning fw-semibold" type="submit">Gestionar suscripcion</button>
+        </form>
+      {% endif %}
       <a class="btn btn-info fw-semibold" href="{{ url_for('index') }}">Ver estrategias</a>
       <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
       <form method="post" action="{{ url_for('user_logout') }}">

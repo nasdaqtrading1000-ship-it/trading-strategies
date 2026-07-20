@@ -2978,6 +2978,7 @@ def create_app():
             "payment_start",
             "payment_success",
             "payment_cancelled",
+            "subscription_portal",
             "stripe_webhook",
         }
         if endpoint in allowed_endpoints:
@@ -3557,6 +3558,84 @@ def create_app():
             },
         )
 
+    def mark_user_membership_cancelled(customer_id="", subscription_id=""):
+        conditions = []
+        params = {}
+        if customer_id:
+            conditions.append("stripe_customer_id = :customer_id")
+            params["customer_id"] = customer_id
+        if subscription_id:
+            conditions.append("stripe_subscription_id = :subscription_id")
+            params["subscription_id"] = subscription_id
+        if not conditions:
+            return
+        g.db.execute(
+            text(
+                f"""
+                UPDATE users
+                SET has_access = 0,
+                    payment_status = 'cancelled',
+                    membership_expires_at = COALESCE(membership_expires_at, :now)
+                WHERE {' OR '.join(conditions)}
+                """
+            ),
+            {**params, "now": datetime.now(UTC).replace(tzinfo=None)},
+        )
+
+    def user_stripe_customer_id(user):
+        if not user:
+            return ""
+        customer_id = (user.get("stripe_customer_id") or "").strip()
+        if customer_id:
+            return customer_id
+        row = g.db.execute(
+            text(
+                """
+                SELECT provider_customer_id
+                FROM payments
+                WHERE user_id = :user_id
+                  AND provider = 'stripe'
+                  AND provider_customer_id <> ''
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """
+            ),
+            {"user_id": user["id"]},
+        ).mappings().fetchone()
+        return (row["provider_customer_id"] if row else "").strip()
+
+    def stripe_customer_portal_session(user):
+        customer_id = user_stripe_customer_id(user)
+        if not stripe_secret_key() or not customer_id:
+            return None, "missing_customer"
+        return_url = os.environ.get("STRIPE_CUSTOMER_PORTAL_RETURN_URL", "").strip() or url_for("account", _external=True)
+        payload = {
+            "customer": customer_id,
+            "return_url": return_url,
+            "locale": "es",
+        }
+        request_data = urllib.parse.urlencode(payload).encode("utf-8")
+        stripe_request = urllib.request.Request(
+            "https://api.stripe.com/v1/billing_portal/sessions",
+            data=request_data,
+            headers={
+                "Authorization": f"Bearer {stripe_secret_key()}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(stripe_request, timeout=20) as response:
+                return json.loads(response.read().decode("utf-8")), ""
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = exc.read().decode("utf-8")
+            except Exception:
+                detail = str(exc)
+            return None, detail
+        except Exception as exc:
+            return None, str(exc)
+
     def stripe_checkout_session(product_key, plan_key, plan, payment_id, user):
         price_id = plan.get("stripe_price_id", "").strip()
         if not stripe_configured() or not price_id:
@@ -3883,6 +3962,13 @@ def create_app():
                     session_object.get("subscription", "") or "",
                 )
             g.db.commit()
+        elif event.get("type") == "customer.subscription.deleted":
+            subscription_object = (event.get("data") or {}).get("object") or {}
+            mark_user_membership_cancelled(
+                subscription_object.get("customer", "") or "",
+                subscription_object.get("id", "") or "",
+            )
+            g.db.commit()
         return jsonify({"received": True})
 
     @app.route("/entrar", methods=["GET", "POST"])
@@ -3922,7 +4008,22 @@ def create_app():
         if not user:
             flash("Entra con tu cuenta para ver esta zona.", "warning")
             return redirect(url_for("user_login"))
-        return render_template("account.html", user=user)
+        return render_template("account.html", user=user, stripe_customer_id=user_stripe_customer_id(user))
+
+    @app.route("/cuenta/suscripcion", methods=["POST"])
+    def subscription_portal():
+        user = current_user()
+        if not user:
+            flash("Entra con tu cuenta para gestionar la suscripcion.", "warning")
+            return redirect(url_for("user_login"))
+        portal_session, error = stripe_customer_portal_session(user)
+        if portal_session and portal_session.get("url"):
+            return redirect(portal_session["url"])
+        if error == "missing_customer":
+            flash("Todavia no hay una suscripcion de Stripe asociada a esta cuenta.", "warning")
+        else:
+            flash("No se pudo abrir el portal de Stripe. Revisa la configuracion del portal en Stripe.", "warning")
+        return redirect(url_for("account"))
 
     @app.route("/estrategias/<int:strategy_id>/seleccionar-totalizador", methods=["POST"])
     def user_select_strategy_totalizer(strategy_id):

@@ -142,6 +142,43 @@
               {% endif %}
             </div>
 
+            {% if grouped_mode %}
+            <div class="diagnostic-box mt-4">
+              <h3 class="h5 mb-3">Posicion agrupada</h3>
+              {% if selected_group and selected_group.operation_count %}
+                <div class="diagnostic-summary-grid mb-4">
+                  <div><span>Operaciones abiertas</span><strong>{{ selected_group.operation_count }}</strong></div>
+                  <div><span>Direccion</span><strong>{{ selected_group.direction or "No indicada" }}</strong></div>
+                  <div><span>Precio medio</span><strong>{{ selected_group.average_entry_display }}</strong></div>
+                  <div><span>Precio actual medio</span><strong>{{ selected_group.current_price_display }}</strong></div>
+                  <div><span>{{ selected_group.target_label }}</span><strong>{{ selected_group.target_price_display }}</strong></div>
+                  <div><span>Acciones totales</span><strong>{{ selected_group.total_shares_display }}</strong></div>
+                  <div><span>Total invertido</span><strong>{{ selected_group.invested_display }}</strong></div>
+                  <div><span>Valor actual</span><strong>{{ selected_group.current_value_display }}</strong></div>
+                  <div><span>Beneficio / perdida</span><strong class="{{ selected_group.profit_class }}">{{ selected_group.profit_usd_display }}</strong></div>
+                  <div><span>Rentabilidad grupo</span><strong class="{{ selected_group.profit_class }}">{{ selected_group.profit_pct_display }}</strong></div>
+                  <div><span>Ultima revision</span><strong>{{ selected_group.latest_update_display }}</strong></div>
+                </div>
+                <div class="operation-stack">
+                  {% for item in selected_group.operations %}
+                    <div class="operation-stack-row">
+                      <div>
+                        <strong>Operacion {{ loop.index }}</strong>
+                        <span>{{ item.opened_at_display }} &middot; Aviso {{ item.signal_date or "No indicado" }}</span>
+                      </div>
+                      <div><span>Entrada</span><strong>{{ item.entry_price_display }}</strong></div>
+                      <div><span>Acciones</span><strong>{{ item.shares_display }}</strong></div>
+                      <div><span>Actual</span><strong>{{ item.current_price_display }}</strong></div>
+                      <div><span>P/L</span><strong class="{{ item.profit_class }}">{{ item.profit_pct_display }}</strong></div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="text-secondary mb-0">Todavia no hay operaciones abiertas agrupadas para este ticker.</p>
+              {% endif %}
+            </div>
+            {% endif %}
+
             <div class="row g-4">
               <div class="col-lg-7">
                 <div class="diagnostic-box h-100">
@@ -200,43 +237,6 @@
                 </div>
               </div>
             </div>
-
-            {% if grouped_mode %}
-            <div class="diagnostic-box mt-4">
-              <h3 class="h5 mb-3">Posicion agrupada</h3>
-              {% if selected_group and selected_group.operation_count %}
-                <div class="diagnostic-summary-grid mb-4">
-                  <div><span>Operaciones abiertas</span><strong>{{ selected_group.operation_count }}</strong></div>
-                  <div><span>Direccion</span><strong>{{ selected_group.direction or "No indicada" }}</strong></div>
-                  <div><span>Precio medio</span><strong>{{ selected_group.average_entry_display }}</strong></div>
-                  <div><span>Precio actual medio</span><strong>{{ selected_group.current_price_display }}</strong></div>
-                  <div><span>{{ selected_group.target_label }}</span><strong>{{ selected_group.target_price_display }}</strong></div>
-                  <div><span>Acciones totales</span><strong>{{ selected_group.total_shares_display }}</strong></div>
-                  <div><span>Total invertido</span><strong>{{ selected_group.invested_display }}</strong></div>
-                  <div><span>Valor actual</span><strong>{{ selected_group.current_value_display }}</strong></div>
-                  <div><span>Beneficio / perdida</span><strong class="{{ selected_group.profit_class }}">{{ selected_group.profit_usd_display }}</strong></div>
-                  <div><span>Rentabilidad grupo</span><strong class="{{ selected_group.profit_class }}">{{ selected_group.profit_pct_display }}</strong></div>
-                  <div><span>Ultima revision</span><strong>{{ selected_group.latest_update_display }}</strong></div>
-                </div>
-                <div class="operation-stack">
-                  {% for item in selected_group.operations %}
-                    <div class="operation-stack-row">
-                      <div>
-                        <strong>Operacion {{ loop.index }}</strong>
-                        <span>{{ item.opened_at_display }} &middot; Aviso {{ item.signal_date or "No indicado" }}</span>
-                      </div>
-                      <div><span>Entrada</span><strong>{{ item.entry_price_display }}</strong></div>
-                      <div><span>Acciones</span><strong>{{ item.shares_display }}</strong></div>
-                      <div><span>Actual</span><strong>{{ item.current_price_display }}</strong></div>
-                      <div><span>P/L</span><strong class="{{ item.profit_class }}">{{ item.profit_pct_display }}</strong></div>
-                    </div>
-                  {% endfor %}
-                </div>
-              {% else %}
-                <p class="text-secondary mb-0">Todavia no hay operaciones abiertas agrupadas para este ticker.</p>
-              {% endif %}
-            </div>
-            {% endif %}
 
             <div class="d-flex gap-2 flex-wrap mt-4">
               <a class="btn btn-outline-info" href="https://finance.yahoo.com/quote/{{ selected_group.symbol if selected_group else selected_signal.symbol }}" target="_blank" rel="noopener">Ver en Yahoo Finance</a>

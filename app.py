@@ -6032,13 +6032,14 @@ self.addEventListener("fetch", () => {});
         signals = read_strategy_signals(txt_name)
         attach_simulated_operations_to_signals(strategy, signals)
         signals_updated_at = strategy_signals_updated_at_datetime(txt_name)
+        latest_open_operation_at = latest_open_operation_datetime(txt_name)
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
         strategy["closed_operations_count"] = int(strategy.get("closed_operations_count") or 0)
         strategy["average_close_duration"] = strategy.get("average_close_duration") or "Sin cierres todavia"
         strategy["success_rate"] = strategy.get("success_rate") or "Sin cierres todavia"
         strategy["_signals_updated_at_datetime"] = signals_updated_at
-        strategy["signals_updated_at"] = format_madrid_datetime(signals_updated_at)
+        strategy["signals_updated_at"] = format_madrid_datetime(signals_updated_at or latest_open_operation_at)
         strategy["run_status"] = strategy_run_status(strategy, txt_name)
         strategy["first_operation_display"] = strategy.get("first_operation_display") or ""
         strategy["short_name"] = strategy_short_name(strategy.get("name"))
@@ -7952,6 +7953,38 @@ Devuelve 4 bloques cortos:
             return datetime.fromtimestamp(path.stat().st_mtime, UTC)
         except OSError:
             return None
+
+    def latest_open_operation_datetime(txt_name):
+        if not txt_name:
+            return None
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT opened_at, signal_date, updated_at
+                    FROM simulated_operations
+                    WHERE txt_name = :txt_name
+                      AND status = 'OPEN'
+                    ORDER BY updated_at DESC
+                    LIMIT 500
+                    """
+                ),
+                {"txt_name": txt_name},
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            return None
+
+        latest = None
+        for row in rows:
+            parsed = (
+                parse_status_datetime(row.get("opened_at"))
+                or parse_status_datetime(row.get("signal_date"))
+                or parse_status_datetime(row.get("updated_at"))
+            )
+            if parsed and (latest is None or parsed > latest):
+                latest = parsed
+        return latest
 
     def parse_utc_database_datetime(value):
         if not value:

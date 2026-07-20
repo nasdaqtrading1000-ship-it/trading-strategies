@@ -3604,6 +3604,51 @@ def create_app():
         ).mappings().fetchone()
         return (row["provider_customer_id"] if row else "").strip()
 
+    def user_stripe_subscription_id(user):
+        if not user:
+            return ""
+        subscription_id = (user.get("stripe_subscription_id") or "").strip()
+        if subscription_id:
+            return subscription_id
+        row = g.db.execute(
+            text(
+                """
+                SELECT provider_subscription_id
+                FROM payments
+                WHERE user_id = :user_id
+                  AND provider = 'stripe'
+                  AND provider_subscription_id <> ''
+                ORDER BY updated_at DESC, id DESC
+                LIMIT 1
+                """
+            ),
+            {"user_id": user["id"]},
+        ).mappings().fetchone()
+        return (row["provider_subscription_id"] if row else "").strip()
+
+    def stripe_cancel_subscription(subscription_id):
+        subscription_id = (subscription_id or "").strip()
+        if not subscription_id:
+            return True, {}
+        if not stripe_secret_key():
+            return False, {"error": "missing_stripe_secret"}
+        stripe_request = urllib.request.Request(
+            f"https://api.stripe.com/v1/subscriptions/{urllib.parse.quote(subscription_id)}",
+            headers={"Authorization": f"Bearer {stripe_secret_key()}"},
+            method="DELETE",
+        )
+        try:
+            with urllib.request.urlopen(stripe_request, timeout=20) as response:
+                return True, json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = exc.read().decode("utf-8")
+            except Exception:
+                detail = str(exc)
+            return False, {"error": detail}
+        except Exception as exc:
+            return False, {"error": str(exc)}
+
     def stripe_customer_portal_session(user):
         customer_id = user_stripe_customer_id(user)
         if not stripe_secret_key() or not customer_id:
@@ -4694,11 +4739,38 @@ self.addEventListener("fetch", () => {});
     @login_required
     def admin_user_delete(user_id):
         existing = g.db.execute(
-            text("SELECT id, email FROM users WHERE id = :id"),
+            text("SELECT * FROM users WHERE id = :id"),
             {"id": user_id},
         ).mappings().fetchone()
         if existing is None:
             abort(404)
+
+        subscription_id = user_stripe_subscription_id(existing)
+        if subscription_id:
+            cancelled, cancel_response = stripe_cancel_subscription(subscription_id)
+            if not cancelled:
+                flash(
+                    "No se ha eliminado el usuario porque no se pudo cancelar su suscripcion en Stripe.",
+                    "danger",
+                )
+                return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
+            g.db.execute(
+                text(
+                    """
+                    UPDATE payments
+                    SET status = 'cancelled',
+                        metadata_json = :metadata_json,
+                        updated_at = :updated_at
+                    WHERE user_id = :user_id
+                      AND provider = 'stripe'
+                    """
+                ),
+                {
+                    "user_id": user_id,
+                    "metadata_json": json.dumps({"admin_delete_cancel": cancel_response}),
+                    "updated_at": datetime.now(UTC).replace(tzinfo=None),
+                },
+            )
 
         cleanup_tables = (
             "user_strategy_selections",
@@ -4719,7 +4791,10 @@ self.addEventListener("fetch", () => {});
             session.pop("user_email", None)
             session.pop("user_name", None)
 
-        flash(f"Usuario eliminado: {existing['email']}", "success")
+        if subscription_id:
+            flash(f"Usuario eliminado y suscripcion Stripe cancelada: {existing['email']}", "success")
+        else:
+            flash(f"Usuario eliminado: {existing['email']}", "success")
         return redirect(url_for("admin_dashboard", _anchor="admin-users"))
 
     @app.route("/admin/users/create", methods=["POST"])

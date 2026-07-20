@@ -21,7 +21,7 @@ import re
 import subprocess
 import sys
 import hashlib
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -184,6 +184,13 @@ def main():
     if group_closed:
         closed_now.extend(group_closed)
 
+    operations, duplicate_open_keys = remove_duplicate_open_operations(operations)
+    if duplicate_open_keys:
+        print(
+            "Operaciones abiertas duplicadas mismo activo/mismo dia eliminadas: "
+            f"{len(duplicate_open_keys)}"
+        )
+
     if closed_now:
         remove_closed_signals_from_txt(closed_now)
         remove_closed_signals_from_database(closed_now)
@@ -203,7 +210,7 @@ def main():
     write_capital_maxima_txt(performance_rows)
     chip_status_rows = build_chip_status_rows(now)
     write_chip_status_txt(chip_status_rows)
-    sync_operations_to_database(operations, backtest_operations, performance_rows)
+    sync_operations_to_database(operations, backtest_operations, performance_rows, duplicate_open_keys)
     mirror_postgres_to_sqlite()
 
     print(f"Operaciones nuevas: {new_operations}")
@@ -298,6 +305,56 @@ def build_operation_index(operations):
     return indexed
 
 
+def remove_duplicate_open_operations(operations):
+    unique = []
+    keep_by_key = {}
+    removed_keys = []
+    removed_ids = set()
+    for operation in operations:
+        group_key = open_operation_daily_group_key(operation)
+        if not group_key:
+            unique.append(operation)
+            continue
+        existing = keep_by_key.get(group_key)
+        if not existing:
+            keep_by_key[group_key] = operation
+            unique.append(operation)
+            continue
+        if open_operation_keep_sort_key(operation) < open_operation_keep_sort_key(existing):
+            removed_keys.append(existing.get("operation_key"))
+            removed_ids.add(id(existing))
+            keep_by_key[group_key] = operation
+            unique.append(operation)
+        else:
+            removed_keys.append(operation.get("operation_key"))
+            removed_ids.add(id(operation))
+    return [operation for operation in unique if id(operation) not in removed_ids], removed_keys
+
+
+def open_operation_daily_group_key(operation):
+    if str(operation.get("status") or "").upper() != "OPEN":
+        return None
+    operation_key = str(operation.get("operation_key") or "")
+    if operation_key.startswith("BACKTEST|"):
+        return None
+    symbol = str(operation.get("symbol") or "").strip().upper()
+    txt_name = str(operation.get("txt_name") or "").strip()
+    day = normalize_signal_date(operation.get("signal_date")) or normalize_signal_date(operation.get("opened_at"))
+    if not txt_name or not symbol or not day:
+        return None
+    return (txt_name, symbol, day)
+
+
+def open_operation_keep_sort_key(operation):
+    opened_at = parse_datetime_value(operation.get("opened_at"))
+    updated_at = parse_datetime_value(operation.get("updated_at"))
+    fallback = datetime.max.replace(tzinfo=MADRID_TZ)
+    return (
+        opened_at or updated_at or fallback,
+        str(operation.get("operation_key") or ""),
+    )
+
+
 def parse_signal_line(line):
     parts = [part.strip() for part in line.split("|") if part.strip()]
     side = ""
@@ -329,7 +386,7 @@ def parse_signal_line(line):
         "symbol": symbol,
         "side": side,
         "fields": fields,
-        "signal_date": first_existing(fields, ["fecha"])[:10] or "",
+        "signal_date": normalize_signal_date(first_existing(fields, ["fecha"])) or "",
     }
 
 
@@ -1176,6 +1233,28 @@ def parse_datetime_value(value):
     return parsed.astimezone(MADRID_TZ)
 
 
+def normalize_signal_date(value):
+    if not value:
+        return ""
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        return value.isoformat()
+    else:
+        text_value = str(value).strip()
+        if not text_value:
+            return ""
+        for pattern in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y"):
+            try:
+                return datetime.strptime(text_value[:10], pattern).date().isoformat()
+            except ValueError:
+                pass
+        parsed = parse_datetime_value(text_value)
+        if not parsed:
+            return text_value[:10]
+    return parsed.astimezone(MADRID_TZ).date().isoformat()
+
+
 def write_strategy_performance_txt(rows):
     lines = [
         "# strategy | txt | historical_return | return_pct | profit_usd | capital_base | current_capital | max_open | total_ops | open_ops | closed_ops | wins | losses | average_close_duration | success_rate | first_operation | updated_at"
@@ -1351,7 +1430,7 @@ def format_operation_line(operation):
     )
 
 
-def sync_operations_to_database(live_operations, backtest_operations, performance_rows):
+def sync_operations_to_database(live_operations, backtest_operations, performance_rows, duplicate_open_keys=None):
     if engine is None or text is None:
         print("Sincronizacion DB omitida: modulo db/sqlalchemy no disponible.")
         return
@@ -1361,8 +1440,12 @@ def sync_operations_to_database(live_operations, backtest_operations, performanc
             ensure_operations_table(connection)
             ensure_sync_metadata_table(connection)
             ensure_chip_status_table(connection)
+            delete_operation_keys(connection, duplicate_open_keys or [], "duplicadas live")
             print(f"Sincronizando operaciones live con DB: {len(live_operations)}")
             upsert_operations(connection, live_operations, label="live")
+            db_duplicates_deleted = delete_duplicate_open_operations_in_database(connection)
+            if db_duplicates_deleted:
+                print(f"Duplicados abiertos eliminados de DB: {db_duplicates_deleted}")
             sync_backtest_operations_to_database(connection, backtest_operations)
             sync_strategy_performance(connection, performance_rows)
             sync_chip_status_to_database(connection, read_chip_status_txt())
@@ -1450,6 +1533,54 @@ def delete_backtest_operations_for_txt_names(connection, txt_names):
         f"AND txt_name IN ({placeholders})"
     )
     return connection.execute(statement, params).rowcount or 0
+
+
+def delete_operation_keys(connection, operation_keys, label="operaciones"):
+    keys = sorted({str(key or "").strip() for key in operation_keys if str(key or "").strip()})
+    if not keys:
+        return 0
+    deleted = 0
+    chunk_size = 500
+    for start in range(0, len(keys), chunk_size):
+        chunk = keys[start : start + chunk_size]
+        placeholders = ", ".join(f":key_{index}" for index, _key in enumerate(chunk))
+        params = {f"key_{index}": key for index, key in enumerate(chunk)}
+        deleted += connection.execute(
+            text(f"DELETE FROM simulated_operations WHERE operation_key IN ({placeholders})"),
+            params,
+        ).rowcount or 0
+    if deleted:
+        print(f"Operaciones {label} eliminadas de DB: {deleted}")
+    return deleted
+
+
+def delete_duplicate_open_operations_in_database(connection):
+    rows = connection.execute(
+        text(
+            """
+            SELECT operation_key, txt_name, symbol, signal_date, opened_at, updated_at
+            FROM simulated_operations
+            WHERE status = 'OPEN'
+              AND operation_key NOT LIKE 'BACKTEST|%'
+            """
+        )
+    ).mappings().fetchall()
+    keep_by_key = {}
+    delete_keys = []
+    for row in rows:
+        group_key = open_operation_daily_group_key(row)
+        if not group_key:
+            continue
+        existing = keep_by_key.get(group_key)
+        if not existing:
+            keep_by_key[group_key] = row
+            continue
+        if open_operation_keep_sort_key(row) < open_operation_keep_sort_key(existing):
+            delete_keys.append(existing.get("operation_key"))
+            keep_by_key[group_key] = row
+        else:
+            delete_keys.append(row.get("operation_key"))
+    return delete_operation_keys(connection, delete_keys, "duplicadas abiertas")
 
 
 def upsert_operations(connection, operations, label="operaciones"):
@@ -1762,7 +1893,7 @@ def build_legacy_operation_key(txt_name, symbol, side, signal_date):
             txt_name,
             str(symbol or "").strip().upper(),
             normalize_side(side),
-            signal_date or "sin_fecha",
+            normalize_signal_date(signal_date) or "sin_fecha",
         ]
     )
 
@@ -1772,7 +1903,7 @@ def build_daily_symbol_key(txt_name, symbol, signal_date):
         [
             txt_name,
             str(symbol or "").strip().upper(),
-            signal_date or "sin_fecha",
+            normalize_signal_date(signal_date) or "sin_fecha",
         ]
     )
 

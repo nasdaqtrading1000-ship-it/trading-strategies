@@ -3431,7 +3431,7 @@ def create_app():
         return os.environ.get("FREE_TRIAL_ACCESS", "0").strip().lower() in {"1", "true", "yes", "on"}
 
     def membership_price_text():
-        return os.environ.get("MEMBERSHIP_PRICE_TEXT", "29 EUR/mes").strip() or "29 EUR/mes"
+        return os.environ.get("MEMBERSHIP_PRICE_TEXT", "30 USD/mes").strip() or "30 USD/mes"
 
     def membership_payment_url():
         return os.environ.get("MEMBERSHIP_PAYMENT_URL", "").strip()
@@ -3445,13 +3445,13 @@ def create_app():
                 "plans": {
                     "monthly": {
                         "label": "Mensual",
-                        "price_text": os.environ.get("MEMBERSHIP_PRICE_TEXT", "29 EUR/mes").strip() or "29 EUR/mes",
+                        "price_text": os.environ.get("MEMBERSHIP_PRICE_TEXT", "30 USD/mes").strip() or "30 USD/mes",
                         "stripe_price_id": os.environ.get("STRIPE_PRICE_TRADING_MONTHLY", "").strip(),
                         "mode": "subscription",
                     },
                     "yearly": {
                         "label": "Anual",
-                        "price_text": os.environ.get("MEMBERSHIP_PRICE_YEARLY_TEXT", "290 EUR/ano").strip() or "290 EUR/ano",
+                        "price_text": os.environ.get("MEMBERSHIP_PRICE_YEARLY_TEXT", "300 USD/ano").strip() or "300 USD/ano",
                         "stripe_price_id": os.environ.get("STRIPE_PRICE_TRADING_YEARLY", "").strip(),
                         "mode": "subscription",
                     },
@@ -3484,7 +3484,7 @@ def create_app():
                  provider_session_id, provider_customer_id, provider_subscription_id,
                  status, mode, amount_text, currency, metadata_json, created_at, updated_at)
                 VALUES (:user_id, :product_key, :plan_key, :subject_type, :subject_id, 'stripe',
-                        '', '', '', 'created', :mode, :amount_text, 'EUR',
+                        '', '', '', 'created', :mode, :amount_text, 'USD',
                         :metadata_json, :created_at, :updated_at)
                 RETURNING id
                 """
@@ -3497,7 +3497,7 @@ def create_app():
                  provider_session_id, provider_customer_id, provider_subscription_id,
                  status, mode, amount_text, currency, metadata_json, created_at, updated_at)
                 VALUES (:user_id, :product_key, :plan_key, :subject_type, :subject_id, 'stripe',
-                        '', '', '', 'created', :mode, :amount_text, 'EUR',
+                        '', '', '', 'created', :mode, :amount_text, 'USD',
                         :metadata_json, :created_at, :updated_at)
                 """
             ),
@@ -8675,7 +8675,7 @@ def ensure_payments_table(connection):
                 status TEXT NOT NULL DEFAULT 'created',
                 mode TEXT NOT NULL DEFAULT 'payment',
                 amount_text TEXT NOT NULL DEFAULT '',
-                currency TEXT NOT NULL DEFAULT 'EUR',
+                currency TEXT NOT NULL DEFAULT 'USD',
                 metadata_json TEXT NOT NULL DEFAULT '',
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

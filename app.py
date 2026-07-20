@@ -869,7 +869,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Compra activos con fuerza relativa alta, tendencia alcista y buen comportamiento frente al mercado.",
         "risk_level": "Medio",
         "signal_frequency": "Diaria / swing",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_momentum",
         "signals_txt_name": "Momentum.txt",
     },
@@ -923,7 +923,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Busca entradas de varios dias en activos con tendencia sana, retrocesos controlados y confirmacion tecnica.",
         "risk_level": "Medio",
         "signal_frequency": "Varias senales por semana",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_swing_trading",
         "signals_txt_name": "SwingTrading.txt",
     },
@@ -932,7 +932,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Detecta rupturas de resistencia con aumento de volumen, expansion de rango y precio cerca de maximos relevantes.",
         "risk_level": "Alto",
         "signal_frequency": "Segun rupturas de mercado",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_breakout",
         "signals_txt_name": "BreaKout.txt",
     },
@@ -941,7 +941,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Busca activos sobrevendidos o alejados de su media que puedan volver a niveles normales.",
         "risk_level": "Medio",
         "signal_frequency": "Variable",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_mean_reversion",
         "signals_txt_name": "Mean_Reversion.txt",
     },
@@ -950,7 +950,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Filtra companias con valoracion atractiva, fundamentales razonables y descuento relativo.",
         "risk_level": "Bajo",
         "signal_frequency": "Baja / semanal",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_value_trading",
         "signals_txt_name": "ValueTrading.txt",
     },
@@ -959,7 +959,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Selecciona companias con crecimiento de dividendos, estabilidad financiera y perfil defensivo.",
         "risk_level": "Bajo",
         "signal_frequency": "Baja / semanal",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_dividend_growth",
         "signals_txt_name": "DividenGrowth.txt",
     },
@@ -968,7 +968,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Sigue tendencias establecidas mediante medias, momentum y confirmacion de precio.",
         "risk_level": "Medio",
         "signal_frequency": "Diaria / semanal",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_trend_following",
         "signals_txt_name": "TrendFollowing.txt",
     },
@@ -977,7 +977,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Analiza pares correlacionados y busca desviaciones estadisticas para operar convergencia.",
         "risk_level": "Medio",
         "signal_frequency": "Variable",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_pairs_trading",
         "signals_txt_name": "PairsTrading.txt",
     },
@@ -986,7 +986,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Compara fuerza relativa por sectores y propone activos lideres dentro de los sectores fuertes.",
         "risk_level": "Medio",
         "signal_frequency": "Semanal",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_sector_rotation",
         "signals_txt_name": "SectorRotation.txt",
     },
@@ -995,7 +995,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Busca empresas de calidad con buenos margenes, crecimiento y estabilidad financiera.",
         "risk_level": "Bajo",
         "signal_frequency": "Baja / semanal",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_quality_investing",
         "signals_txt_name": "QualityInvesting.txt",
     },
@@ -1004,7 +1004,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Estrategia intradia que espera la ruptura del rango inicial de la sesion con volumen.",
         "risk_level": "Alto",
         "signal_frequency": "Intradia",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_opening_range_breakout",
         "signals_txt_name": "OpeningRangeBreaKout.txt",
     },
@@ -1013,7 +1013,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Busca reversiones intradia hacia VWAP cuando el precio se aleja demasiado.",
         "risk_level": "Alto",
         "signal_frequency": "Intradia",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_vwap_reversion",
         "signals_txt_name": "VWAP_Reversion.txt",
     },
@@ -1022,7 +1022,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Detecta movimientos fuertes dentro de la sesion usando momentum reciente, VWAP y volumen relativo.",
         "risk_level": "Alto",
         "signal_frequency": "Intradia",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_momentum_intradia",
         "signals_txt_name": "MomentumIntradia.txt",
     },
@@ -1031,7 +1031,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Busca pequenos retrocesos dentro de una tendencia intradia para entrar a favor del movimiento principal.",
         "risk_level": "Alto",
         "signal_frequency": "Intradia / frecuente",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_scalping_pullbacks",
         "signals_txt_name": "ScalpingThePullBacKs.txt",
     },
@@ -1040,7 +1040,7 @@ DEFAULT_REAL_STRATEGIES = [
         "description": "Detecta activos que abren con gap relevante y continuan en la direccion del impulso.",
         "risk_level": "Alto",
         "signal_frequency": "Intradia / apertura",
-        "historical_return": "Pendiente de backtest",
+        "historical_return": "Pendiente de datos",
         "telegram_url": "https://t.me/tu_canal_gap_and_go",
         "signals_txt_name": "Gap_and_Go.txt",
     },
@@ -2213,7 +2213,13 @@ def format_duration_seconds(seconds):
 
 def build_return_metrics(value):
     text_value = str(value or "").strip()
-    if not text_value or "sin operaciones" in text_value.lower():
+    normalized_text = text_value.lower()
+    if (
+        not text_value
+        or "sin operaciones" in normalized_text
+        or "pendiente de backtest" in normalized_text
+        or "pendiente de datos" in normalized_text
+    ):
         return {
             "has_data": False,
             "result": "SOS",
@@ -2356,6 +2362,7 @@ def clean_public_return_text(value):
     text_value = str(value or "").strip()
     if not text_value:
         return "SOS"
+    text_value = re.sub(r"pendiente\s+de\s+backtest", "Pendiente de datos", text_value, flags=re.IGNORECASE)
     text_value = re.sub(r"\s+simulad[oa]s?", "", text_value, flags=re.IGNORECASE)
     return text_value
 
@@ -3829,7 +3836,7 @@ def create_app():
             session["user_id"] = user_id
             session["user_email"] = email
             if trial_access:
-                flash("Cuenta creada. Acceso completo activado en modo prueba.", "success")
+                flash("Cuenta creada. Acceso completo activado.", "success")
                 return redirect(url_for("index"))
             flash("Cuenta creada. Activa tu membresia para ver todas las estrategias.", "success")
             return redirect(url_for("membership"))
@@ -4090,7 +4097,7 @@ def create_app():
     def save_account_simulator():
         user = current_user()
         if not user:
-            flash("Entra con tu cuenta para guardar tu simulador.", "warning")
+            flash("Entra con tu cuenta para guardar tu configuracion.", "warning")
             return redirect(url_for("user_login"))
         strategy_ids = {
             int(value)
@@ -4104,7 +4111,7 @@ def create_app():
             parse_date_form_value(request.form.get("start_date")),
             strategy_ids,
         )
-        flash("Simulador guardado.", "success")
+        flash("Configuracion guardada.", "success")
         return redirect(url_for("index", _anchor="account-simulator"))
 
     @app.route("/simulador-cuenta/operaciones")

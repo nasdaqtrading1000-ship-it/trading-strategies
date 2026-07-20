@@ -9,16 +9,13 @@
       <p class="text-success fw-semibold mb-1">Pago confirmado</p>
       <h1 class="h2 mb-3">Tu acceso esta activado</h1>
       <p class="text-secondary mb-4">
-        Stripe ha devuelto la confirmacion del checkout. Tu cuenta queda preparada
-        para usar Code Markets Premium.
+        El pago se ha confirmado correctamente. Tu cuenta queda preparada para
+        usar Code Markets Premium.
       </p>
       <div class="d-flex justify-content-center gap-2 flex-wrap">
         <a class="btn btn-info fw-semibold" href="{{ url_for('account') }}">Ir a mi cuenta</a>
         <a class="btn btn-outline-light" href="{{ url_for('index') }}">Ver estrategias</a>
       </div>
-      {% if session_id %}
-        <p class="text-secondary small mt-3 mb-0">Sesion Stripe: {{ session_id }}</p>
-      {% endif %}
     </div>
   </div>
 </section>

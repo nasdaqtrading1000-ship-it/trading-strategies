@@ -61,6 +61,14 @@
             {% endif %}
           </div>
           <div>
+            <span>Precio anual</span>
+            {% if plans.yearly.stripe_price_id %}
+              <strong class="text-success">Configurado</strong>
+            {% else %}
+              <strong class="text-warning">Falta price_...</strong>
+            {% endif %}
+          </div>
+          <div>
             <span>Webhook</span>
             <strong class="text-success">Preparado</strong>
           </div>

@@ -3730,6 +3730,19 @@ def create_app():
         except Exception as exc:
             return None, str(exc)
 
+    def stripe_checkout_error_message(plan_key, plan, error):
+        if not stripe_secret_key() or not stripe_publishable_key():
+            return "Faltan las claves de Stripe. Revisa STRIPE_SECRET_KEY y STRIPE_PUBLISHABLE_KEY."
+        if not plan.get("stripe_price_id", "").strip():
+            variable_name = "STRIPE_PRICE_TRADING_YEARLY" if plan_key == "yearly" else "STRIPE_PRICE_TRADING_MONTHLY"
+            return f"Falta el precio de Stripe para este plan. Pega el ID price_... en {variable_name}."
+        error_text = str(error or "").lower()
+        if "no such price" in error_text or "resource_missing" in error_text:
+            return "Stripe no encuentra ese price_... Comprueba que has pegado el ID del precio, no el del producto, y que pertenece al mismo entorno test/live que tus claves."
+        if "api key" in error_text or "expired api key" in error_text:
+            return "Stripe ha rechazado la clave API. Comprueba que STRIPE_SECRET_KEY corresponde al mismo entorno test/live que el price_..."
+        return "Stripe no pudo crear el checkout. Revisa que el price_... sea recurrente y que coincida con las claves test/live."
+
     def stripe_retrieve_session(session_id):
         if not stripe_secret_key() or not session_id:
             return None
@@ -3944,7 +3957,7 @@ def create_app():
 
         update_payment_record(payment_id, "configuration_pending", metadata_json=json.dumps({"error": error[:500]}))
         g.db.commit()
-        flash("Pago preparado, pero falta configurar el precio de Stripe o la conexion. Revisa los pasos de la pagina.", "warning")
+        flash(stripe_checkout_error_message(plan_key, plan, error), "warning")
         return redirect(url_for("payment_page", product=product_key, plan=plan_key))
 
     @app.route("/pago/exito")

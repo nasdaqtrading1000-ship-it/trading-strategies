@@ -6381,11 +6381,16 @@ self.addEventListener("fetch", () => {});
         }
 
     def build_signal_groups(signals, grouped_mode=False):
-        if not grouped_mode:
-            return [build_single_signal_group(signal) for signal in signals if signal.get("symbol")]
-
         def signal_group_datetime(signal):
             return parse_notice_datetime(signal.get("notice_time"), signal.get("fields", {}))
+
+        def operation_signal_datetime(operation):
+            return (
+                parse_status_datetime(operation.get("opened_at"))
+                or parse_status_datetime(operation.get("signal_date"))
+                or parse_status_datetime(operation.get("closed_at"))
+                or parse_status_datetime(operation.get("updated_at"))
+            )
 
         def signal_group_sort_key(group):
             signal_dates = [
@@ -6395,16 +6400,16 @@ self.addEventListener("fetch", () => {});
             ]
             operation_dates = [
                 parsed.timestamp()
-                for parsed in (
-                    parse_status_datetime(operation.get("updated_at"))
-                    or parse_status_datetime(operation.get("opened_at"))
-                    or parse_status_datetime(operation.get("signal_date"))
-                    for operation in group.get("operations", [])
-                )
+                for parsed in (operation_signal_datetime(operation) for operation in group.get("operations", []))
                 if parsed
             ]
             latest_date = max(signal_dates + operation_dates, default=0)
             return (latest_date, group.get("profit_usd") or 0, group.get("symbol") or "")
+
+        if not grouped_mode:
+            groups = [build_single_signal_group(signal) for signal in signals if signal.get("symbol")]
+            groups.sort(key=signal_group_sort_key, reverse=True)
+            return groups
 
         groups_by_symbol = {}
         ordered_groups = []
@@ -6443,7 +6448,7 @@ self.addEventListener("fetch", () => {});
             )
             group["first_signal"] = group["signals"][0] if group["signals"] else group["first_signal"]
             group["notice_short_datetime"] = group["first_signal"].get("notice_short_datetime", group["notice_short_datetime"])
-            group["operations"].sort(key=operation_opened_sort_key)
+            group["operations"].sort(key=operation_opened_sort_key, reverse=True)
             group.update(build_operation_group_summary(group["operations"], group["signals"]))
         ordered_groups.sort(key=signal_group_sort_key, reverse=True)
         return ordered_groups
@@ -7041,6 +7046,15 @@ self.addEventListener("fetch", () => {});
                 continue
             seen.add(key)
             merged.append(signal)
+        merged.sort(
+            key=lambda signal: (
+                parse_notice_datetime(signal.get("notice_time"), signal.get("fields", {})).timestamp()
+                if parse_notice_datetime(signal.get("notice_time"), signal.get("fields", {}))
+                else 0,
+                normalize_signal_symbol(signal.get("symbol", "")),
+            ),
+            reverse=True,
+        )
         add_duplicate_signal_labels(merged)
         return merged
 

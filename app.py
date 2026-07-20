@@ -4480,6 +4480,10 @@ self.addEventListener("fetch", () => {});
             return jsonify({"error": "login_required"}), 403
         txt_name = strategy.get("signals_txt_name", "")
         total_closed_count = int(strategy.get("closed_operations_count") or 0)
+        closed_summary = closed_operations_summary_for_strategy(txt_name)
+        summary_closed_count = int(closed_summary.get("count") or 0)
+        if summary_closed_count:
+            total_closed_count = summary_closed_count
         offset = parse_int_arg(request.args.get("offset"), 0, 0, max(total_closed_count, 0))
         show_all = request.args.get("all") == "1"
         limit = (

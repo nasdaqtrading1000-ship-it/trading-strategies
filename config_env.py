@@ -18,7 +18,7 @@ def load_env_file(path):
         if "=" in line:
             key, value = line.split("=", 1)
             current_key = key.strip()
-            os.environ.setdefault(current_key, value.strip().strip('"').strip("'"))
+            os.environ[current_key] = value.strip().strip('"').strip("'")
             continue
         if current_key and current_key.startswith("STRIPE_") and current_key in os.environ:
             continuation = line.strip().strip('"').strip("'")

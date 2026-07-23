@@ -244,7 +244,6 @@
                 <td>
                   <div class="report-frequency">
                     <strong>{{ strategy.signal_frequency }}</strong>
-                    <div class="frequency-line">Hoy: {{ strategy.daily_operations_count|compact_count }} ops</div>
                     <div class="frequency-line">Cierre medio: {{ strategy.average_close_duration }}</div>
                     <div class="frequency-line">Aciertos: {{ strategy.success_rate }}</div>
                   </div>
@@ -294,6 +293,7 @@
                   {% if strategy.run_status.ran_at %}
                     <small class="d-block text-secondary mt-1">{{ strategy.run_status.ran_at }}</small>
                   {% endif %}
+                  <small class="d-block text-secondary mt-1">Hoy: {{ strategy.daily_operations_count|compact_count }} ops</small>
                 </td>
                 <td class="text-secondary small">{{ strategy.signals_updated_at or "Sin actualizar" }}</td>
                 <td>

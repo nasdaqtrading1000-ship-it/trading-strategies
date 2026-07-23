@@ -244,6 +244,7 @@
                 <td>
                   <div class="report-frequency">
                     <strong>{{ strategy.signal_frequency }}</strong>
+                    <div class="frequency-line">Hoy: {{ strategy.daily_operations_count|compact_count }} ops</div>
                     <div class="frequency-line">Cierre medio: {{ strategy.average_close_duration }}</div>
                     <div class="frequency-line">Aciertos: {{ strategy.success_rate }}</div>
                   </div>

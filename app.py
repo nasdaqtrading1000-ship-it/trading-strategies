@@ -4164,7 +4164,8 @@ def create_app():
                python_file, auto_execute, schedule_start_time, schedule_end_time,
                schedule_interval_minutes, run_status, run_message, run_at,
                run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
-               closed_operations_count, winning_operations_count, losing_operations_count,
+               closed_operations_count, daily_operations_count,
+               winning_operations_count, losing_operations_count,
                flat_operations_count, average_operation_return_pct,
                average_close_duration, success_rate, first_operation_display
         FROM strategies
@@ -4230,7 +4231,8 @@ def create_app():
                python_file, auto_execute, schedule_start_time, schedule_end_time,
                schedule_interval_minutes, run_status, run_message, run_at,
                run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
-               closed_operations_count, winning_operations_count, losing_operations_count,
+               closed_operations_count, daily_operations_count,
+               winning_operations_count, losing_operations_count,
                flat_operations_count, average_operation_return_pct,
                average_close_duration, success_rate, first_operation_display
         FROM strategies
@@ -4615,7 +4617,8 @@ self.addEventListener("fetch", () => {});
                    schedule_last_run_at, run_status, run_message, run_at,
                    run_txt_updated, run_returncode, include_in_totalizer,
                    public_visible, run_locally, is_active, created_at,
-                   closed_operations_count, winning_operations_count, losing_operations_count,
+                   closed_operations_count, daily_operations_count,
+                   winning_operations_count, losing_operations_count,
                    flat_operations_count, average_operation_return_pct,
                    average_close_duration, success_rate, first_operation_display
             FROM strategies
@@ -6055,6 +6058,7 @@ self.addEventListener("fetch", () => {});
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
         strategy["closed_operations_count"] = int(strategy.get("closed_operations_count") or 0)
+        strategy["daily_operations_count"] = int(strategy.get("daily_operations_count") or 0)
         strategy["winning_operations_count"] = int(strategy.get("winning_operations_count") or 0)
         strategy["losing_operations_count"] = int(strategy.get("losing_operations_count") or 0)
         strategy["flat_operations_count"] = int(strategy.get("flat_operations_count") or 0)
@@ -7962,6 +7966,7 @@ def init_db():
                     public_visible INTEGER NOT NULL DEFAULT 0,
                     run_locally INTEGER NOT NULL DEFAULT 1,
                     closed_operations_count INTEGER NOT NULL DEFAULT 0,
+                    daily_operations_count INTEGER NOT NULL DEFAULT 0,
                     winning_operations_count INTEGER NOT NULL DEFAULT 0,
                     losing_operations_count INTEGER NOT NULL DEFAULT 0,
                     flat_operations_count INTEGER NOT NULL DEFAULT 0,
@@ -8018,6 +8023,7 @@ def init_db():
         add_strategy_column(connection, "public_visible", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "run_locally", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "closed_operations_count", "INTEGER NOT NULL DEFAULT 0")
+        add_strategy_column(connection, "daily_operations_count", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "winning_operations_count", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "losing_operations_count", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "flat_operations_count", "INTEGER NOT NULL DEFAULT 0")

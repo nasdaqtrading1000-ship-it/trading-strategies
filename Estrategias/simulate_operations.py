@@ -886,6 +886,7 @@ def calculate_strategy_performance(
         total_ops = int(live.get("total_ops", 0)) + int(historical.get("total_ops", 0))
         open_ops = int(live.get("open_ops", 0)) + int(historical.get("open_ops", 0))
         closed_ops = int(live.get("closed_ops", 0)) + int(historical.get("closed_ops", 0))
+        daily_operations_count = int(live.get("daily_operations_count", 0))
         wins = int(live.get("wins", 0)) + int(historical.get("wins", 0))
         losses = int(live.get("losses", 0)) + int(historical.get("losses", 0))
         flat = max(0, closed_ops - wins - losses)
@@ -945,6 +946,7 @@ def calculate_strategy_performance(
                 "total_ops": total_ops,
                 "open_ops": open_ops,
                 "closed_ops": closed_ops,
+                "daily_operations_count": daily_operations_count,
                 "wins": wins,
                 "losses": losses,
                 "flat": flat,
@@ -1064,6 +1066,8 @@ def summarize_operations_by_strategy(operations):
         summary["total_ops"] += 1
         profit = float_value(operation.get("profit_usd"))
         opened_at = parse_datetime_value(operation.get("opened_at") or operation.get("signal_date"))
+        if opened_at and opened_at.astimezone(MADRID_TZ).date() == datetime.now(MADRID_TZ).date():
+            summary["daily_operations_count"] += 1
         if operation.get("status") == "OPEN":
             summary["open_ops"] += 1
             summary["open_profit_usd"] += profit
@@ -1107,6 +1111,7 @@ def empty_performance_summary(strategy):
         "total_ops": 0,
         "open_ops": 0,
         "closed_ops": 0,
+        "daily_operations_count": 0,
         "wins": 0,
         "losses": 0,
         "profit_usd": 0.0,
@@ -1264,7 +1269,7 @@ def normalize_signal_date(value):
 
 def write_strategy_performance_txt(rows):
     lines = [
-        "# strategy | txt | historical_return | return_pct | profit_usd | capital_base | current_capital | max_open | total_ops | open_ops | closed_ops | wins | losses | flat | average_operation_return_pct | average_close_duration | success_rate | first_operation | updated_at"
+        "# strategy | txt | historical_return | return_pct | profit_usd | capital_base | current_capital | max_open | total_ops | open_ops | closed_ops | daily_operations_count | wins | losses | flat | average_operation_return_pct | average_close_duration | success_rate | first_operation | updated_at"
     ]
     for row in rows:
         lines.append(
@@ -1281,6 +1286,7 @@ def write_strategy_performance_txt(rows):
                     str(row["total_ops"]),
                     str(row["open_ops"]),
                     str(row["closed_ops"]),
+                    str(row["daily_operations_count"]),
                     str(row["wins"]),
                     str(row["losses"]),
                     str(row["flat"]),
@@ -1648,6 +1654,7 @@ def sync_strategy_performance(connection, performance_rows):
                 UPDATE strategies
                 SET historical_return = :historical_return,
                     closed_operations_count = :closed_operations_count,
+                    daily_operations_count = :daily_operations_count,
                     winning_operations_count = :winning_operations_count,
                     losing_operations_count = :losing_operations_count,
                     flat_operations_count = :flat_operations_count,
@@ -1662,6 +1669,7 @@ def sync_strategy_performance(connection, performance_rows):
             {
                 "historical_return": row["historical_return"],
                 "closed_operations_count": int(row["closed_ops"]),
+                "daily_operations_count": int(row["daily_operations_count"]),
                 "winning_operations_count": int(row["wins"]),
                 "losing_operations_count": int(row["losses"]),
                 "flat_operations_count": int(row["flat"]),
@@ -1680,6 +1688,7 @@ def sync_strategy_performance(connection, performance_rows):
 def ensure_strategy_performance_columns(connection):
     column_defs = [
         ("closed_operations_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("daily_operations_count", "INTEGER NOT NULL DEFAULT 0"),
         ("winning_operations_count", "INTEGER NOT NULL DEFAULT 0"),
         ("losing_operations_count", "INTEGER NOT NULL DEFAULT 0"),
         ("flat_operations_count", "INTEGER NOT NULL DEFAULT 0"),

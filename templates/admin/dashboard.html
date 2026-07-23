@@ -288,6 +288,9 @@
                 <span class="d-block text-secondary small mt-2">
                   Ultima incorporacion TXT: {{ strategy.signals_updated_at or "Sin actualizar" }}
                 </span>
+                <span class="d-block text-secondary small">
+                  Operaciones hoy: {{ strategy.daily_operations_count|compact_count }}
+                </span>
                 {% if strategy.run_status %}
                   <span class="badge {% if strategy.run_status.ok %}text-bg-success{% elif strategy.run_status.running %}text-bg-warning{% elif strategy.run_status.pending %}text-bg-secondary{% else %}text-bg-danger{% endif %} d-block mt-2">
                     Estado codigo: {{ strategy.run_status.label }}

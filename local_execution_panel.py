@@ -114,7 +114,9 @@ V2_STRATEGY_LABELS = [
     ("acumula_metales", "Acumula Metales"),
     ("acumulacion", "Acumulacion"),
     ("extension_reversal", "Reversion RSI 5"),
+    ("pairs_trading", "Pairs Trading"),
 ]
+V2_BACKTEST_UNSUPPORTED_KEYS = {"pairs_trading"}
 
 TASKS = {
     "universe": {
@@ -605,7 +607,7 @@ PAGE = """
                         <select class="form-select form-select-sm" id="backtest-strategy" name="backtest_strategy">
                           <option value="">Todas las estrategias V2 activas</option>
                           {% for strategy in v2_runner.strategies %}
-                            <option value="{{ strategy.key }}">{{ strategy.label }}</option>
+                            <option value="{{ strategy.key }}" {% if not strategy.supports_backtest %}disabled{% endif %}>{{ strategy.label }}{% if not strategy.supports_backtest %} (sin backtest individual){% endif %}</option>
                           {% endfor %}
                         </select>
                         <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if state.running %}disabled{% endif %}>{{ task.button_label or "Ejecutar ahora" }}</button>
@@ -1608,6 +1610,7 @@ def load_v2_runner_panel_state():
             "key": key,
             "label": label,
             "enabled": key in enabled_keys,
+            "supports_backtest": key not in V2_BACKTEST_UNSUPPORTED_KEYS,
         }
         for key, label in V2_STRATEGY_LABELS
     ]
@@ -1628,6 +1631,8 @@ def load_v2_config_file():
     if not isinstance(config, dict):
         return {"enabled_strategies": [key for key, _label in V2_STRATEGY_LABELS]}
     config.setdefault("enabled_strategies", [key for key, _label in V2_STRATEGY_LABELS])
+    if "pairs_trading" not in {str(item).strip().lower() for item in config.get("enabled_strategies", [])}:
+        config["enabled_strategies"].append("pairs_trading")
     return config
 
 

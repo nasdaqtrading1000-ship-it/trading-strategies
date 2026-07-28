@@ -1428,6 +1428,30 @@ html {
   font-size: 0.82rem;
 }
 
+.admin-strategy-name-box {
+  border-left: 4px solid var(--ui-blue-accent-soft);
+  padding-left: 0.65rem;
+}
+
+.admin-strategy-name-label {
+  display: block;
+  color: var(--ui-blue-accent-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+
+.admin-strategy-name-input {
+  border-color: rgba(0, 255, 209, 0.72) !important;
+  color: #ffffff !important;
+  font-size: 1rem;
+  font-weight: 800;
+  min-height: 2.35rem;
+}
+
 .admin-inline-switch,
 .admin-inline-checks {
   color: var(--text-muted);

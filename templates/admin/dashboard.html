@@ -154,8 +154,8 @@
     <div class="border border-warning rounded-2 p-3 mb-4" id="telegram-removals">
       <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
         <div>
-          <h3 class="h6 mb-1 text-warning">Bajas Telegram pendientes</h3>
-          <p class="text-secondary small mb-0">Usuarios sin acceso que debes revisar y echar manualmente de los canales privados.</p>
+          <h3 class="h6 mb-1 text-warning">Dados de baja pendientes de anular Telegram</h3>
+          <p class="text-secondary small mb-0">Usuarios sin membresia activa que debes revisar y sacar manualmente de los canales privados donde pidieron acceso.</p>
         </div>
         <span class="badge text-bg-warning align-self-start">{{ telegram_removal_users|length }} pendientes</span>
       </div>
@@ -167,6 +167,7 @@
                 <th>Usuario</th>
                 <th>Estado</th>
                 <th>Telegram</th>
+                <th>Canales a anular</th>
                 <th>Notas</th>
                 <th class="text-end">Accion</th>
               </tr>
@@ -185,10 +186,19 @@
                     {% endif %}
                   </td>
                   <td class="small">{{ user.telegram_user_id or "Buscar manualmente" }}</td>
+                  <td class="small">
+                    {% if user.telegram_channels %}
+                      {% for channel in user.telegram_channels %}
+                        <span class="badge text-bg-dark border border-warning d-inline-block mb-1">{{ channel.channel_name }}</span>
+                      {% endfor %}
+                    {% else %}
+                      <span class="text-secondary">Sin canales registrados</span>
+                    {% endif %}
+                  </td>
                   <td class="small text-secondary">{{ user.admin_notes or "" }}</td>
                   <td class="text-end">
                     <form method="post" action="{{ url_for('admin_user_mark_telegram_removed', user_id=user.id) }}">
-                      <button class="btn btn-outline-warning btn-sm" type="submit">Marcado expulsado</button>
+                      <button class="btn btn-outline-warning btn-sm" type="submit">Telegram anulado</button>
                     </form>
                   </td>
                 </tr>
@@ -197,7 +207,7 @@
           </table>
         </div>
       {% else %}
-        <div class="alert alert-success mb-0">No hay bajas pendientes de Telegram.</div>
+        <div class="alert alert-success mb-0">No hay dados de baja pendientes de anular Telegram.</div>
       {% endif %}
     </div>
     <div class="table-responsive">

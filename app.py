@@ -3234,6 +3234,61 @@ def create_app():
                 errors.append(telegram_admin_error_message(error))
         return removed, errors
 
+    def record_user_telegram_channel_access(user, strategy):
+        if not user or session.get("admin_logged_in"):
+            return
+        now = datetime.now(UTC).replace(tzinfo=None)
+        g.db.execute(
+            text(
+                """
+                INSERT INTO user_telegram_channel_access
+                (user_id, strategy_id, channel_name, telegram_chat_id, status,
+                 requested_at, last_invite_at, telegram_removed_at)
+                VALUES (:user_id, :strategy_id, :channel_name, :telegram_chat_id, 'active',
+                        :now, :now, NULL)
+                ON CONFLICT (user_id, strategy_id) DO UPDATE SET
+                    channel_name = EXCLUDED.channel_name,
+                    telegram_chat_id = EXCLUDED.telegram_chat_id,
+                    status = 'active',
+                    last_invite_at = EXCLUDED.last_invite_at,
+                    telegram_removed_at = NULL
+                """
+            ),
+            {
+                "user_id": user["id"],
+                "strategy_id": strategy["id"],
+                "channel_name": strategy.get("name", ""),
+                "telegram_chat_id": strategy.get("telegram_chat_id", ""),
+                "now": now,
+            },
+        )
+
+    def telegram_channels_for_users(user_ids):
+        if not user_ids:
+            return {}
+        rows = g.db.execute(
+            text(
+                """
+                SELECT access.user_id,
+                       access.strategy_id,
+                       COALESCE(strategies.name, access.channel_name) AS channel_name,
+                       access.telegram_chat_id,
+                       access.last_invite_at,
+                       access.status
+                FROM user_telegram_channel_access access
+                LEFT JOIN strategies ON strategies.id = access.strategy_id
+                WHERE access.user_id IN :user_ids
+                  AND access.telegram_removed_at IS NULL
+                ORDER BY channel_name
+                """
+            ).bindparams(bindparam("user_ids", expanding=True)),
+            {"user_ids": user_ids},
+        ).mappings().fetchall()
+        channels_by_user = {user_id: [] for user_id in user_ids}
+        for row in rows:
+            channels_by_user.setdefault(int(row["user_id"]), []).append(dict(row))
+        return channels_by_user
+
     def load_user_totalizer_selection(user_id):
         try:
             rows = g.db.execute(
@@ -4676,6 +4731,8 @@ self.addEventListener("fetch", () => {});
             expire_seconds=600,
         )
         if invite_link:
+            record_user_telegram_channel_access(user, strategy)
+            g.db.commit()
             return redirect(invite_link)
 
         flash(f"No se pudo generar el enlace de Telegram: {telegram_admin_error_message(error)}", "danger")
@@ -4892,7 +4949,7 @@ self.addEventListener("fetch", () => {});
                 """
             )
         ).mappings().fetchall()
-        telegram_removal_users = g.db.execute(
+        telegram_removal_rows = g.db.execute(
             text(
                 """
                 SELECT id, email, name, telegram_user_id, payment_status,
@@ -4905,6 +4962,12 @@ self.addEventListener("fetch", () => {});
                 """
             )
         ).mappings().fetchall()
+        telegram_removal_users = [dict(row) for row in telegram_removal_rows]
+        telegram_channels_by_user = telegram_channels_for_users(
+            [int(user["id"]) for user in telegram_removal_users]
+        )
+        for user in telegram_removal_users:
+            user["telegram_channels"] = telegram_channels_by_user.get(int(user["id"]), [])
         return render_template(
             "admin/dashboard.html",
             strategies=strategies,
@@ -4978,6 +5041,18 @@ self.addEventListener("fetch", () => {});
                 UPDATE users
                 SET telegram_removed_at = :removed_at
                 WHERE id = :id
+                """
+            ),
+            {"id": user_id, "removed_at": datetime.now(UTC).replace(tzinfo=None)},
+        )
+        g.db.execute(
+            text(
+                """
+                UPDATE user_telegram_channel_access
+                SET status = 'manual_removed',
+                    telegram_removed_at = :removed_at
+                WHERE user_id = :id
+                  AND telegram_removed_at IS NULL
                 """
             ),
             {"id": user_id, "removed_at": datetime.now(UTC).replace(tzinfo=None)},
@@ -8327,6 +8402,7 @@ def init_db():
         ensure_users_table(connection)
         ensure_user_strategy_selections_table(connection)
         ensure_user_simulator_tables(connection)
+        ensure_user_telegram_channel_access_table(connection)
         add_user_column(connection, "age_confirmed", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "risk_accepted", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "accepted_terms_at", "TIMESTAMP")
@@ -8951,6 +9027,32 @@ def ensure_user_strategy_selections_table(connection):
                 strategy_id INTEGER NOT NULL,
                 selected INTEGER NOT NULL DEFAULT 0,
                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, strategy_id)
+            )
+            """
+        )
+    )
+
+
+def ensure_user_telegram_channel_access_table(connection):
+    id_column = (
+        "SERIAL PRIMARY KEY"
+        if engine.dialect.name == "postgresql"
+        else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    connection.execute(
+        text(
+            f"""
+            CREATE TABLE IF NOT EXISTS user_telegram_channel_access (
+                id {id_column},
+                user_id INTEGER NOT NULL,
+                strategy_id INTEGER NOT NULL,
+                channel_name TEXT NOT NULL DEFAULT '',
+                telegram_chat_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'active',
+                requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_invite_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                telegram_removed_at TIMESTAMP,
                 UNIQUE(user_id, strategy_id)
             )
             """

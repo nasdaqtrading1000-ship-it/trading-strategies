@@ -25,9 +25,11 @@ from flask import (
     jsonify,
     redirect,
     render_template,
+    Response,
     request,
     send_from_directory,
     session,
+    stream_with_context,
     url_for,
 )
 from sqlalchemy import bindparam, text
@@ -3206,6 +3208,63 @@ def create_app():
             return True
         return bool(int(strategy.get("public_visible") or 0))
 
+    def can_view_internal_messages(user=None):
+        if session.get("admin_logged_in"):
+            return True
+        return member_has_full_access(user)
+
+    def internal_message_rows(after_id=0, limit=60, ascending=False):
+        order = "ASC" if ascending else "DESC"
+        rows = g.db.execute(
+            text(
+                f"""
+                SELECT signals.id,
+                       signals.txt_name,
+                       signals.signal_date,
+                       signals.line,
+                       signals.created_at,
+                       strategies.id AS strategy_id,
+                       strategies.name AS strategy_name,
+                       strategies.risk_level,
+                       strategies.public_visible
+                FROM strategy_signals signals
+                JOIN strategies ON strategies.signals_txt_name = signals.txt_name
+                WHERE strategies.is_active = 1
+                  AND signals.id > :after_id
+                ORDER BY signals.id {order}
+                LIMIT :limit
+                """
+            ),
+            {"after_id": int(after_id or 0), "limit": int(limit or 60)},
+        ).mappings().fetchall()
+        return [format_internal_message(row) for row in rows]
+
+    def format_internal_message(row):
+        signal = parse_signal_line(row["line"], row.get("created_at"))
+        signal_key = build_signal_operation_key(row["txt_name"], signal)
+        symbol = signal.get("display_symbol") or signal.get("symbol") or "Mercado"
+        side = signal.get("side") or signal.get("direction") or ""
+        price = first_existing(signal.get("common", {}), ["precio_actual", "apertura", "entrada"])
+        created_at = parse_status_datetime(row.get("created_at")) or row.get("created_at")
+        message = {
+            "id": int(row["id"]),
+            "strategy_id": int(row["strategy_id"]),
+            "strategy_name": row["strategy_name"],
+            "risk_level": row["risk_level"],
+            "symbol": symbol,
+            "side": side,
+            "price": price or "",
+            "line": row["line"],
+            "created_at": format_madrid_datetime(created_at) if hasattr(created_at, "astimezone") else str(created_at or ""),
+            "signal_date": row.get("signal_date") or signal.get("notice_datetime") or "",
+            "url": url_for("strategy_signals", strategy_id=row["strategy_id"], key=signal_key),
+        }
+        if symbol and side:
+            message["title"] = f"{symbol} · {side}"
+        else:
+            message["title"] = symbol
+        return message
+
     def telegram_channel_chat_ids():
         rows = g.db.execute(
             text(
@@ -4577,6 +4636,55 @@ def create_app():
             grouped_mode=grouped_mode,
             page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
         )
+
+    @app.route("/mobile/mensajes")
+    def mobile_messages():
+        user = current_user()
+        if not can_view_internal_messages(user):
+            flash("Necesitas una membresia activa para ver mensajes en tiempo real.", "warning")
+            return redirect(url_for("user_login"))
+        messages = internal_message_rows(limit=60)
+        return render_template(
+            "mobile/messages.html",
+            messages=messages,
+            latest_id=max((message["id"] for message in messages), default=0),
+            page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
+        )
+
+    @app.route("/mobile/mensajes/data")
+    def mobile_messages_data():
+        user = current_user()
+        if not can_view_internal_messages(user):
+            return jsonify({"error": "membership_required"}), 403
+        after_id = parse_int_arg(request.args.get("after_id"), 0, 0, 10**12)
+        messages = internal_message_rows(after_id=after_id, limit=100, ascending=True)
+        return jsonify(
+            {
+                "messages": messages,
+                "latest_id": max((message["id"] for message in messages), default=after_id),
+            }
+        )
+
+    @app.route("/mobile/mensajes/stream")
+    def mobile_messages_stream():
+        user = current_user()
+        if not can_view_internal_messages(user):
+            return jsonify({"error": "membership_required"}), 403
+        start_id = parse_int_arg(request.args.get("after_id"), 0, 0, 10**12)
+
+        @stream_with_context
+        def stream():
+            last_id = start_id
+            while True:
+                messages = internal_message_rows(after_id=last_id, limit=50, ascending=True)
+                if messages:
+                    last_id = max(message["id"] for message in messages)
+                    yield f"data: {json.dumps({'messages': messages, 'latest_id': last_id})}\n\n"
+                else:
+                    yield ": ping\n\n"
+                time.sleep(3)
+
+        return Response(stream(), mimetype="text/event-stream")
 
     @app.route("/mobile/manifest.json")
     def mobile_manifest():

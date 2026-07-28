@@ -38,6 +38,7 @@
 
     <nav class="mobile-tabbar" aria-label="Navegacion movil">
       <a href="{{ url_for('mobile_index') }}">Modelos</a>
+      <a href="{{ url_for('mobile_messages') }}">Mensajes</a>
       <a href="{{ url_for('asset_filter') }}">Filtro</a>
       <a href="{{ url_for('market_news_page') }}">Noticias</a>
       {% if current_user %}

@@ -1,0 +1,104 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Mensajes Code Markets{% endblock %}
+
+{% block content %}
+<section class="mobile-hero compact">
+  <a class="mobile-back" href="{{ url_for('mobile_index') }}">Volver</a>
+  <p class="mobile-eyebrow">tiempo real</p>
+  <h1>Mensajes</h1>
+  <p>Senales recibidas por estrategia sin recargar la pantalla.</p>
+  <div class="mobile-live-status" id="live-status" data-state="connecting">Conectando</div>
+</section>
+
+<section class="mobile-messages" id="message-list" data-latest-id="{{ latest_id }}">
+  {% for message in messages %}
+    <article class="mobile-message-card" data-message-id="{{ message.id }}">
+      <div class="mobile-message-head">
+        <span>{{ message.strategy_name }}</span>
+        <time>{{ message.created_at or message.signal_date }}</time>
+      </div>
+      <h2>{{ message.title }}</h2>
+      <div class="mobile-message-meta">
+        <span>{{ message.risk_level }}</span>
+        {% if message.price %}<span>{{ message.price }}</span>{% endif %}
+      </div>
+      <p>{{ message.line }}</p>
+      <a href="{{ message.url }}">Abrir aviso</a>
+    </article>
+  {% else %}
+    <p class="mobile-empty" id="empty-messages">Todavia no hay mensajes.</p>
+  {% endfor %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const list = document.getElementById("message-list");
+  const statusEl = document.getElementById("live-status");
+  const seen = new Set(Array.from(document.querySelectorAll("[data-message-id]")).map((item) => item.dataset.messageId));
+  let latestId = Number(list?.dataset.latestId || "0");
+
+  function setStatus(label, state) {
+    if (!statusEl) return;
+    statusEl.textContent = label;
+    statusEl.dataset.state = state;
+  }
+
+  function renderMessage(message) {
+    const id = String(message.id);
+    if (seen.has(id)) return;
+    seen.add(id);
+    latestId = Math.max(latestId, Number(message.id || 0));
+    if (list) list.dataset.latestId = String(latestId);
+    document.getElementById("empty-messages")?.remove();
+
+    const card = document.createElement("article");
+    card.className = "mobile-message-card is-new";
+    card.dataset.messageId = id;
+    card.innerHTML = `
+      <div class="mobile-message-head">
+        <span></span>
+        <time></time>
+      </div>
+      <h2></h2>
+      <div class="mobile-message-meta"></div>
+      <p></p>
+      <a>Abrir aviso</a>
+    `;
+    card.querySelector(".mobile-message-head span").textContent = message.strategy_name || "";
+    card.querySelector("time").textContent = message.created_at || message.signal_date || "";
+    card.querySelector("h2").textContent = message.title || message.symbol || "Senal";
+    const meta = card.querySelector(".mobile-message-meta");
+    [message.risk_level, message.price].filter(Boolean).forEach((value) => {
+      const item = document.createElement("span");
+      item.textContent = value;
+      meta.appendChild(item);
+    });
+    card.querySelector("p").textContent = message.line || "";
+    card.querySelector("a").href = message.url || "#";
+    list?.prepend(card);
+  }
+
+  function startStream() {
+    if (!window.EventSource) {
+      setStatus("Tiempo real no disponible", "error");
+      return;
+    }
+    const source = new EventSource(`{{ url_for('mobile_messages_stream') }}?after_id=${latestId}`);
+    source.onopen = () => setStatus("En directo", "live");
+    source.onerror = () => setStatus("Reconectando", "connecting");
+    source.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        (data.messages || []).forEach(renderMessage);
+        if (data.latest_id) latestId = Math.max(latestId, Number(data.latest_id));
+      } catch (error) {
+        setStatus("Error de mensaje", "error");
+      }
+    };
+  }
+
+  startStream();
+</script>
+{% endblock %}

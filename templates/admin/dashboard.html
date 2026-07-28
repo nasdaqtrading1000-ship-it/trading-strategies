@@ -167,7 +167,8 @@
             <tr id="user-{{ user.id }}">
               <td>
                 <input class="form-control form-control-sm admin-inline-control fw-semibold mb-2" form="user-row-form-{{ user.id }}" name="name" value="{{ user.name or '' }}" placeholder="Nombre">
-                <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="email" value="{{ user.email }}" type="email" required>
+                <input class="form-control form-control-sm admin-inline-control mb-2" form="user-row-form-{{ user.id }}" name="email" value="{{ user.email }}" type="email" required>
+                <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="telegram_user_id" value="{{ user.telegram_user_id or '' }}" placeholder="Telegram user ID">
               </td>
               <td>
                 <div class="row g-2">

@@ -97,6 +97,19 @@
       </div>
     </div>
 
+    <div class="account-section mt-4">
+      <h2 class="h5 mb-3">Telegram</h2>
+      <form method="post" action="{{ url_for('account_telegram_update') }}" class="row g-2 align-items-end">
+        <div class="col-md-8">
+          <label class="form-label small" for="telegram_user_id">Telegram user ID</label>
+          <input class="form-control" id="telegram_user_id" name="telegram_user_id" value="{{ user.telegram_user_id or '' }}" placeholder="Ej. 123456789">
+        </div>
+        <div class="col-md-4">
+          <button class="btn btn-outline-info fw-semibold w-100" type="submit">Guardar Telegram</button>
+        </div>
+      </form>
+    </div>
+
     <div class="account-actions">
       {% if not user.has_access %}
         <a class="btn btn-warning fw-semibold" href="{{ url_for('membership') }}">Hacerme miembro</a>

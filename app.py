@@ -163,12 +163,71 @@ def telegram_create_single_use_invite(chat_id, link_name, expire_seconds=600):
         return None, str(exc)
 
 
+def telegram_remove_user_from_chat(chat_id, telegram_user_id):
+    token = telegram_bot_token()
+    chat_id = str(chat_id or "").strip()
+    telegram_user_id = str(telegram_user_id or "").strip()
+    if not token:
+        return False, "missing_token"
+    if not chat_id:
+        return False, "missing_chat_id"
+    if not telegram_user_id:
+        return False, "missing_telegram_user_id"
+
+    ban_ok, ban_error = telegram_post_api(
+        "banChatMember",
+        {
+            "chat_id": chat_id,
+            "user_id": telegram_user_id,
+            "revoke_messages": "false",
+        },
+    )
+    if not ban_ok:
+        return False, ban_error
+
+    telegram_post_api(
+        "unbanChatMember",
+        {
+            "chat_id": chat_id,
+            "user_id": telegram_user_id,
+            "only_if_banned": "true",
+        },
+    )
+    return True, ""
+
+
+def telegram_post_api(method, payload):
+    token = telegram_bot_token()
+    if not token:
+        return False, "missing_token"
+    request_obj = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/{method}",
+        data=urllib.parse.urlencode(payload).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request_obj, timeout=15) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            return bool(data.get("ok")), data.get("description", "")
+    except urllib.error.HTTPError as exc:
+        try:
+            body = exc.read().decode("utf-8")
+            return False, json.loads(body).get("description", body)
+        except Exception:
+            return False, str(exc)
+    except Exception as exc:
+        return False, str(exc)
+
+
 def telegram_admin_error_message(error):
     normalized = str(error or "").lower()
     if "missing_token" in normalized:
         return "falta TELEGRAM_BOT_TOKEN en el .env o en Render."
     if "missing_chat_id" in normalized:
         return "falta el chat ID de Telegram en esta estrategia."
+    if "missing_telegram_user_id" in normalized:
+        return "falta el Telegram user ID del usuario."
     if "chat not found" in normalized:
         return "Telegram no encuentra ese chat_id. Revisa que sea el canal correcto y que el bot este dentro."
     if "forbidden" in normalized or "not enough rights" in normalized:
@@ -3147,6 +3206,34 @@ def create_app():
             return True
         return bool(int(strategy.get("public_visible") or 0))
 
+    def telegram_channel_chat_ids():
+        rows = g.db.execute(
+            text(
+                """
+                SELECT DISTINCT telegram_chat_id
+                FROM strategies
+                WHERE has_telegram = 1
+                  AND telegram_chat_id <> ''
+                """
+            )
+        ).fetchall()
+        return [str(row[0]).strip() for row in rows if str(row[0] or "").strip()]
+
+    def remove_user_from_telegram_channels(user):
+        telegram_user_id = str((user or {}).get("telegram_user_id") or "").strip()
+        if not telegram_user_id:
+            return 0, ["falta el Telegram user ID del usuario."]
+
+        removed = 0
+        errors = []
+        for chat_id in telegram_channel_chat_ids():
+            ok, error = telegram_remove_user_from_chat(chat_id, telegram_user_id)
+            if ok:
+                removed += 1
+            else:
+                errors.append(telegram_admin_error_message(error))
+        return removed, errors
+
     def load_user_totalizer_selection(user_id):
         try:
             rows = g.db.execute(
@@ -3673,6 +3760,16 @@ def create_app():
             params["subscription_id"] = subscription_id
         if not conditions:
             return
+        affected_users = g.db.execute(
+            text(
+                f"""
+                SELECT *
+                FROM users
+                WHERE {' OR '.join(conditions)}
+                """
+            ),
+            params,
+        ).mappings().fetchall()
         g.db.execute(
             text(
                 f"""
@@ -3685,6 +3782,8 @@ def create_app():
             ),
             {**params, "now": datetime.now(UTC).replace(tzinfo=None)},
         )
+        for user in affected_users:
+            remove_user_from_telegram_channels(user)
 
     def user_stripe_customer_id(user):
         if not user:
@@ -4131,6 +4230,21 @@ def create_app():
                 subscription_object.get("id", "") or "",
             )
             g.db.commit()
+        elif event.get("type") == "customer.subscription.updated":
+            subscription_object = (event.get("data") or {}).get("object") or {}
+            if subscription_object.get("status") in {"canceled", "unpaid", "past_due", "incomplete_expired"}:
+                mark_user_membership_cancelled(
+                    subscription_object.get("customer", "") or "",
+                    subscription_object.get("id", "") or "",
+                )
+                g.db.commit()
+        elif event.get("type") == "invoice.payment_failed":
+            invoice_object = (event.get("data") or {}).get("object") or {}
+            mark_user_membership_cancelled(
+                invoice_object.get("customer", "") or "",
+                invoice_object.get("subscription", "") or "",
+            )
+            g.db.commit()
         return jsonify({"received": True})
 
     @app.route("/entrar", methods=["GET", "POST"])
@@ -4171,6 +4285,24 @@ def create_app():
             flash("Entra con tu cuenta para ver esta zona.", "warning")
             return redirect(url_for("user_login"))
         return render_template("account.html", user=user, stripe_customer_id=user_stripe_customer_id(user))
+
+    @app.route("/mi-cuenta/telegram", methods=["POST"])
+    def account_telegram_update():
+        user = current_user()
+        if not user:
+            flash("Entra con tu cuenta para guardar tu Telegram.", "warning")
+            return redirect(url_for("user_login"))
+        telegram_user_id = request.form.get("telegram_user_id", "").strip()
+        if telegram_user_id and not telegram_user_id.lstrip("-").isdigit():
+            flash("El Telegram user ID debe ser numerico.", "danger")
+            return redirect(url_for("account"))
+        g.db.execute(
+            text("UPDATE users SET telegram_user_id = :telegram_user_id WHERE id = :id"),
+            {"telegram_user_id": telegram_user_id, "id": user["id"]},
+        )
+        g.db.commit()
+        flash("Telegram guardado en tu cuenta.", "success")
+        return redirect(url_for("account"))
 
     @app.route("/cuenta/suscripcion", methods=["POST"])
     def subscription_portal():
@@ -4749,7 +4881,7 @@ self.addEventListener("fetch", () => {});
         users = g.db.execute(
             text(
                 """
-                SELECT id, email, name, has_access, payment_status, membership_plan,
+                SELECT id, email, name, telegram_user_id, has_access, payment_status, membership_plan,
                        membership_amount, membership_started_at, membership_expires_at,
                        admin_notes, created_at
                 FROM users
@@ -4781,7 +4913,7 @@ self.addEventListener("fetch", () => {});
     @login_required
     def user_toggle_access(user_id):
         user = g.db.execute(
-            text("SELECT has_access FROM users WHERE id = :id"),
+            text("SELECT * FROM users WHERE id = :id"),
             {"id": user_id},
         ).mappings().fetchone()
         if user is None:
@@ -4803,8 +4935,15 @@ self.addEventListener("fetch", () => {});
                 "id": user_id,
             },
         )
+        removed = 0
+        errors = []
+        if not next_access:
+            removed, errors = remove_user_from_telegram_channels(user)
         g.db.commit()
-        flash("Acceso de usuario actualizado.", "success")
+        if not next_access and errors:
+            flash(f"Acceso quitado. Telegram: {removed} canales actualizados; {errors[0]}", "warning")
+        else:
+            flash("Acceso de usuario actualizado.", "success")
         return redirect(url_for("admin_dashboard", _anchor="admin-users"))
 
     @app.route("/admin/users/<int:user_id>/update", methods=["POST"])
@@ -4825,11 +4964,15 @@ self.addEventListener("fetch", () => {});
         membership_started_at = empty_to_none(request.form.get("membership_started_at"))
         membership_expires_at = empty_to_none(request.form.get("membership_expires_at"))
         admin_notes = request.form.get("admin_notes", "").strip()
+        telegram_user_id = request.form.get("telegram_user_id", "").strip()
         has_access = 1 if request.form.get("has_access") == "on" else 0
 
         if not email or "@" not in email:
             flash("Email de usuario no valido.", "danger")
             return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+        if telegram_user_id and not telegram_user_id.lstrip("-").isdigit():
+            flash("El Telegram user ID debe ser numerico.", "danger")
+            return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
 
         duplicated = g.db.execute(
             text(
@@ -4858,6 +5001,7 @@ self.addEventListener("fetch", () => {});
                     membership_amount = :membership_amount,
                     membership_started_at = :membership_started_at,
                     membership_expires_at = :membership_expires_at,
+                    telegram_user_id = :telegram_user_id,
                     admin_notes = :admin_notes
                 WHERE id = :id
                 """
@@ -4871,10 +5015,13 @@ self.addEventListener("fetch", () => {});
                 "membership_amount": membership_amount,
                 "membership_started_at": membership_started_at,
                 "membership_expires_at": membership_expires_at,
+                "telegram_user_id": telegram_user_id,
                 "admin_notes": admin_notes,
                 "id": user_id,
             },
         )
+        if not has_access:
+            remove_user_from_telegram_channels({**dict(existing), "telegram_user_id": telegram_user_id})
         g.db.commit()
         flash("Usuario actualizado.", "success")
         return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
@@ -4889,6 +5036,7 @@ self.addEventListener("fetch", () => {});
         if existing is None:
             abort(404)
 
+        removed_channels, telegram_errors = remove_user_from_telegram_channels(existing)
         subscription_id = user_stripe_subscription_id(existing)
         if subscription_id:
             cancelled, cancel_response = stripe_cancel_subscription(subscription_id)
@@ -4939,6 +5087,10 @@ self.addEventListener("fetch", () => {});
             flash(f"Usuario eliminado y suscripcion Stripe cancelada: {existing['email']}", "success")
         else:
             flash(f"Usuario eliminado: {existing['email']}", "success")
+        if telegram_errors:
+            flash(f"Telegram: {removed_channels} canales actualizados; {telegram_errors[0]}", "warning")
+        elif removed_channels:
+            flash(f"Telegram: usuario expulsado de {removed_channels} canales.", "success")
         return redirect(url_for("admin_dashboard", _anchor="admin-users"))
 
     @app.route("/admin/users/create", methods=["POST"])
@@ -8141,6 +8293,7 @@ def init_db():
         add_user_column(connection, "admin_notes", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "stripe_customer_id", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "stripe_subscription_id", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "telegram_user_id", "TEXT NOT NULL DEFAULT ''")
         ensure_payments_table(connection)
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
@@ -8693,6 +8846,7 @@ def ensure_users_table(connection):
                 admin_notes TEXT NOT NULL DEFAULT '',
                 stripe_customer_id TEXT NOT NULL DEFAULT '',
                 stripe_subscription_id TEXT NOT NULL DEFAULT '',
+                telegram_user_id TEXT NOT NULL DEFAULT '',
                 age_confirmed INTEGER NOT NULL DEFAULT 0,
                 risk_accepted INTEGER NOT NULL DEFAULT 0,
                 accepted_terms_at TIMESTAMP,

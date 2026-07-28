@@ -333,14 +333,6 @@
 
 {% block scripts %}
 <script>
-  setInterval(() => {
-    const active = document.activeElement;
-    const editing = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName);
-    if (document.hidden || editing) return;
-    sessionStorage.setItem(`scroll:${window.location.pathname}`, String(window.scrollY || 0));
-    window.location.reload();
-  }, 30000);
-
   document.getElementById("strategies-bulk-form")?.addEventListener("submit", (event) => {
     const container = document.getElementById("strategies-bulk-fields");
     if (!container) return;

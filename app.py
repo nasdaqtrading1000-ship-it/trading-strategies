@@ -122,6 +122,47 @@ def telegram_send_message(chat_id, message):
         return False, str(exc)
 
 
+def telegram_create_single_use_invite(chat_id, link_name, expire_seconds=600):
+    token = telegram_bot_token()
+    chat_id = str(chat_id or "").strip()
+    if not token:
+        return None, "missing_token"
+    if not chat_id:
+        return None, "missing_chat_id"
+
+    payload = urllib.parse.urlencode(
+        {
+            "chat_id": chat_id,
+            "name": str(link_name or "Code Markets")[:32],
+            "expire_date": int(time.time() + expire_seconds),
+            "member_limit": 1,
+            "creates_join_request": "false",
+        }
+    ).encode("utf-8")
+    request_obj = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/createChatInviteLink",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request_obj, timeout=15) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data.get("ok") and data.get("result", {}).get("invite_link"):
+                return data["result"]["invite_link"], ""
+            return None, data.get("description", "")
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            body = exc.read().decode("utf-8")
+            detail = json.loads(body).get("description", body)
+        except Exception:
+            detail = str(exc)
+        return None, detail
+    except Exception as exc:
+        return None, str(exc)
+
+
 def telegram_admin_error_message(error):
     normalized = str(error or "").lower()
     if "missing_token" in normalized:
@@ -4216,7 +4257,7 @@ def create_app():
         has_full_access = member_has_full_access(user)
         query = """
         SELECT id, name, description, risk_level, signal_frequency,
-               historical_return, telegram_url, has_telegram, signals_txt_name,
+               historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
                python_file, auto_execute, schedule_start_time, schedule_end_time,
                schedule_interval_minutes, run_status, run_message, run_at,
                run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
@@ -4283,7 +4324,7 @@ def create_app():
         has_full_access = member_has_full_access(user)
         query = """
         SELECT id, name, description, risk_level, signal_frequency,
-               historical_return, telegram_url, has_telegram, signals_txt_name,
+               historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
                python_file, auto_execute, schedule_start_time, schedule_end_time,
                schedule_interval_minutes, run_status, run_message, run_at,
                run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
@@ -4483,6 +4524,28 @@ self.addEventListener("fetch", () => {});
             operation=operation,
             selected_key=selected_signal.get("signal_key", "") if selected_signal else "",
         )
+
+    @app.route("/estrategia/<int:strategy_id>/telegram")
+    def strategy_telegram_invite(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        user = current_user()
+        if not session.get("admin_logged_in") and not member_has_full_access(user):
+            flash("Necesitas una membresia activa para entrar al canal de Telegram.", "warning")
+            return redirect(url_for("user_login"))
+        if not int(strategy.get("has_telegram") or 0):
+            flash("Esta estrategia no tiene canal de Telegram activo.", "warning")
+            return redirect(url_for("strategy_signals", strategy_id=strategy_id))
+
+        invite_link, error = telegram_create_single_use_invite(
+            strategy.get("telegram_chat_id", ""),
+            f"Code Markets {strategy.get('name', '')}",
+            expire_seconds=600,
+        )
+        if invite_link:
+            return redirect(invite_link)
+
+        flash(f"No se pudo generar el enlace de Telegram: {telegram_admin_error_message(error)}", "danger")
+        return redirect(url_for("strategy_signals", strategy_id=strategy_id))
 
     @app.route("/estrategia/<int:strategy_id>/historial")
     def strategy_closed_operations(strategy_id):

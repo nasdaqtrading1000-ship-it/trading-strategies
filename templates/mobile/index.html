@@ -135,8 +135,8 @@
         {% else %}
           <a href="{{ url_for('mobile_strategy_signals', strategy_id=strategy.id) }}">Avisos</a>
           <a href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}">Historial</a>
-          {% if strategy.has_telegram and strategy.telegram_url %}
-            <a href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">Telegram</a>
+          {% if strategy.has_telegram and strategy.telegram_chat_id %}
+            <a href="{{ url_for('strategy_telegram_invite', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Telegram</a>
           {% endif %}
         {% endif %}
       </div>

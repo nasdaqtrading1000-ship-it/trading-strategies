@@ -304,8 +304,8 @@
                     <a class="btn btn-outline-light btn-sm report-history-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                       Hist. {{ strategy.closed_operations_count|compact_count }}
                     </a>
-                    {% if strategy.has_telegram and strategy.telegram_url %}
-                      <a class="btn btn-info btn-sm {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ strategy.telegram_url }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                    {% if strategy.has_telegram and strategy.telegram_chat_id %}
+                      <a class="btn btn-info btn-sm {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_telegram_invite', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                         TG
                       </a>
                     {% endif %}

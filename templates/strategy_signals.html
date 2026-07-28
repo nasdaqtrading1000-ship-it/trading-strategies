@@ -13,8 +13,8 @@
       </div>
       <div class="d-flex gap-2 align-items-start">
         <a class="btn btn-outline-light" href="{{ url_for('index') }}#estrategias">Volver</a>
-        {% if strategy.has_telegram and strategy.telegram_url %}
-          <a class="btn btn-info fw-semibold" href="{{ strategy.telegram_url }}" target="_blank" rel="noopener">Acceder al canal</a>
+        {% if strategy.has_telegram and strategy.telegram_chat_id %}
+          <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_telegram_invite', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Acceder al canal</a>
         {% endif %}
       </div>
     </div>

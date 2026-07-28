@@ -79,6 +79,62 @@ def rollback_request_db():
             connection.rollback()
     except Exception:
         pass
+
+
+def telegram_bot_token():
+    return os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+
+
+def telegram_send_message(chat_id, message):
+    token = telegram_bot_token()
+    chat_id = str(chat_id or "").strip()
+    if not token:
+        return False, "missing_token"
+    if not chat_id:
+        return False, "missing_chat_id"
+
+    payload = urllib.parse.urlencode(
+        {
+            "chat_id": chat_id,
+            "text": message,
+            "disable_web_page_preview": "true",
+        }
+    ).encode("utf-8")
+    request_obj = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request_obj, timeout=15) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            return bool(data.get("ok")), data.get("description", "")
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            body = exc.read().decode("utf-8")
+            detail = json.loads(body).get("description", body)
+        except Exception:
+            detail = str(exc)
+        return False, detail
+    except Exception as exc:
+        return False, str(exc)
+
+
+def telegram_admin_error_message(error):
+    normalized = str(error or "").lower()
+    if "missing_token" in normalized:
+        return "falta TELEGRAM_BOT_TOKEN en el .env o en Render."
+    if "missing_chat_id" in normalized:
+        return "falta el chat ID de Telegram en esta estrategia."
+    if "chat not found" in normalized:
+        return "Telegram no encuentra ese chat_id. Revisa que sea el canal correcto y que el bot este dentro."
+    if "forbidden" in normalized or "not enough rights" in normalized:
+        return "el bot no tiene permisos suficientes en ese canal."
+    return "revisa token, chat_id y permisos del bot."
+
+
 SCHEDULER_THREAD_STARTED = False
 SCHEDULER_LOCK = threading.Lock()
 SCHEDULER_TASKS = {
@@ -4611,7 +4667,7 @@ self.addEventListener("fetch", () => {});
             text(
             """
             SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, has_telegram, signals_txt_name,
+                   historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
                    python_file, auto_execute, schedule_start_time, schedule_end_time,
                    schedule_interval_minutes, schedule_last_status, schedule_last_message,
                    schedule_last_run_at, run_status, run_message, run_at,
@@ -5050,6 +5106,7 @@ self.addEventListener("fetch", () => {});
         signal_frequency = request.form.get("signal_frequency", "").strip()
         historical_return = request.form.get("historical_return", "").strip()
         telegram_url = request.form.get("telegram_url", "").strip()
+        telegram_chat_id = request.form.get("telegram_chat_id", "").strip()
         has_telegram = 1 if request.form.get("has_telegram") == "on" else 0
         signals_txt_name = request.form.get("signals_txt_name", "").strip()
         python_file = request.form.get("python_file", "").strip()
@@ -5086,6 +5143,7 @@ self.addEventListener("fetch", () => {});
                     signal_frequency = :signal_frequency,
                     historical_return = :historical_return,
                     telegram_url = :telegram_url,
+                    telegram_chat_id = :telegram_chat_id,
                     has_telegram = :has_telegram,
                     signals_txt_name = :signals_txt_name,
                     python_file = :python_file,
@@ -5102,6 +5160,7 @@ self.addEventListener("fetch", () => {});
                 "signal_frequency": signal_frequency,
                 "historical_return": historical_return,
                 "telegram_url": telegram_url,
+                "telegram_chat_id": telegram_chat_id,
                 "has_telegram": has_telegram,
                 "signals_txt_name": signals_txt_name,
                 "python_file": python_file,
@@ -5167,6 +5226,7 @@ self.addEventListener("fetch", () => {});
                         signal_frequency = :signal_frequency,
                         historical_return = :historical_return,
                         telegram_url = :telegram_url,
+                        telegram_chat_id = :telegram_chat_id,
                         has_telegram = :has_telegram,
                         signals_txt_name = :signals_txt_name,
                         python_file = :python_file,
@@ -5191,6 +5251,7 @@ self.addEventListener("fetch", () => {});
             "signal_frequency": request.form.get(prefix + "signal_frequency", "").strip(),
             "historical_return": request.form.get(prefix + "historical_return", "").strip(),
             "telegram_url": request.form.get(prefix + "telegram_url", "").strip(),
+            "telegram_chat_id": request.form.get(prefix + "telegram_chat_id", "").strip(),
             "has_telegram": 1 if request.form.get(prefix + "has_telegram") == "on" else 0,
             "signals_txt_name": request.form.get(prefix + "signals_txt_name", "").strip(),
             "python_file": request.form.get(prefix + "python_file", "").strip(),
@@ -5290,6 +5351,23 @@ self.addEventListener("fetch", () => {});
         flash("Estrategia eliminada.", "info")
         return redirect(url_for("admin_dashboard"))
 
+    @app.route("/admin/strategies/<int:strategy_id>/telegram/test", methods=["POST"])
+    @login_required
+    def strategy_telegram_test(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        chat_id = (strategy.get("telegram_chat_id") or "").strip()
+        message = (
+            "Code Markets | prueba Telegram\n"
+            f"Estrategia: {strategy.get('name', '')}\n"
+            f"Fecha: {datetime.now(MADRID_TZ).strftime('%H:%M %d/%m/%Y')}"
+        )
+        ok, error = telegram_send_message(chat_id, message)
+        if ok:
+            flash("Mensaje de prueba enviado a Telegram.", "success")
+        else:
+            flash(f"No se pudo enviar Telegram: {telegram_admin_error_message(error)}", "danger")
+        return redirect(url_for("admin_dashboard", _anchor=f"strategy-{strategy_id}"))
+
     def get_strategy_or_404(strategy_id):
         strategy = g.db.execute(
             text("SELECT * FROM strategies WHERE id = :id"), {"id": strategy_id}
@@ -5305,6 +5383,7 @@ self.addEventListener("fetch", () => {});
         signal_frequency = request.form.get("signal_frequency", "").strip()
         historical_return = request.form.get("historical_return", "").strip()
         telegram_url = request.form.get("telegram_url", "").strip()
+        telegram_chat_id = request.form.get("telegram_chat_id", "").strip()
         has_telegram = 1 if request.form.get("has_telegram") == "on" else 0
         signals_txt_name = request.form.get("signals_txt_name", "").strip()
         python_file = request.form.get("python_file", "").strip()
@@ -5349,6 +5428,7 @@ self.addEventListener("fetch", () => {});
             "signal_frequency": signal_frequency,
             "historical_return": historical_return,
             "telegram_url": telegram_url,
+            "telegram_chat_id": telegram_chat_id,
             "has_telegram": has_telegram,
             "signals_txt_name": signals_txt_name,
             "python_file": python_file,
@@ -5384,6 +5464,7 @@ self.addEventListener("fetch", () => {});
                     signal_frequency = :signal_frequency,
                     historical_return = :historical_return,
                     telegram_url = :telegram_url,
+                    telegram_chat_id = :telegram_chat_id,
                     has_telegram = :has_telegram,
                     signals_txt_name = :signals_txt_name,
                     python_file = :python_file,
@@ -5404,6 +5485,7 @@ self.addEventListener("fetch", () => {});
                     "signal_frequency": signal_frequency,
                     "historical_return": historical_return,
                     "telegram_url": telegram_url,
+                    "telegram_chat_id": telegram_chat_id,
                     "has_telegram": has_telegram,
                     "signals_txt_name": signals_txt_name,
                     "python_file": python_file,
@@ -5424,11 +5506,11 @@ self.addEventListener("fetch", () => {});
                 """
                 INSERT INTO strategies
                 (name, description, risk_level, signal_frequency,
-                 historical_return, telegram_url, has_telegram, signals_txt_name,
+                 historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
                  python_file, auto_execute, schedule_start_time, schedule_end_time,
                  schedule_interval_minutes, include_in_totalizer, public_visible, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
-                        :historical_return, :telegram_url, :has_telegram, :signals_txt_name,
+                        :historical_return, :telegram_url, :telegram_chat_id, :has_telegram, :signals_txt_name,
                         :python_file, :auto_execute, :schedule_start_time, :schedule_end_time,
                         :schedule_interval_minutes, :include_in_totalizer, :public_visible, :is_active)
                 """,
@@ -5440,6 +5522,7 @@ self.addEventListener("fetch", () => {});
                     "signal_frequency": signal_frequency,
                     "historical_return": historical_return,
                     "telegram_url": telegram_url,
+                    "telegram_chat_id": telegram_chat_id,
                     "has_telegram": has_telegram,
                     "signals_txt_name": signals_txt_name,
                     "python_file": python_file,
@@ -6057,6 +6140,7 @@ self.addEventListener("fetch", () => {});
         latest_open_operation_at = latest_open_operation_datetime(txt_name)
         strategy["signals"] = signals
         strategy["signals_count"] = len(signals)
+        strategy["telegram_chat_id"] = strategy.get("telegram_chat_id") or ""
         strategy["closed_operations_count"] = int(strategy.get("closed_operations_count") or 0)
         strategy["daily_operations_count"] = int(strategy.get("daily_operations_count") or 0)
         strategy["winning_operations_count"] = int(strategy.get("winning_operations_count") or 0)
@@ -7946,6 +8030,7 @@ def init_db():
                     signal_frequency TEXT NOT NULL DEFAULT '',
                     historical_return TEXT NOT NULL DEFAULT '',
                     telegram_url TEXT NOT NULL DEFAULT '',
+                    telegram_chat_id TEXT NOT NULL DEFAULT '',
                     has_telegram INTEGER NOT NULL DEFAULT 1,
                     signals_txt_name TEXT NOT NULL DEFAULT '',
                     python_file TEXT NOT NULL DEFAULT '',
@@ -8004,6 +8089,7 @@ def init_db():
         ensure_upload_file_status_table(connection)
         ensure_chip_status_table(connection)
         add_strategy_column(connection, "signals_txt_name")
+        add_strategy_column(connection, "telegram_chat_id")
         add_strategy_column(connection, "has_telegram", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "python_file")
         add_strategy_column(connection, "auto_execute", "INTEGER NOT NULL DEFAULT 0")

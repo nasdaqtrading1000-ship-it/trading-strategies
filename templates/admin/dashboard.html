@@ -246,6 +246,7 @@
               <td>
                 <input class="form-control form-control-sm admin-inline-control fw-semibold mb-2" form="strategy-row-form-{{ strategy.id }}" name="name" value="{{ strategy.name }}" required>
                 <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="telegram_url" value="{{ strategy.telegram_url or '' }}" placeholder="https://t.me/tu_canal">
+                <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="telegram_chat_id" value="{{ strategy.telegram_chat_id or '' }}" placeholder="Chat ID Telegram -100...">
                 <div class="form-check form-switch admin-inline-switch mb-2">
                   <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="has_telegram_{{ strategy.id }}" name="has_telegram" {% if strategy.has_telegram %}checked{% endif %}>
                   <label class="form-check-label small" for="has_telegram_{{ strategy.id }}">Tiene Telegram</label>
@@ -304,6 +305,9 @@
                 <div class="d-flex justify-content-end gap-2 flex-wrap">
                   <form id="strategy-row-form-{{ strategy.id }}" method="post" action="{{ url_for('strategy_quick_update', strategy_id=strategy.id) }}"></form>
                   <button class="btn btn-info btn-sm fw-semibold" form="strategy-row-form-{{ strategy.id }}" type="submit">Guardar fila</button>
+                  <form method="post" action="{{ url_for('strategy_telegram_test', strategy_id=strategy.id) }}">
+                    <button class="btn btn-outline-info btn-sm" type="submit">Probar TG</button>
+                  </form>
                   <a class="btn btn-outline-light btn-sm" href="{{ url_for('strategy_edit', strategy_id=strategy.id) }}">Descripcion</a>
                   <form method="post" action="{{ url_for('strategy_delete', strategy_id=strategy.id) }}" onsubmit="return confirm('Eliminar esta estrategia?');">
                     <button class="btn btn-outline-danger btn-sm" type="submit">Eliminar</button>

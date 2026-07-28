@@ -3735,6 +3735,7 @@ def create_app():
                     membership_plan = 'Code Markets Premium',
                     membership_amount = COALESCE(NULLIF(:amount_text, ''), membership_amount),
                     membership_started_at = COALESCE(membership_started_at, :now),
+                    telegram_removed_at = NULL,
                     stripe_customer_id = COALESCE(NULLIF(:customer_id, ''), stripe_customer_id),
                     stripe_subscription_id = COALESCE(NULLIF(:subscription_id, ''), stripe_subscription_id)
                 WHERE id = :id
@@ -3776,7 +3777,8 @@ def create_app():
                 UPDATE users
                 SET has_access = 0,
                     payment_status = 'cancelled',
-                    membership_expires_at = COALESCE(membership_expires_at, :now)
+                    membership_expires_at = COALESCE(membership_expires_at, :now),
+                    telegram_removed_at = NULL
                 WHERE {' OR '.join(conditions)}
                 """
             ),
@@ -4883,10 +4885,23 @@ self.addEventListener("fetch", () => {});
                 """
                 SELECT id, email, name, telegram_user_id, has_access, payment_status, membership_plan,
                        membership_amount, membership_started_at, membership_expires_at,
-                       admin_notes, created_at
+                       telegram_removed_at, admin_notes, created_at
                 FROM users
                 ORDER BY created_at DESC
                 LIMIT 50
+                """
+            )
+        ).mappings().fetchall()
+        telegram_removal_users = g.db.execute(
+            text(
+                """
+                SELECT id, email, name, telegram_user_id, payment_status,
+                       membership_expires_at, admin_notes, created_at
+                FROM users
+                WHERE has_access = 0
+                  AND telegram_removed_at IS NULL
+                ORDER BY COALESCE(membership_expires_at, created_at) DESC
+                LIMIT 100
                 """
             )
         ).mappings().fetchall()
@@ -4894,6 +4909,7 @@ self.addEventListener("fetch", () => {});
             "admin/dashboard.html",
             strategies=strategies,
             users=users,
+            telegram_removal_users=telegram_removal_users,
             active_visitors=active_visitor_count(),
             schedules=load_automation_schedules(),
             scheduler_tasks=SCHEDULER_TASKS,
@@ -4925,7 +4941,8 @@ self.addEventListener("fetch", () => {});
                 """
                 UPDATE users
                 SET has_access = :has_access,
-                    payment_status = :payment_status
+                    payment_status = :payment_status,
+                    telegram_removed_at = NULL
                 WHERE id = :id
                 """
             ),
@@ -4945,6 +4962,29 @@ self.addEventListener("fetch", () => {});
         else:
             flash("Acceso de usuario actualizado.", "success")
         return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+
+    @app.route("/admin/users/<int:user_id>/telegram-removed", methods=["POST"])
+    @login_required
+    def admin_user_mark_telegram_removed(user_id):
+        existing = g.db.execute(
+            text("SELECT id, email FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).mappings().fetchone()
+        if existing is None:
+            abort(404)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET telegram_removed_at = :removed_at
+                WHERE id = :id
+                """
+            ),
+            {"id": user_id, "removed_at": datetime.now(UTC).replace(tzinfo=None)},
+        )
+        g.db.commit()
+        flash(f"Marcado como expulsado de Telegram: {existing['email']}", "success")
+        return redirect(url_for("admin_dashboard", _anchor="telegram-removals"))
 
     @app.route("/admin/users/<int:user_id>/update", methods=["POST"])
     @login_required
@@ -5002,6 +5042,10 @@ self.addEventListener("fetch", () => {});
                     membership_started_at = :membership_started_at,
                     membership_expires_at = :membership_expires_at,
                     telegram_user_id = :telegram_user_id,
+                    telegram_removed_at = CASE
+                        WHEN :has_access = 0 THEN NULL
+                        ELSE telegram_removed_at
+                    END,
                     admin_notes = :admin_notes
                 WHERE id = :id
                 """
@@ -8294,6 +8338,7 @@ def init_db():
         add_user_column(connection, "stripe_customer_id", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "stripe_subscription_id", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "telegram_user_id", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "telegram_removed_at", "TIMESTAMP")
         ensure_payments_table(connection)
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
@@ -8847,6 +8892,7 @@ def ensure_users_table(connection):
                 stripe_customer_id TEXT NOT NULL DEFAULT '',
                 stripe_subscription_id TEXT NOT NULL DEFAULT '',
                 telegram_user_id TEXT NOT NULL DEFAULT '',
+                telegram_removed_at TIMESTAMP,
                 age_confirmed INTEGER NOT NULL DEFAULT 0,
                 risk_accepted INTEGER NOT NULL DEFAULT 0,
                 accepted_terms_at TIMESTAMP,

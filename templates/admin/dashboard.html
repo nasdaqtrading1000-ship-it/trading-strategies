@@ -151,6 +151,55 @@
         <button class="btn btn-info btn-sm fw-semibold w-100" type="submit">Crear usuario</button>
       </div>
     </form>
+    <div class="border border-warning rounded-2 p-3 mb-4" id="telegram-removals">
+      <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+        <div>
+          <h3 class="h6 mb-1 text-warning">Bajas Telegram pendientes</h3>
+          <p class="text-secondary small mb-0">Usuarios sin acceso que debes revisar y echar manualmente de los canales privados.</p>
+        </div>
+        <span class="badge text-bg-warning align-self-start">{{ telegram_removal_users|length }} pendientes</span>
+      </div>
+      {% if telegram_removal_users %}
+        <div class="table-responsive">
+          <table class="table table-dark table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Estado</th>
+                <th>Telegram</th>
+                <th>Notas</th>
+                <th class="text-end">Accion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for user in telegram_removal_users %}
+                <tr>
+                  <td>
+                    <strong>{{ user.name or user.email }}</strong>
+                    <span class="d-block text-secondary small">{{ user.email }}</span>
+                  </td>
+                  <td>
+                    <span class="badge text-bg-secondary">{{ user.payment_status }}</span>
+                    {% if user.membership_expires_at %}
+                      <span class="d-block text-secondary small">{{ user.membership_expires_at }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">{{ user.telegram_user_id or "Buscar manualmente" }}</td>
+                  <td class="small text-secondary">{{ user.admin_notes or "" }}</td>
+                  <td class="text-end">
+                    <form method="post" action="{{ url_for('admin_user_mark_telegram_removed', user_id=user.id) }}">
+                      <button class="btn btn-outline-warning btn-sm" type="submit">Marcado expulsado</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="alert alert-success mb-0">No hay bajas pendientes de Telegram.</div>
+      {% endif %}
+    </div>
     <div class="table-responsive">
       <table class="table table-dark align-middle mb-0 admin-users-table">
         <thead>

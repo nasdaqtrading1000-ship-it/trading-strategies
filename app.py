@@ -3152,6 +3152,7 @@ def create_app():
             "payment_cancelled",
             "subscription_portal",
             "stripe_webhook",
+            "telegram_webhook",
         }
         if endpoint in allowed_endpoints:
             return False
@@ -4473,8 +4474,20 @@ def create_app():
             telegram_connect_url=telegram_connect_url,
         )
 
-    @app.route("/telegram/webhook", methods=["POST"])
+    @app.route("/telegram/webhook", methods=["GET", "POST"])
     def telegram_webhook():
+        if request.method == "GET":
+            return jsonify(
+                {
+                    "ok": True,
+                    "route": "telegram_webhook",
+                    "accepts": "POST",
+                    "bot_token_configured": bool(telegram_bot_token()),
+                    "bot_username_configured": bool(telegram_bot_username()),
+                    "webhook_secret_configured": bool(os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()),
+                }
+            )
+
         expected_secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
         if expected_secret:
             received_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")

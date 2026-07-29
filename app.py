@@ -87,7 +87,11 @@ def telegram_bot_token():
     return os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 
 
-def telegram_send_message(chat_id, message):
+def telegram_bot_username():
+    return os.environ.get("TELEGRAM_BOT_USERNAME", "").strip().lstrip("@")
+
+
+def telegram_send_message(chat_id, message, reply_markup=None):
     token = telegram_bot_token()
     chat_id = str(chat_id or "").strip()
     if not token:
@@ -95,13 +99,14 @@ def telegram_send_message(chat_id, message):
     if not chat_id:
         return False, "missing_chat_id"
 
-    payload = urllib.parse.urlencode(
-        {
-            "chat_id": chat_id,
-            "text": message,
-            "disable_web_page_preview": "true",
-        }
-    ).encode("utf-8")
+    payload_data = {
+        "chat_id": chat_id,
+        "text": message,
+        "disable_web_page_preview": "true",
+    }
+    if reply_markup:
+        payload_data["reply_markup"] = json.dumps(reply_markup)
+    payload = urllib.parse.urlencode(payload_data).encode("utf-8")
     request_obj = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/sendMessage",
         data=payload,
@@ -239,6 +244,8 @@ def telegram_admin_error_message(error):
 
 SCHEDULER_THREAD_STARTED = False
 SCHEDULER_LOCK = threading.Lock()
+TELEGRAM_INVALID_START_REPLIES = {}
+TELEGRAM_INVALID_START_REPLY_SECONDS = 300
 SCHEDULER_TASKS = {
     "assets_csv": "Actualizar CSV de activos",
     "market_batch": "Actualizar mercado por tanda",
@@ -3293,6 +3300,63 @@ def create_app():
                 errors.append(telegram_admin_error_message(error))
         return removed, errors
 
+    def ensure_telegram_connect_token(user):
+        if not user:
+            return ""
+        existing_token = str(user.get("telegram_connect_token") or "").strip()
+        if existing_token:
+            return existing_token
+        token = uuid4().hex
+        now = datetime.now(UTC).replace(tzinfo=None)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET telegram_connect_token = :token,
+                    telegram_connect_token_created_at = :now
+                WHERE id = :id
+                """
+            ),
+            {"token": token, "now": now, "id": user["id"]},
+        )
+        g.db.commit()
+        return token
+
+    def telegram_connect_url_for_user(user):
+        username = telegram_bot_username()
+        if not username:
+            return ""
+        token = ensure_telegram_connect_token(user)
+        if not token:
+            return ""
+        return f"https://t.me/{username}?start=cm_{token}"
+
+    def parse_telegram_start_token(text_value):
+        value = str(text_value or "").strip()
+        match = re.match(r"^/start(?:@\w+)?\s+cm_([A-Za-z0-9_-]{16,80})$", value)
+        if match:
+            return match.group(1)
+        match = re.match(r"^cm_([A-Za-z0-9_-]{16,80})$", value)
+        if match:
+            return match.group(1)
+        return ""
+
+    def should_reply_to_invalid_telegram_start(telegram_user_id):
+        now = time.time()
+        key = str(telegram_user_id or "").strip()
+        if not key:
+            return False
+        last_reply_at = TELEGRAM_INVALID_START_REPLIES.get(key, 0)
+        if now - last_reply_at < TELEGRAM_INVALID_START_REPLY_SECONDS:
+            return False
+        TELEGRAM_INVALID_START_REPLIES[key] = now
+        if len(TELEGRAM_INVALID_START_REPLIES) > 1000:
+            cutoff = now - TELEGRAM_INVALID_START_REPLY_SECONDS
+            for old_key, old_time in list(TELEGRAM_INVALID_START_REPLIES.items()):
+                if old_time < cutoff:
+                    TELEGRAM_INVALID_START_REPLIES.pop(old_key, None)
+        return True
+
     def record_user_telegram_channel_access(user, strategy):
         if not user or session.get("admin_logged_in"):
             return
@@ -4400,7 +4464,82 @@ def create_app():
         if not user:
             flash("Entra con tu cuenta para ver esta zona.", "warning")
             return redirect(url_for("user_login"))
-        return render_template("account.html", user=user, stripe_customer_id=user_stripe_customer_id(user))
+        telegram_connect_url = telegram_connect_url_for_user(user)
+        return render_template(
+            "account.html",
+            user=current_user() or user,
+            stripe_customer_id=user_stripe_customer_id(user),
+            telegram_bot_username=telegram_bot_username(),
+            telegram_connect_url=telegram_connect_url,
+        )
+
+    @app.route("/telegram/webhook", methods=["POST"])
+    def telegram_webhook():
+        expected_secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
+        if expected_secret:
+            received_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+            if not compare_digest(received_secret, expected_secret):
+                return jsonify({"ok": False}), 403
+
+        payload = request.get_json(silent=True) or {}
+        message = payload.get("message") or payload.get("edited_message") or {}
+        chat = message.get("chat") or {}
+        if chat.get("type") and chat.get("type") != "private":
+            return jsonify({"ok": True, "ignored": "non_private_chat"})
+
+        sender = message.get("from") or chat or {}
+        telegram_user_id = str(sender.get("id") or chat.get("id") or "").strip()
+        if not telegram_user_id:
+            return jsonify({"ok": True, "ignored": "missing_user_id"})
+
+        text_value = message.get("text", "")
+        token = parse_telegram_start_token(text_value)
+        if not token:
+            return jsonify({"ok": True, "ignored": "not_connect_start"})
+
+        username = str(sender.get("username") or "").strip()
+        now = datetime.now(UTC).replace(tzinfo=None)
+        result = g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET telegram_user_id = :telegram_user_id,
+                    telegram_username = :telegram_username,
+                    telegram_connected_at = :now,
+                    telegram_connect_token = '',
+                    telegram_connect_token_created_at = NULL,
+                    telegram_removed_at = NULL
+                WHERE telegram_connect_token = :token
+                """
+            ),
+            {
+                "telegram_user_id": telegram_user_id,
+                "telegram_username": username,
+                "now": now,
+                "token": token,
+            },
+        )
+        g.db.commit()
+
+        if result.rowcount:
+            account_url = url_for("account", _external=True)
+            telegram_send_message(
+                telegram_user_id,
+                "Telegram conectado con Code Markets. Ya puedes volver a la web y entrar a los canales.",
+                reply_markup={
+                    "inline_keyboard": [
+                        [{"text": "Volver a Code Markets", "url": account_url}]
+                    ]
+                },
+            )
+            return jsonify({"ok": True, "connected": True})
+
+        if should_reply_to_invalid_telegram_start(telegram_user_id):
+            telegram_send_message(
+                telegram_user_id,
+                "No he podido conectar Telegram. Vuelve a Code Markets y genera un enlace nuevo desde tu cuenta.",
+            )
+        return jsonify({"ok": True, "connected": False})
 
     @app.route("/mi-cuenta/telegram", methods=["POST"])
     def account_telegram_update():
@@ -4412,9 +4551,25 @@ def create_app():
         if telegram_user_id and not telegram_user_id.lstrip("-").isdigit():
             flash("El Telegram user ID debe ser numerico.", "danger")
             return redirect(url_for("account"))
+        now = datetime.now(UTC).replace(tzinfo=None) if telegram_user_id else None
         g.db.execute(
-            text("UPDATE users SET telegram_user_id = :telegram_user_id WHERE id = :id"),
-            {"telegram_user_id": telegram_user_id, "id": user["id"]},
+            text(
+                """
+                UPDATE users
+                SET telegram_user_id = :telegram_user_id,
+                    telegram_connected_at = :telegram_connected_at,
+                    telegram_removed_at = CASE
+                        WHEN :telegram_user_id <> '' THEN NULL
+                        ELSE telegram_removed_at
+                    END
+                WHERE id = :id
+                """
+            ),
+            {
+                "telegram_user_id": telegram_user_id,
+                "telegram_connected_at": now,
+                "id": user["id"],
+            },
         )
         g.db.commit()
         flash("Telegram guardado en tu cuenta.", "success")
@@ -4832,6 +4987,12 @@ self.addEventListener("fetch", () => {});
         if not int(strategy.get("has_telegram") or 0):
             flash("Esta estrategia no tiene canal de Telegram activo.", "warning")
             return redirect(url_for("strategy_signals", strategy_id=strategy_id))
+        if not str(strategy.get("telegram_chat_id") or "").strip():
+            flash("Falta configurar el Chat ID de Telegram en esta estrategia.", "warning")
+            return redirect(url_for("strategy_signals", strategy_id=strategy_id))
+        if not session.get("admin_logged_in") and not str((user or {}).get("telegram_user_id") or "").strip():
+            flash("Conecta Telegram en tu cuenta antes de entrar al canal.", "warning")
+            return redirect(url_for("account"))
 
         invite_link, error = telegram_create_single_use_invite(
             strategy.get("telegram_chat_id", ""),
@@ -8522,6 +8683,10 @@ def init_db():
         add_user_column(connection, "stripe_customer_id", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "stripe_subscription_id", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "telegram_user_id", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "telegram_username", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "telegram_connect_token", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "telegram_connect_token_created_at", "TIMESTAMP")
+        add_user_column(connection, "telegram_connected_at", "TIMESTAMP")
         add_user_column(connection, "telegram_removed_at", "TIMESTAMP")
         ensure_payments_table(connection)
         ensure_universe_table(connection)
@@ -9076,6 +9241,10 @@ def ensure_users_table(connection):
                 stripe_customer_id TEXT NOT NULL DEFAULT '',
                 stripe_subscription_id TEXT NOT NULL DEFAULT '',
                 telegram_user_id TEXT NOT NULL DEFAULT '',
+                telegram_username TEXT NOT NULL DEFAULT '',
+                telegram_connect_token TEXT NOT NULL DEFAULT '',
+                telegram_connect_token_created_at TIMESTAMP,
+                telegram_connected_at TIMESTAMP,
                 telegram_removed_at TIMESTAMP,
                 age_confirmed INTEGER NOT NULL DEFAULT 0,
                 risk_accepted INTEGER NOT NULL DEFAULT 0,

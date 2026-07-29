@@ -99,9 +99,43 @@
 
     <div class="account-section mt-4">
       <h2 class="h5 mb-3">Telegram</h2>
+      <div class="account-status-list mb-3">
+        <div>
+          <span>Conexion Telegram</span>
+          {% if user.telegram_user_id %}
+            <strong class="text-success">Conectado</strong>
+          {% else %}
+            <strong class="text-warning">Pendiente</strong>
+          {% endif %}
+        </div>
+        {% if user.telegram_user_id %}
+          <div>
+            <span>Usuario Telegram</span>
+            <strong>
+              {% if user.telegram_username %}
+                @{{ user.telegram_username }}
+              {% else %}
+                {{ user.telegram_user_id }}
+              {% endif %}
+            </strong>
+          </div>
+        {% endif %}
+      </div>
+      {% if telegram_connect_url %}
+        <a class="btn btn-info fw-semibold mb-3" href="{{ telegram_connect_url }}" target="_blank" rel="noopener">
+          {% if user.telegram_user_id %}Reconectar Telegram{% else %}Conectar Telegram{% endif %}
+        </a>
+      {% else %}
+        <div class="alert alert-warning border-0">
+          Falta TELEGRAM_BOT_USERNAME en el entorno. Cuando lo pongamos, aqui aparecera el boton de conexion con el bot.
+        </div>
+      {% endif %}
+      <p class="text-secondary small mb-3">
+        Webhook para el bot: <code>{{ request.url_root.rstrip("/") }}/telegram/webhook</code>
+      </p>
       <form method="post" action="{{ url_for('account_telegram_update') }}" class="row g-2 align-items-end">
         <div class="col-md-8">
-          <label class="form-label small" for="telegram_user_id">Telegram user ID</label>
+          <label class="form-label small" for="telegram_user_id">Telegram user ID manual</label>
           <input class="form-control" id="telegram_user_id" name="telegram_user_id" value="{{ user.telegram_user_id or '' }}" placeholder="Ej. 123456789">
         </div>
         <div class="col-md-4">

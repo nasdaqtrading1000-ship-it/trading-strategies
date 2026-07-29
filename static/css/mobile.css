@@ -309,6 +309,17 @@ details summary::-webkit-details-marker {
   text-align: center;
 }
 
+.mobile-action-disabled {
+  border: 1px solid var(--mobile-line-soft);
+  color: var(--mobile-muted);
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.62;
+  padding: 0.34rem 0.52rem;
+  text-align: center;
+}
+
 .mobile-signals {
   margin-top: 0.7rem;
 }

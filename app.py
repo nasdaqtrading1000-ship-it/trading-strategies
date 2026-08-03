@@ -23,6 +23,7 @@ from flask import (
     flash,
     g,
     jsonify,
+    make_response,
     redirect,
     render_template,
     Response,
@@ -3143,6 +3144,8 @@ def create_app():
             return False
         if session.get("site_unlocked"):
             return False
+        if session.get("user_id") or session.get("admin_logged_in"):
+            return False
         endpoint = request.endpoint or ""
         path = request.path or ""
         allowed_endpoints = {
@@ -5218,7 +5221,7 @@ self.addEventListener("fetch", () => {});
         latest_summary = equity_curve_account_summary_for_strategy(strategy, points)
         latest = points[-1] if points else None
         first = points[0] if points else None
-        return render_template(
+        response = make_response(render_template(
             "strategy_equity_curve.html",
             strategy=strategy,
             points=points,
@@ -5228,7 +5231,11 @@ self.addEventListener("fetch", () => {});
             latest=latest,
             first=first,
             points_count=len(points),
-        )
+        ))
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
     def parse_int_arg(value, default, minimum, maximum):
         try:
@@ -6182,10 +6189,12 @@ self.addEventListener("fetch", () => {});
             errors.append("El nombre es obligatorio.")
         if risk_level not in {"Bajo", "Medio", "Alto"}:
             errors.append("El nivel de riesgo no es valido.")
-        if has_telegram and not telegram_url.startswith(
+        if has_telegram and telegram_url and not telegram_url.startswith(
             ("https://t.me/", "http://t.me/", "https://telegram.me/")
         ):
-            errors.append("Usa un enlace valido de Telegram o desmarca Tiene canal de Telegram.")
+            errors.append("Usa un enlace valido de Telegram, deja el enlace vacio o desmarca Tiene Telegram.")
+        if has_telegram and not telegram_url and not telegram_chat_id:
+            errors.append("Indica el Chat ID de Telegram o un enlace de Telegram.")
         if signals_txt_name and not valid_txt_name(signals_txt_name):
             errors.append("El nombre del TXT debe ser un archivo .txt sin carpetas.")
         if python_file and not valid_python_filename(python_file):

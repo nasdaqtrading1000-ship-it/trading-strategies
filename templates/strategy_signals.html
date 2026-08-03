@@ -12,6 +12,8 @@
         <p class="text-secondary mb-0">{{ signals|length }} avisos activos &middot; Riesgo {{ strategy.risk_level }}</p>
       </div>
       <div class="d-flex gap-2 align-items-start">
+        <a class="btn btn-outline-info" href="{{ url_for('strategy_equity_curve', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Grafica</a>
+        <a class="btn btn-outline-info" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Historial</a>
         <a class="btn btn-outline-light" href="{{ url_for('index') }}#estrategias">Volver</a>
         {% if strategy.has_telegram and strategy.telegram_chat_id %}
           <a class="btn btn-info fw-semibold" href="{{ url_for('strategy_telegram_invite', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Acceder al canal</a>
@@ -28,6 +30,7 @@
         {% if signal_groups %}
           <div class="signals-list-header" aria-hidden="true">
             <span>Activo</span>
+            <span>Dir.</span>
             <span>Entrada</span>
             <span>Salida</span>
             <span>SL</span>
@@ -50,6 +53,7 @@
                         {% endif %}
                         <span class="signal-row-date">{{ group.notice_short_datetime }}</span>
                       </span>
+                      <span class="signal-table-cell signal-side-cell">{{ group.direction or signal.direction or signal.side or signal.common.direccion or "-" }}</span>
                       {% if grouped_mode and group.operation_count %}
                         <span class="signal-table-cell">{{ group.average_entry|one_decimal }}</span>
                         <span class="signal-table-cell">{{ group.target_price|one_decimal }}</span>

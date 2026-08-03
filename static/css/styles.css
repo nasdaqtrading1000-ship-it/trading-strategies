@@ -6322,6 +6322,66 @@ html[data-bs-theme="dark"] .model-summary-note {
   white-space: nowrap !important;
 }
 
+html[data-bs-theme="dark"] .strategy-access-guide {
+  align-items: stretch !important;
+  background: #000000 !important;
+  border: 1px solid #ff0000 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 0, 0, 0.18), 0 0 10px rgba(255, 0, 0, 0.16) !important;
+  display: grid !important;
+  gap: 0.62rem !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  padding: 0.55rem 0.66rem !important;
+}
+
+html[data-bs-theme="dark"] .strategy-access-guide::before {
+  color: #ff0000 !important;
+  content: "INFO :: " !important;
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+}
+
+html[data-bs-theme="dark"] .strategy-access-copy h2 {
+  color: #f8fafc !important;
+  font-size: 0.92rem !important;
+  line-height: 1.15 !important;
+}
+
+html[data-bs-theme="dark"] .strategy-access-copy p:last-child {
+  color: #d8e7ff !important;
+  line-height: 1.25 !important;
+  max-width: 980px !important;
+}
+
+html[data-bs-theme="dark"] .strategy-access-steps {
+  display: grid !important;
+  gap: 0.42rem !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+html[data-bs-theme="dark"] .strategy-access-steps span {
+  background: #050505 !important;
+  border: 1px solid rgba(255, 0, 0, 0.5) !important;
+  color: #d8e7ff !important;
+  display: grid !important;
+  gap: 0.2rem !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  min-height: 46px !important;
+  padding: 0.42rem 0.52rem !important;
+}
+
+html[data-bs-theme="dark"] .strategy-access-steps strong {
+  color: #ff0000 !important;
+  font-size: 0.76rem !important;
+  line-height: 1 !important;
+}
+
+html[data-bs-theme="dark"] .strategy-access-steps small {
+  color: #d8e7ff !important;
+  font-size: 0.72rem !important;
+  line-height: 1.1 !important;
+}
+
 @media (max-width: 767.98px) {
   html[data-bs-theme="dark"] .model-summary-strip {
     align-items: flex-start !important;
@@ -6332,6 +6392,10 @@ html[data-bs-theme="dark"] .model-summary-note {
   html[data-bs-theme="dark"] .model-summary-note {
     margin-left: 0 !important;
     white-space: normal !important;
+  }
+
+  html[data-bs-theme="dark"] .strategy-access-steps {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
 
@@ -6382,6 +6446,107 @@ html[data-bs-theme="dark"] .public-shell-warning a {
   font-weight: 500 !important;
   text-decoration: underline !important;
   text-underline-offset: 2px !important;
+}
+
+.curve-link-col {
+  text-align: center !important;
+  width: 38px !important;
+}
+
+.curve-mini-btn {
+  align-items: end;
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  display: inline-grid;
+  gap: 2px;
+  grid-template-columns: repeat(3, 3px);
+  height: 22px;
+  justify-content: center;
+  padding: 4px 5px;
+  width: 24px;
+}
+
+.curve-mini-btn span {
+  background: #16ff7a;
+  display: block;
+  width: 3px;
+}
+
+.curve-mini-btn span:nth-child(1) {
+  height: 6px;
+}
+
+.curve-mini-btn span:nth-child(2) {
+  height: 10px;
+}
+
+.curve-mini-btn span:nth-child(3) {
+  height: 14px;
+}
+
+.curve-mini-btn:hover {
+  border-color: #16ff7a;
+  box-shadow: 0 0 8px rgba(22, 255, 122, 0.22);
+}
+
+.curve-mini-btn.disabled {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.equity-chart-shell {
+  background: #012456;
+  border: 1px solid rgba(125, 211, 252, 0.36);
+  padding: 0.75rem;
+}
+
+.equity-chart-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.equity-period-result {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  font-family: Consolas, "Courier New", monospace;
+  gap: 0.15rem 0.55rem;
+  justify-content: flex-end;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.equity-period-result strong {
+  font-size: 0.95rem;
+}
+
+.equity-period-result span {
+  font-size: 0.86rem;
+}
+
+.equity-period-result small {
+  color: #9fb7d4;
+  flex-basis: 100%;
+  font-size: 0.72rem;
+}
+
+.equity-chart-shell canvas {
+  cursor: crosshair;
+  display: block;
+  width: 100%;
+}
+
+@media (max-width: 575.98px) {
+  .equity-chart-head {
+    flex-direction: column;
+  }
+
+  .equity-period-result {
+    justify-content: flex-start;
+    text-align: left;
+  }
 }
 
 @media (max-width: 991.98px) {
@@ -6844,7 +7009,7 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 .strategy-signals-page .signals-list-header,
 .strategy-signals-page .signal-row-main {
   display: grid !important;
-  grid-template-columns: minmax(74px, 0.82fr) minmax(62px, 0.68fr) minmax(62px, 0.68fr) minmax(58px, 0.62fr) minmax(58px, 0.62fr) minmax(66px, 0.58fr) !important;
+  grid-template-columns: minmax(74px, 0.82fr) minmax(38px, 0.36fr) minmax(62px, 0.68fr) minmax(62px, 0.68fr) minmax(58px, 0.62fr) minmax(58px, 0.62fr) minmax(66px, 0.58fr) !important;
   gap: 0.42rem !important;
   align-items: center !important;
 }
@@ -7058,7 +7223,7 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
 
 .strategy-signals-page .signals-list-header,
 .strategy-signals-page .signal-row-main {
-  grid-template-columns: minmax(136px, 146px) repeat(3, minmax(44px, 50px)) minmax(50px, 56px) minmax(58px, 64px) !important;
+  grid-template-columns: minmax(118px, 128px) minmax(38px, 42px) repeat(3, minmax(44px, 50px)) minmax(50px, 56px) minmax(58px, 64px) !important;
   column-gap: 0.34rem !important;
   justify-content: start !important;
 }
@@ -7104,6 +7269,12 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
   font-weight: 650 !important;
 }
 
+.strategy-signals-page .signal-side-cell {
+  color: #9fd6ff !important;
+  font-size: 0.74rem !important;
+  text-transform: uppercase !important;
+}
+
 .strategy-signals-page .signal-market-links a,
 .strategy-signals-page .btn {
   font-size: 0.62rem !important;
@@ -7118,4 +7289,30 @@ html[data-bs-theme="dark"] .report-ranking-table .status-init-line {
     position: static !important;
     max-height: none !important;
   }
+}
+html[data-bs-theme="dark"] .admin-table .admin-strategy-row > td {
+  border-top: 3px solid #ff3b30 !important;
+  border-bottom: 3px solid #ff3b30 !important;
+  background: rgba(255, 59, 48, 0.07) !important;
+}
+
+html[data-bs-theme="dark"] .admin-table .admin-strategy-row > td:first-child {
+  border-left: 3px solid #ff3b30 !important;
+}
+
+html[data-bs-theme="dark"] .admin-table .admin-strategy-row > td:last-child {
+  border-right: 3px solid #ff3b30 !important;
+}
+
+.admin-strategy-name-highlight,
+html[data-bs-theme="dark"] .admin-strategy-name-highlight {
+  color: #00ff99 !important;
+  border-color: #00ff99 !important;
+  background: rgba(0, 255, 153, 0.08) !important;
+  font-weight: 800 !important;
+}
+
+.admin-strategy-name-label {
+  color: #ff6b61 !important;
+  font-weight: 800;
 }

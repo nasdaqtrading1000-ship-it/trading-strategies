@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Curva de capital {{ strategy.name }}{% endblock %}
+
+{% block content %}
+<section class="container py-5">
+  <div class="strategy-detail-panel equity-curve-page p-4 p-md-5">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+      <div>
+        <p class="eyebrow mb-2">Curva de capital</p>
+        <h1 class="h2 mb-2">{{ strategy.name }}</h1>
+        <p class="text-secondary mb-0">
+          Evolucion diaria del capital calculada desde operaciones simuladas/backset.
+        </p>
+      </div>
+      <div class="d-flex gap-2 align-items-start">
+        <a class="btn btn-outline-info" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Avisos</a>
+        <a class="btn btn-outline-info" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Historial</a>
+        <a class="btn btn-outline-light" href="{{ url_for('index') }}#strategy-{{ strategy.id }}">Volver</a>
+      </div>
+    </div>
+
+    {% if points %}
+      <div class="history-totalizer equity-curve-summary mb-4">
+        <div>
+          <span>Capital actual</span>
+          <strong>{{ latest_summary.capital_display }}</strong>
+        </div>
+        <div>
+          <span>Capital aportado</span>
+          <strong>{{ latest_summary.capital_base_display }}</strong>
+        </div>
+        <div>
+          <span>Resultado</span>
+          <strong class="{{ latest_summary.profit_class }}">{{ latest_summary.profit_display }}</strong>
+        </div>
+        <div>
+          <span>Rentabilidad</span>
+          <strong class="{{ latest_summary.return_pct_class }}">{{ latest_summary.return_pct_display }}</strong>
+        </div>
+        <div>
+          <span>Puntos</span>
+          <strong>{{ points_count }}</strong>
+          <small class="d-block text-secondary">{{ curve_summaries['all'].date_range }}</small>
+        </div>
+      </div>
+
+      <div class="equity-chart-shell mb-4">
+        <div class="equity-chart-head">
+          <h2 class="h6 mb-0">Historico completo</h2>
+          <div class="equity-period-result">
+            <strong class="{{ curve_summaries['all'].profit_class }}">{{ curve_summaries['all'].profit_display }}</strong>
+            <span class="{{ curve_summaries['all'].return_pct_class }}">{{ curve_summaries['all'].return_pct_display }}</span>
+            <small>{{ curve_summaries['all'].date_range }}</small>
+          </div>
+        </div>
+        <canvas class="equity-curve-canvas" data-range="all" height="220" aria-label="Curva historica completa {{ strategy.name }}"></canvas>
+      </div>
+
+      <div class="equity-chart-shell mb-4">
+        <div class="equity-chart-head">
+          <h2 class="h6 mb-0">1 year</h2>
+          <div class="equity-period-result">
+            <strong class="{{ curve_summaries['year'].profit_class }}">{{ curve_summaries['year'].profit_display }}</strong>
+            <span class="{{ curve_summaries['year'].return_pct_class }}">{{ curve_summaries['year'].return_pct_display }}</span>
+            <small>{{ curve_summaries['year'].date_range or "Ultimos 12 meses" }}</small>
+          </div>
+        </div>
+        <canvas class="equity-curve-canvas" data-range="year" height="180" aria-label="Curva ultimo ano {{ strategy.name }}"></canvas>
+      </div>
+
+      <div class="equity-chart-shell">
+        <div class="equity-chart-head">
+          <h2 class="h6 mb-0">1 mes</h2>
+          <div class="equity-period-result">
+            <strong class="{{ curve_summaries['month'].profit_class }}">{{ curve_summaries['month'].profit_display }}</strong>
+            <span class="{{ curve_summaries['month'].return_pct_class }}">{{ curve_summaries['month'].return_pct_display }}</span>
+            <small>{{ curve_summaries['month'].date_range or "Ultimos 30 dias" }}</small>
+          </div>
+        </div>
+        <canvas class="equity-curve-canvas" data-range="month" height="180" aria-label="Curva ultimo mes {{ strategy.name }}"></canvas>
+      </div>
+    {% else %}
+      <div class="empty-state text-center py-5">
+        <h2 class="h4">Curva no calculada todavia</h2>
+        <p class="text-secondary mb-0">Lanza la tarea independiente Construir curva de capital desde el panel local.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{% if points %}
+  <script type="application/json" id="equity-curve-data">{{ curve_series|tojson }}</script>
+  <script>
+  (() => {
+    const node = document.getElementById("equity-curve-data");
+    const canvases = Array.from(document.querySelectorAll(".equity-curve-canvas"));
+    if (!node || !canvases.length) return;
+    const series = JSON.parse(node.textContent || "{}");
+    const dpr = Math.max(2, window.devicePixelRatio || 1);
+    const money = (value) => {
+      const amount = Number(value || 0);
+      if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+      if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+      return amount.toFixed(0);
+    };
+    const dateValue = (item) => {
+      const parsed = Date.parse(item.date || "");
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const dateLabel = (dateText, range) => {
+      const parsed = new Date(`${dateText}T00:00:00`);
+      if (Number.isNaN(parsed.getTime())) return dateText || "";
+      const day = String(parsed.getDate()).padStart(2, "0");
+      const month = String(parsed.getMonth() + 1).padStart(2, "0");
+      const year = parsed.getFullYear();
+      if (range === "all") return String(year);
+      if (range === "year") return `${month}/${String(year).slice(-2)}`;
+      return day;
+    };
+    const monthTicks = (firstTime, lastTime) => {
+      const ticks = [];
+      const cursor = new Date(firstTime);
+      cursor.setDate(1);
+      cursor.setMonth(cursor.getMonth() + 1);
+      while (cursor.getTime() < lastTime) {
+        const tickTime = cursor.getTime();
+        const ratio = (tickTime - firstTime) / (lastTime - firstTime);
+        if (ratio > 0.075 && ratio < 0.925) {
+          const month = String(cursor.getMonth() + 1).padStart(2, "0");
+          const year = String(cursor.getFullYear()).slice(-2);
+          ticks.push({ label: `${month}/${year}`, ratio });
+        }
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+      return ticks;
+    };
+    const fullDateLabel = (dateText) => {
+      const parsed = new Date(`${dateText}T00:00:00`);
+      if (Number.isNaN(parsed.getTime())) return dateText || "";
+      return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+    };
+    const axisTicks = (chartPoints, range) => {
+      const firstTime = dateValue(chartPoints[0]);
+      const lastTime = dateValue(chartPoints[chartPoints.length - 1]);
+      if (!firstTime || !lastTime || lastTime <= firstTime) return [];
+      const ticks = [];
+      if (range === "all") {
+        const firstYear = new Date(firstTime).getFullYear();
+        const lastYear = new Date(lastTime).getFullYear();
+        for (let year = firstYear; year <= lastYear; year += 1) {
+          const tickTime = Date.parse(`${year}-01-01T00:00:00`);
+          if (tickTime < firstTime || tickTime > lastTime) continue;
+          const ratio = (tickTime - firstTime) / (lastTime - firstTime);
+          if (ratio <= 0.055 || ratio >= 0.945) continue;
+          ticks.push({ label: String(year), ratio });
+        }
+        return ticks;
+      }
+      if (range === "year") return monthTicks(firstTime, lastTime);
+      const step = range === "year" ? 30 : 1;
+      let previousLabel = "";
+      chartPoints.forEach((point, index) => {
+        if (index !== 0 && index !== chartPoints.length - 1 && index % step !== 0) return;
+        const pointTime = dateValue(point);
+        if (!pointTime) return;
+        const ratio = (pointTime - firstTime) / (lastTime - firstTime);
+        if (range === "month") {
+          if (index === 0 || index === chartPoints.length - 1) return;
+        } else if (ratio <= 0.075 || ratio >= 0.925) {
+          return;
+        }
+        const label = dateLabel(point.date, range);
+        if (label === previousLabel && index !== chartPoints.length - 1) return;
+        previousLabel = label;
+        ticks.push({
+          label,
+          ratio,
+        });
+      });
+      return ticks;
+    };
+    const pointGeometry = (item, index, chartPoints, bounds) => {
+      const itemTime = dateValue(item);
+      const ratio = itemTime ? ((itemTime - bounds.firstTime) / bounds.timeSpan) : (index / Math.max(1, chartPoints.length - 1));
+      const value = Number(item.capital_actual || 0);
+      return {
+        x: bounds.padL + ((bounds.width - bounds.padL - bounds.padR) * ratio),
+        y: bounds.padT + ((bounds.height - bounds.padT - bounds.padB) * (bounds.max - value) / bounds.span),
+        value,
+      };
+    };
+    const crisp = (value) => Math.round(value) + 0.5;
+    const drawHover = (ctx, canvas, chartPoints, bounds, hoverIndex) => {
+      if (hoverIndex === null || hoverIndex < 0 || hoverIndex >= chartPoints.length) return;
+      const point = chartPoints[hoverIndex];
+      const geometry = pointGeometry(point, hoverIndex, chartPoints, bounds);
+      ctx.save();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(crisp(geometry.x), bounds.padT);
+      ctx.lineTo(crisp(geometry.x), bounds.height - bounds.padB);
+      ctx.stroke();
+      ctx.fillStyle = "#16ff7a";
+      ctx.beginPath();
+      ctx.arc(geometry.x, geometry.y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      const returnPct = Number(point.return_pct || 0);
+      const pctLabel = `${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(2)}%`;
+      const label = `${fullDateLabel(point.date)}  ${money(point.capital_actual)} USD  ${pctLabel}`;
+      ctx.font = "13px Consolas, monospace";
+      const labelWidth = ctx.measureText(label).width + 16;
+      const labelHeight = 24;
+      const boxX = Math.min(Math.max(geometry.x + 8, bounds.padL), bounds.width - bounds.padR - labelWidth);
+      const boxY = Math.max(bounds.padT + 4, geometry.y - 32);
+      ctx.fillStyle = "rgba(1, 36, 86, 0.96)";
+      ctx.strokeStyle = "rgba(22, 255, 122, 0.85)";
+      ctx.lineWidth = 1;
+      ctx.fillRect(boxX, boxY, labelWidth, labelHeight);
+      ctx.strokeRect(boxX, boxY, labelWidth, labelHeight);
+      ctx.fillStyle = "#d8e7ff";
+      ctx.fillText(label, Math.round(boxX + 8), Math.round(boxY + 16));
+      ctx.restore();
+    };
+    const drawChart = (canvas, chartPoints, hoverIndex = null) => {
+      const ctx = canvas.getContext("2d");
+      const width = Number(canvas.dataset.cssWidth || canvas.getBoundingClientRect().width || canvas.width);
+      const height = Number(canvas.dataset.cssHeight || canvas.getAttribute("height") || 300);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      const padL = 68;
+      const padR = 18;
+      const padT = 18;
+      const padB = 54;
+      const values = chartPoints.map((item) => Number(item.capital_actual || 0));
+      const rawMin = Math.min(...values);
+      const rawMax = Math.max(...values);
+      const rawSpan = Math.max(1, rawMax - rawMin);
+      const verticalPad = Math.max(rawSpan * 0.05, 1);
+      const min = rawMin - verticalPad;
+      const max = rawMax + verticalPad;
+      const span = Math.max(1, max - min);
+      const firstTime = dateValue(chartPoints[0]);
+      const lastTime = dateValue(chartPoints[chartPoints.length - 1]);
+      const timeSpan = Math.max(1, lastTime - firstTime);
+      const bounds = { width, height, padL, padR, padT, padB, min, max, span, firstTime, lastTime, timeSpan };
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#012456";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(125, 211, 252, 0.18)";
+      ctx.lineWidth = 1;
+      ctx.font = "13px Consolas, monospace";
+      ctx.fillStyle = "#d8e7ff";
+      for (let i = 0; i <= 4; i += 1) {
+        const y = padT + ((height - padT - padB) * i / 4);
+        const value = max - (span * i / 4);
+        ctx.beginPath();
+        ctx.moveTo(padL, crisp(y));
+        ctx.lineTo(width - padR, crisp(y));
+        ctx.stroke();
+        ctx.fillText(`${money(value)} USD`, 8, Math.round(y + 4));
+      }
+      const ticks = axisTicks(chartPoints, canvas.dataset.range || "all");
+      ctx.strokeStyle = "rgba(125, 211, 252, 0.28)";
+      ctx.fillStyle = "#d8e7ff";
+      ctx.textAlign = "center";
+      ticks.forEach((tick) => {
+        const x = padL + ((width - padL - padR) * tick.ratio);
+        ctx.beginPath();
+        ctx.moveTo(crisp(x), padT);
+        ctx.lineTo(crisp(x), height - padB);
+        ctx.stroke();
+        ctx.fillText(tick.label, Math.round(x), height - 24);
+      });
+      ctx.textAlign = "left";
+      ctx.strokeStyle = "#16ff7a";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      chartPoints.forEach((item, index) => {
+        const { x, y } = pointGeometry(item, index, chartPoints, bounds);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      const first = chartPoints[0];
+      const last = chartPoints[chartPoints.length - 1];
+      ctx.fillStyle = "#d8e7ff";
+      ctx.fillText(fullDateLabel(first.date), Math.round(padL + 8), height - 8);
+      const label = fullDateLabel(last.date);
+      const labelWidth = ctx.measureText(label).width;
+      ctx.fillText(label, Math.round(width - padR - labelWidth - 8), height - 8);
+      ctx.textAlign = "left";
+      drawHover(ctx, canvas, chartPoints, bounds, hoverIndex);
+    };
+    const nearestIndex = (canvas, chartPoints, clientX) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const padL = 68;
+      const padR = 18;
+      const cssWidth = Number(canvas.dataset.cssWidth || rect.width || canvas.width);
+      const plotWidth = Math.max(1, cssWidth - padL - padR);
+      const ratio = Math.min(1, Math.max(0, (x - padL) / plotWidth));
+      const firstTime = dateValue(chartPoints[0]);
+      const lastTime = dateValue(chartPoints[chartPoints.length - 1]);
+      const target = firstTime + ((lastTime - firstTime) * ratio);
+      let bestIndex = 0;
+      let bestDistance = Infinity;
+      chartPoints.forEach((point, index) => {
+        const distance = Math.abs(dateValue(point) - target);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = index;
+        }
+      });
+      return bestIndex;
+    };
+    const resize = () => {
+      canvases.forEach((canvas) => {
+        const chartPoints = series[canvas.dataset.range || "all"] || [];
+        if (!chartPoints.length) return;
+        const rect = canvas.getBoundingClientRect();
+        const cssHeight = Number(canvas.getAttribute("height") || 300);
+        const cssWidth = Math.max(320, rect.width);
+        canvas.dataset.cssWidth = String(cssWidth);
+        canvas.dataset.cssHeight = String(cssHeight);
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+        canvas.width = Math.ceil(cssWidth * dpr);
+        canvas.height = Math.ceil(cssHeight * dpr);
+        drawChart(canvas, chartPoints);
+      });
+    };
+    canvases.forEach((canvas) => {
+      canvas.addEventListener("mousemove", (event) => {
+        const chartPoints = series[canvas.dataset.range || "all"] || [];
+        if (!chartPoints.length) return;
+        drawChart(canvas, chartPoints, nearestIndex(canvas, chartPoints, event.clientX));
+      });
+      canvas.addEventListener("mouseleave", () => {
+        const chartPoints = series[canvas.dataset.range || "all"] || [];
+        if (!chartPoints.length) return;
+        drawChart(canvas, chartPoints);
+      });
+    });
+    window.addEventListener("resize", resize);
+    resize();
+  })();
+  </script>
+{% endif %}
+{% endblock %}

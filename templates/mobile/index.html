@@ -88,6 +88,19 @@
   </details>
 </section>
 
+{% if not current_user %}
+  <section class="mobile-panel mobile-strategy-access">
+    <p class="mobile-eyebrow">avisos / historico / tg</p>
+    <h2>Sigue las estrategias en tiempo real</h2>
+    <p>Consulta operaciones abiertas, revisa historicos cerrados y unete al canal de TG de tus estrategias favoritas para recibir avisos al momento.</p>
+    <div>
+      <span><strong>Avisos</strong><small>Operaciones abiertas</small></span>
+      <span><strong>Historico</strong><small>Operaciones cerradas</small></span>
+      <span><strong>TG</strong><small>Canal de Telegram</small></span>
+    </div>
+  </section>
+{% endif %}
+
 <section class="mobile-models" id="modelos">
   <div class="mobile-section-title">
     <p class="mobile-eyebrow">modelos</p>
@@ -109,8 +122,12 @@
           <strong>{{ strategy.signals_count|compact_count }}</strong>
         </div>
         <div>
-          <span>Hoy</span>
-          <strong>{{ strategy.daily_operations_count|compact_count }}</strong>
+          <span>Abiertas hoy</span>
+          <strong>{{ strategy.open_operations_today|compact_count }}</strong>
+        </div>
+        <div>
+          <span>Cerradas hoy</span>
+          <strong>{{ strategy.closed_operations_today|compact_count }}</strong>
         </div>
         <div>
           <span>Hist.</span>
@@ -127,12 +144,15 @@
       </div>
       <div class="mobile-strategy-meta">
         <span>{{ strategy.signal_frequency }}</span>
+        <span>Media dia {{ strategy.average_daily_operations_display }} ops</span>
+        <span>Media semana {{ strategy.avg_ops_daily_7d_display }} ops</span>
         <span>{{ strategy.signals_updated_at or "Sin actualizar" }}</span>
       </div>
       <div class="mobile-actions">
         {% if strategy.is_locked %}
           <a href="{{ url_for('user_register') }}">Desbloquear</a>
         {% else %}
+          <a href="{{ url_for('strategy_equity_curve', strategy_id=strategy.id) }}">Curva</a>
           <a href="{{ url_for('mobile_strategy_signals', strategy_id=strategy.id) }}">Avisos</a>
           <a href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}">Historial</a>
           {% if strategy.has_telegram %}

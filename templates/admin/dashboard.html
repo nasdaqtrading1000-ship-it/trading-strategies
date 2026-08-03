@@ -155,7 +155,7 @@
       <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
         <div>
           <h3 class="h6 mb-1 text-warning">Dados de baja pendientes de anular Telegram</h3>
-          <p class="text-secondary small mb-0">Usuarios sin membresia activa que debes revisar y sacar manualmente de los canales privados donde pidieron acceso.</p>
+          <p class="text-secondary small mb-0">Usuarios sin membresia activa que no se pudieron confirmar como expulsados automaticamente de Telegram.</p>
         </div>
         <span class="badge text-bg-warning align-self-start">{{ telegram_removal_users|length }} pendientes</span>
       </div>
@@ -302,11 +302,11 @@
         </thead>
         <tbody>
           {% for strategy in strategies %}
-            <tr id="strategy-{{ strategy.id }}">
+            <tr id="strategy-{{ strategy.id }}" class="admin-strategy-row">
               <td>
                 <div class="admin-strategy-name-box mb-2">
                   <span class="admin-strategy-name-label">Estrategia</span>
-                  <input class="form-control form-control-sm admin-inline-control admin-strategy-name-input" form="strategy-row-form-{{ strategy.id }}" name="name" value="{{ strategy.name }}" required>
+                  <input class="form-control form-control-sm admin-inline-control admin-strategy-name-input admin-strategy-name-highlight" form="strategy-row-form-{{ strategy.id }}" name="name" value="{{ strategy.name }}" required>
                 </div>
                 <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="telegram_url" value="{{ strategy.telegram_url or '' }}" placeholder="https://t.me/tu_canal">
                 <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="telegram_chat_id" value="{{ strategy.telegram_chat_id or '' }}" placeholder="Chat ID Telegram -100...">
@@ -353,7 +353,7 @@
                   Ultima incorporacion TXT: {{ strategy.signals_updated_at or "Sin actualizar" }}
                 </span>
                 <span class="d-block text-secondary small">
-                  Operaciones hoy: {{ strategy.daily_operations_count|compact_count }}
+                  Abiertas hoy: {{ strategy.daily_operations_count|compact_count }}
                 </span>
                 {% if strategy.run_status %}
                   <span class="badge {% if strategy.run_status.ok %}text-bg-success{% elif strategy.run_status.running %}text-bg-warning{% elif strategy.run_status.pending %}text-bg-secondary{% else %}text-bg-danger{% endif %} d-block mt-2">

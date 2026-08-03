@@ -127,8 +127,8 @@
           <div class="member-access-banner public-shell-warning mt-3">
             <strong>Vista publica:</strong>
             ahora ves solo los modelos marcados como publicos.
-            <a href="{{ url_for('user_register') }}">Crea una cuenta gratis</a>
-            para probar el acceso completo.
+            <a href="{{ url_for('user_register') }}">Crea una cuenta</a>
+            para tener acceso completo.
           </div>
         {% endif %}
       </div>
@@ -180,6 +180,26 @@
   </details>
 </section>
 
+{% if not current_user %}
+  <section class="container pt-4">
+    <div class="strategy-access-guide">
+      <div class="strategy-access-copy">
+        <p class="eyebrow mb-1">Avisos, historicos y Telegram</p>
+        <h2 class="h5 fw-bold mb-1">Sigue en tiempo real las estrategias de trading.</h2>
+        <p class="text-secondary small mb-0">
+          Consulta las operaciones abiertas, revisa el historial cerrado y unete al canal de TG de las estrategias que mas te gusten
+          para recibir un mensaje cada vez que se realice una operacion.
+        </p>
+      </div>
+      <div class="strategy-access-steps" aria-label="Accesos disponibles por estrategia">
+        <span><strong>Avisos</strong><small>Operaciones abiertas</small></span>
+        <span><strong>Historico</strong><small>Operaciones cerradas</small></span>
+        <span><strong>TG</strong><small>Canal de Telegram</small></span>
+      </div>
+    </div>
+  </section>
+{% endif %}
+
 <section id="ranking" class="container pt-4 pb-5">
   <div class="report-ranking-card">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
@@ -209,6 +229,7 @@
         <table class="table table-dark table-hover align-middle report-ranking-table mb-0">
           <thead>
             <tr>
+              <th class="curve-link-col">Graf.</th>
               <th>Sel.</th>
               <th>Modelo</th>
               <th>Riesgo</th>
@@ -223,6 +244,11 @@
           <tbody>
             {% for strategy in strategies %}
               <tr class="{% if strategy.is_locked %}report-row-locked{% endif %}">
+                <td class="curve-link-col">
+                  <a class="curve-mini-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_equity_curve', strategy_id=strategy.id) }}{% endif %}" aria-label="Curva de capital de {{ strategy.name }}" title="Curva de capital" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                    <span></span><span></span><span></span>
+                  </a>
+                </td>
                 <td>
                   <form class="strategy-select-form report-select-form" method="post" action="{% if current_user %}{{ url_for('user_select_strategy_totalizer', strategy_id=strategy.id) }}{% else %}{{ url_for('user_login') }}{% endif %}">
                     <input class="form-check-input" type="checkbox" name="selected" aria-label="Seleccionar {{ strategy.name }}" {% if strategy.selected_for_totalizer %}checked{% endif %} {% if strategy.is_locked %}disabled{% endif %} onchange="this.form.submit()">
@@ -244,6 +270,8 @@
                 <td>
                   <div class="report-frequency">
                     <strong>{{ strategy.signal_frequency }}</strong>
+                    <div class="frequency-line">Media dia {{ strategy.average_daily_operations_display }} ops</div>
+                    <div class="frequency-line">Media semana {{ strategy.avg_ops_daily_7d_display }} ops</div>
                     <div class="frequency-line">Cierre medio: {{ strategy.average_close_duration }}</div>
                     <div class="frequency-line">Aciertos: {{ strategy.success_rate }}</div>
                   </div>
@@ -293,7 +321,8 @@
                   {% if strategy.run_status.ran_at %}
                     <small class="d-block text-secondary mt-1">{{ strategy.run_status.ran_at }}</small>
                   {% endif %}
-                  <small class="d-block text-secondary mt-1">Hoy: {{ strategy.daily_operations_count|compact_count }} ops</small>
+                  <small class="d-block text-secondary mt-1">{{ strategy.open_operations_today|compact_count }} abiertas</small>
+                  <small class="d-block text-secondary">{{ strategy.closed_operations_today|compact_count }} cerradas</small>
                 </td>
                 <td class="text-secondary small">{{ strategy.signals_updated_at or "Sin actualizar" }}</td>
                 <td>

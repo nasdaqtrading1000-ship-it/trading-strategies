@@ -17,6 +17,7 @@
         <div class="mobile-signal-head">
           <div>
             <strong>{{ group.symbol }}</strong>
+            <span>{{ group.direction or group.latest_signal.direction or group.latest_signal.side or "-" }}</span>
             {% if group.count > 1 %}
               <span>{{ group.count }} operaciones</span>
             {% endif %}

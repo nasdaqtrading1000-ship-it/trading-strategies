@@ -2347,6 +2347,16 @@ def parse_operations_parts(value):
     }
 
 
+def format_average_daily_operations(value):
+    try:
+        average = float(value)
+    except (TypeError, ValueError):
+        average = 0.0
+    if average >= 10:
+        return f"{average:.0f}"
+    return f"{average:.1f}".rstrip("0").rstrip(".")
+
+
 def parse_max_open_operations(value):
     match = re.search(r"max\s+abiertas\s+(\d+)", str(value or ""), re.IGNORECASE)
     if not match:
@@ -3286,6 +3296,25 @@ def create_app():
         ).fetchall()
         return [str(row[0]).strip() for row in rows if str(row[0] or "").strip()]
 
+    def telegram_channel_chat_ids_for_user(user):
+        user_id = int((user or {}).get("id") or 0)
+        if not user_id:
+            return []
+        rows = g.db.execute(
+            text(
+                """
+                SELECT DISTINCT telegram_chat_id
+                FROM user_telegram_channel_access
+                WHERE user_id = :user_id
+                  AND telegram_removed_at IS NULL
+                  AND telegram_chat_id <> ''
+                """
+            ),
+            {"user_id": user_id},
+        ).fetchall()
+        chat_ids = [str(row[0]).strip() for row in rows if str(row[0] or "").strip()]
+        return chat_ids or telegram_channel_chat_ids()
+
     def remove_user_from_telegram_channels(user):
         telegram_user_id = str((user or {}).get("telegram_user_id") or "").strip()
         if not telegram_user_id:
@@ -3293,13 +3322,81 @@ def create_app():
 
         removed = 0
         errors = []
-        for chat_id in telegram_channel_chat_ids():
+        for chat_id in telegram_channel_chat_ids_for_user(user):
             ok, error = telegram_remove_user_from_chat(chat_id, telegram_user_id)
             if ok:
                 removed += 1
             else:
                 errors.append(telegram_admin_error_message(error))
         return removed, errors
+
+    def mark_user_telegram_removed(user_id, status="auto_removed"):
+        removed_at = datetime.now(UTC).replace(tzinfo=None)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET telegram_removed_at = :removed_at
+                WHERE id = :user_id
+                """
+            ),
+            {"user_id": user_id, "removed_at": removed_at},
+        )
+        g.db.execute(
+            text(
+                """
+                UPDATE user_telegram_channel_access
+                SET status = :status,
+                    telegram_removed_at = :removed_at
+                WHERE user_id = :user_id
+                  AND telegram_removed_at IS NULL
+                """
+            ),
+            {"user_id": user_id, "status": status, "removed_at": removed_at},
+        )
+
+    def mark_user_telegram_pending_removal(user_id):
+        g.db.execute(
+            text(
+                """
+                UPDATE user_telegram_channel_access
+                SET status = 'pending_removal'
+                WHERE user_id = :user_id
+                  AND telegram_removed_at IS NULL
+                """
+            ),
+            {"user_id": user_id},
+        )
+
+    def revoke_telegram_access_for_user(user):
+        if not user:
+            return 0, []
+        removed, errors = remove_user_from_telegram_channels(user)
+        user_id = int(user["id"])
+        if errors:
+            mark_user_telegram_pending_removal(user_id)
+            return removed, errors
+        mark_user_telegram_removed(user_id)
+        return removed, errors
+
+    def revoke_user_membership_and_telegram(user, payment_status="cancelled"):
+        if not user:
+            return 0, []
+        now = datetime.now(UTC).replace(tzinfo=None)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET has_access = 0,
+                    payment_status = :payment_status,
+                    membership_expires_at = COALESCE(membership_expires_at, :now),
+                    telegram_removed_at = NULL
+                WHERE id = :id
+                """
+            ),
+            {"id": user["id"], "payment_status": payment_status, "now": now},
+        )
+        return revoke_telegram_access_for_user(user)
 
     def ensure_telegram_connect_token(user):
         if not user:
@@ -3950,21 +4047,8 @@ def create_app():
             ),
             params,
         ).mappings().fetchall()
-        g.db.execute(
-            text(
-                f"""
-                UPDATE users
-                SET has_access = 0,
-                    payment_status = 'cancelled',
-                    membership_expires_at = COALESCE(membership_expires_at, :now),
-                    telegram_removed_at = NULL
-                WHERE {' OR '.join(conditions)}
-                """
-            ),
-            {**params, "now": datetime.now(UTC).replace(tzinfo=None)},
-        )
         for user in affected_users:
-            remove_user_from_telegram_channels(user)
+            revoke_user_membership_and_telegram(user, payment_status="cancelled")
 
     def user_stripe_customer_id(user):
         if not user:
@@ -4672,18 +4756,28 @@ def create_app():
         user = current_user()
         has_full_access = member_has_full_access(user)
         query = """
-        SELECT id, name, description, risk_level, signal_frequency,
-               historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
-               python_file, auto_execute, schedule_start_time, schedule_end_time,
-               schedule_interval_minutes, run_status, run_message, run_at,
-               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
-               closed_operations_count, daily_operations_count,
-               winning_operations_count, losing_operations_count,
-               flat_operations_count, average_operation_return_pct,
-               average_close_duration, success_rate, first_operation_display
-        FROM strategies
-        WHERE is_active = 1
-        ORDER BY created_at DESC
+        SELECT s.id, s.name, s.description, s.risk_level, s.signal_frequency,
+               s.historical_return, s.telegram_url, s.telegram_chat_id, s.has_telegram, s.signals_txt_name,
+               s.python_file, s.auto_execute, s.schedule_start_time, s.schedule_end_time,
+               s.schedule_interval_minutes, s.run_status, s.run_message, s.run_at,
+               s.run_txt_updated, s.run_returncode, s.include_in_totalizer, s.public_visible, s.is_active,
+               s.closed_operations_count,
+               COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS daily_operations_count,
+               COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS open_operations_today,
+               COALESCE(a.closed_operations_today, 0) AS closed_operations_today,
+               COALESCE(a.avg_ops_daily_total, 0) AS average_daily_operations_count,
+               COALESCE(a.avg_ops_daily_7d, 0) AS avg_ops_daily_7d,
+               COALESCE(a.avg_ops_daily_30d, 0) AS avg_ops_daily_30d,
+               COALESCE(a.max_ops_daily_30d, 0) AS max_ops_daily_30d,
+               s.winning_operations_count, s.losing_operations_count,
+               s.flat_operations_count, s.average_operation_return_pct,
+               s.average_close_duration, s.success_rate, s.first_operation_display
+        FROM strategies s
+        LEFT JOIN strategy_activity_stats a
+          ON a.txt_name = s.signals_txt_name
+          OR a.strategy_id = s.id
+        WHERE s.is_active = 1
+        ORDER BY s.created_at DESC
         """
         rows = g.db.execute(text(query)).mappings().fetchall()
         user_totalizer_selection = load_user_totalizer_selection(user["id"]) if user else None
@@ -4739,18 +4833,28 @@ def create_app():
         user = current_user()
         has_full_access = member_has_full_access(user)
         query = """
-        SELECT id, name, description, risk_level, signal_frequency,
-               historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
-               python_file, auto_execute, schedule_start_time, schedule_end_time,
-               schedule_interval_minutes, run_status, run_message, run_at,
-               run_txt_updated, run_returncode, include_in_totalizer, public_visible, is_active,
-               closed_operations_count, daily_operations_count,
-               winning_operations_count, losing_operations_count,
-               flat_operations_count, average_operation_return_pct,
-               average_close_duration, success_rate, first_operation_display
-        FROM strategies
-        WHERE is_active = 1
-        ORDER BY created_at DESC
+        SELECT s.id, s.name, s.description, s.risk_level, s.signal_frequency,
+               s.historical_return, s.telegram_url, s.telegram_chat_id, s.has_telegram, s.signals_txt_name,
+               s.python_file, s.auto_execute, s.schedule_start_time, s.schedule_end_time,
+               s.schedule_interval_minutes, s.run_status, s.run_message, s.run_at,
+               s.run_txt_updated, s.run_returncode, s.include_in_totalizer, s.public_visible, s.is_active,
+               s.closed_operations_count,
+               COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS daily_operations_count,
+               COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS open_operations_today,
+               COALESCE(a.closed_operations_today, 0) AS closed_operations_today,
+               COALESCE(a.avg_ops_daily_total, 0) AS average_daily_operations_count,
+               COALESCE(a.avg_ops_daily_7d, 0) AS avg_ops_daily_7d,
+               COALESCE(a.avg_ops_daily_30d, 0) AS avg_ops_daily_30d,
+               COALESCE(a.max_ops_daily_30d, 0) AS max_ops_daily_30d,
+               s.winning_operations_count, s.losing_operations_count,
+               s.flat_operations_count, s.average_operation_return_pct,
+               s.average_close_duration, s.success_rate, s.first_operation_display
+        FROM strategies s
+        LEFT JOIN strategy_activity_stats a
+          ON a.txt_name = s.signals_txt_name
+          OR a.strategy_id = s.id
+        WHERE s.is_active = 1
+        ORDER BY s.created_at DESC
         """
         rows = g.db.execute(text(query)).mappings().fetchall()
         user_totalizer_selection = load_user_totalizer_selection(user["id"]) if user else None
@@ -5097,6 +5201,35 @@ self.addEventListener("fetch", () => {});
             }
         )
 
+    @app.route("/estrategia/<int:strategy_id>/curva")
+    def strategy_equity_curve(strategy_id):
+        strategy = dict(get_strategy_or_404(strategy_id))
+        if not can_view_strategy(strategy):
+            flash("Crea una cuenta para ver la curva de capital.", "warning")
+            return redirect(url_for("user_login"))
+        txt_name = strategy.get("signals_txt_name")
+        points = strategy_equity_curve_points(txt_name)
+        curve_series = {
+            "all": points,
+            "year": strategy_equity_curve_points(txt_name, days=365),
+            "month": strategy_equity_curve_points(txt_name, days=30),
+        }
+        curve_summaries = equity_curve_summaries_for_strategy(strategy, curve_series)
+        latest_summary = equity_curve_account_summary_for_strategy(strategy, points)
+        latest = points[-1] if points else None
+        first = points[0] if points else None
+        return render_template(
+            "strategy_equity_curve.html",
+            strategy=strategy,
+            points=points,
+            curve_series=curve_series,
+            curve_summaries=curve_summaries,
+            latest_summary=latest_summary,
+            latest=latest,
+            first=first,
+            points_count=len(points),
+        )
+
     def parse_int_arg(value, default, minimum, maximum):
         try:
             parsed = int(value)
@@ -5202,19 +5335,29 @@ self.addEventListener("fetch", () => {});
         strategies = g.db.execute(
             text(
             """
-            SELECT id, name, description, risk_level, signal_frequency,
-                   historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
-                   python_file, auto_execute, schedule_start_time, schedule_end_time,
-                   schedule_interval_minutes, schedule_last_status, schedule_last_message,
-                   schedule_last_run_at, run_status, run_message, run_at,
-                   run_txt_updated, run_returncode, include_in_totalizer,
-                   public_visible, run_locally, is_active, created_at,
-                   closed_operations_count, daily_operations_count,
-                   winning_operations_count, losing_operations_count,
-                   flat_operations_count, average_operation_return_pct,
-                   average_close_duration, success_rate, first_operation_display
-            FROM strategies
-            ORDER BY is_active DESC, created_at DESC
+            SELECT s.id, s.name, s.description, s.risk_level, s.signal_frequency,
+                   s.historical_return, s.telegram_url, s.telegram_chat_id, s.has_telegram, s.signals_txt_name,
+                   s.python_file, s.auto_execute, s.schedule_start_time, s.schedule_end_time,
+                   s.schedule_interval_minutes, s.schedule_last_status, s.schedule_last_message,
+                   s.schedule_last_run_at, s.run_status, s.run_message, s.run_at,
+                   s.run_txt_updated, s.run_returncode, s.include_in_totalizer,
+                   s.public_visible, s.run_locally, s.is_active, s.created_at,
+                   s.closed_operations_count,
+                   COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS daily_operations_count,
+                   COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS open_operations_today,
+                   COALESCE(a.closed_operations_today, 0) AS closed_operations_today,
+                   COALESCE(a.avg_ops_daily_total, 0) AS average_daily_operations_count,
+                   COALESCE(a.avg_ops_daily_7d, 0) AS avg_ops_daily_7d,
+                   COALESCE(a.avg_ops_daily_30d, 0) AS avg_ops_daily_30d,
+                   COALESCE(a.max_ops_daily_30d, 0) AS max_ops_daily_30d,
+                   s.winning_operations_count, s.losing_operations_count,
+                   s.flat_operations_count, s.average_operation_return_pct,
+                   s.average_close_duration, s.success_rate, s.first_operation_display
+            FROM strategies s
+            LEFT JOIN strategy_activity_stats a
+              ON a.txt_name = s.signals_txt_name
+              OR a.strategy_id = s.id
+            ORDER BY s.is_active DESC, s.created_at DESC
             """
             )
         ).mappings().fetchall()
@@ -5239,6 +5382,15 @@ self.addEventListener("fetch", () => {});
                 FROM users
                 WHERE has_access = 0
                   AND telegram_removed_at IS NULL
+                  AND (
+                    telegram_user_id <> ''
+                    OR EXISTS (
+                        SELECT 1
+                        FROM user_telegram_channel_access access
+                        WHERE access.user_id = users.id
+                          AND access.telegram_removed_at IS NULL
+                    )
+                  )
                 ORDER BY COALESCE(membership_expires_at, created_at) DESC
                 LIMIT 100
                 """
@@ -5300,7 +5452,7 @@ self.addEventListener("fetch", () => {});
         removed = 0
         errors = []
         if not next_access:
-            removed, errors = remove_user_from_telegram_channels(user)
+            removed, errors = revoke_telegram_access_for_user({**dict(user), "has_access": 0})
         g.db.commit()
         if not next_access and errors:
             flash(f"Acceso quitado. Telegram: {removed} canales actualizados; {errors[0]}", "warning")
@@ -5347,7 +5499,7 @@ self.addEventListener("fetch", () => {});
     @login_required
     def admin_user_update(user_id):
         existing = g.db.execute(
-            text("SELECT id FROM users WHERE id = :id"),
+            text("SELECT * FROM users WHERE id = :id"),
             {"id": user_id},
         ).mappings().fetchone()
         if existing is None:
@@ -5421,10 +5573,19 @@ self.addEventListener("fetch", () => {});
                 "id": user_id,
             },
         )
+        removed = 0
+        errors = []
         if not has_access:
-            remove_user_from_telegram_channels({**dict(existing), "telegram_user_id": telegram_user_id})
+            removed, errors = revoke_telegram_access_for_user(
+                {**dict(existing), "telegram_user_id": telegram_user_id, "has_access": 0}
+            )
         g.db.commit()
-        flash("Usuario actualizado.", "success")
+        if not has_access and errors:
+            flash(f"Usuario actualizado. Telegram: {removed} canales actualizados; {errors[0]}", "warning")
+        elif not has_access and removed:
+            flash(f"Usuario actualizado. Telegram: usuario expulsado de {removed} canales.", "success")
+        else:
+            flash("Usuario actualizado.", "success")
         return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
 
     @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
@@ -6759,6 +6920,12 @@ self.addEventListener("fetch", () => {});
         strategy["telegram_chat_id"] = strategy.get("telegram_chat_id") or ""
         strategy["closed_operations_count"] = int(strategy.get("closed_operations_count") or 0)
         strategy["daily_operations_count"] = int(strategy.get("daily_operations_count") or 0)
+        strategy["open_operations_today"] = int(strategy.get("open_operations_today") or strategy["daily_operations_count"] or 0)
+        strategy["closed_operations_today"] = int(strategy.get("closed_operations_today") or 0)
+        strategy["average_daily_operations_count"] = parse_display_float(strategy.get("average_daily_operations_count"))
+        strategy["avg_ops_daily_7d"] = parse_display_float(strategy.get("avg_ops_daily_7d"))
+        strategy["avg_ops_daily_30d"] = parse_display_float(strategy.get("avg_ops_daily_30d"))
+        strategy["max_ops_daily_30d"] = int(strategy.get("max_ops_daily_30d") or 0)
         strategy["winning_operations_count"] = int(strategy.get("winning_operations_count") or 0)
         strategy["losing_operations_count"] = int(strategy.get("losing_operations_count") or 0)
         strategy["flat_operations_count"] = int(strategy.get("flat_operations_count") or 0)
@@ -6772,6 +6939,11 @@ self.addEventListener("fetch", () => {});
         strategy["short_name"] = strategy_short_name(strategy.get("name"))
         return_source = strategy.get("historical_return")
         strategy["historical_return"] = return_source
+        strategy["average_daily_operations_display"] = format_average_daily_operations(
+            strategy["average_daily_operations_count"]
+        )
+        strategy["avg_ops_daily_7d_display"] = format_average_daily_operations(strategy["avg_ops_daily_7d"])
+        strategy["avg_ops_daily_30d_display"] = format_average_daily_operations(strategy["avg_ops_daily_30d"])
         strategy["historical_return_public"] = clean_public_return_text(return_source)
         strategy["return_metrics"] = build_return_metrics(return_source)
         strategy["return_badge"] = strategy_return_badge(return_source)
@@ -8016,6 +8188,165 @@ self.addEventListener("fetch", () => {});
             rows = rows[:limit]
         return [format_simulated_operation(dict(row)) for row in rows]
 
+    def strategy_equity_curve_points(txt_name, limit=1600, days=None):
+        if not txt_name:
+            return []
+        cutoff_date = None
+        if days:
+            cutoff_date = (datetime.now(MADRID_TZ).date() - timedelta(days=int(days))).isoformat()
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT curve_date, capital_actual, capital_aportado, profit_usd,
+                           return_pct, open_operations, closed_operations, updated_at
+                    FROM strategy_equity_curve
+                    WHERE txt_name = :txt_name
+                      AND (:cutoff_date IS NULL OR curve_date >= :cutoff_date)
+                    ORDER BY curve_date ASC
+                    """
+                ),
+                {"txt_name": txt_name, "cutoff_date": cutoff_date},
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            return []
+        if limit and len(rows) > limit:
+            step = max(1, len(rows) // int(limit))
+            sampled = list(rows[::step])
+            if sampled[-1]["curve_date"] != rows[-1]["curve_date"]:
+                sampled.append(rows[-1])
+            rows = sampled
+        return [format_equity_curve_point(row) for row in rows]
+
+    def format_equity_curve_point(row):
+        capital = parse_display_float(row.get("capital_actual"))
+        capital_base = parse_display_float(row.get("capital_aportado"))
+        profit = parse_display_float(row.get("profit_usd"))
+        return_pct = parse_display_float(row.get("return_pct"))
+        return {
+            "date": str(row.get("curve_date") or ""),
+            "capital_actual": round(capital, 4),
+            "capital_display": format_money_usd(capital),
+            "capital_aportado": round(capital_base, 4),
+            "capital_base_display": format_money_usd(capital_base),
+            "profit_usd": round(profit, 4),
+            "profit_display": format_signed_money_usd(profit),
+            "profit_class": profit_color_class(profit),
+            "return_pct": round(return_pct, 6),
+            "return_pct_display": f"{return_pct:+.2f}%",
+            "return_pct_class": profit_color_class(return_pct),
+            "open_operations": int(row.get("open_operations") or 0),
+            "closed_operations": int(row.get("closed_operations") or 0),
+            "updated_at": row.get("updated_at"),
+        }
+
+    def equity_curve_summaries_for_strategy(strategy, curve_series):
+        fallback = {
+            "all": equity_curve_period_summary(curve_series["all"], cumulative=True),
+            "year": equity_curve_period_summary(curve_series["year"]),
+            "month": equity_curve_period_summary(curve_series["month"]),
+        }
+        return_text = strategy.get("historical_return", "")
+        official = {
+            "all": equity_curve_summary_from_return_text(return_text, "", curve_series["all"]),
+            "year": equity_curve_summary_from_return_text(return_text, "Last 12M", curve_series["year"]),
+            "month": equity_curve_summary_from_return_text(return_text, "Last 1M", curve_series["month"]),
+        }
+        return {
+            key: value or fallback[key]
+            for key, value in official.items()
+        }
+
+    def equity_curve_account_summary_for_strategy(strategy, points):
+        return_text = strategy.get("historical_return", "")
+        if return_text and has_profit_usd(return_text):
+            profit = parse_profit_usd(return_text)
+            capital_base = parse_strategy_capital_usd(return_text)
+            current_capital = parse_current_capital_usd(return_text)
+            return_pct = parse_return_percent(return_text)
+            return {
+                "capital_display": format_money_usd(current_capital),
+                "capital_base_display": format_money_usd(capital_base),
+                "profit_display": format_signed_money_usd(profit),
+                "profit_class": profit_color_class(profit),
+                "return_pct_display": f"{return_pct:+.2f}%",
+                "return_pct_class": profit_color_class(return_pct),
+            }
+        latest_point = points[-1] if points else {}
+        return {
+            "capital_display": latest_point.get("capital_display", "Sin datos"),
+            "capital_base_display": latest_point.get("capital_base_display", "Sin datos"),
+            "profit_display": latest_point.get("profit_display", "Sin datos"),
+            "profit_class": latest_point.get("profit_class", "return-sos"),
+            "return_pct_display": latest_point.get("return_pct_display", "Sin datos"),
+            "return_pct_class": latest_point.get("return_pct_class", "return-sos"),
+        }
+
+    def equity_curve_summary_from_return_text(return_text, period_label, points):
+        if not return_text or not points:
+            return None
+        parts = [part.strip() for part in str(return_text or "").split("|")]
+        if period_label:
+            source = next(
+                (part for part in parts if part.lower().startswith(period_label.lower())),
+                "",
+            )
+            if not source:
+                return None
+            text_after_label = source[len(period_label):].strip()
+        else:
+            text_after_label = parts[0] if parts else ""
+        profit = parse_profit_usd(text_after_label)
+        return_pct = parse_return_percent(text_after_label)
+        first_point = points[0]
+        last_point = points[-1]
+        return {
+            "profit_display": format_signed_money_usd(profit),
+            "profit_class": profit_color_class(profit),
+            "return_pct_display": f"{return_pct:+.2f}%",
+            "return_pct_class": profit_color_class(return_pct),
+            "date_range": equity_curve_date_range(first_point, last_point),
+        }
+
+    def equity_curve_period_summary(points, cumulative=False):
+        if not points:
+            return {
+                "profit_display": "Sin datos",
+                "profit_class": "return-sos",
+                "return_pct_display": "Sin datos",
+                "return_pct_class": "return-sos",
+                "date_range": "",
+            }
+        first_point = points[0]
+        last_point = points[-1]
+        first_profit = parse_display_float(first_point.get("profit_usd"))
+        last_profit = parse_display_float(last_point.get("profit_usd"))
+        capital_base = parse_display_float(last_point.get("capital_aportado"))
+        profit = last_profit if cumulative else last_profit - first_profit
+        return_pct = (profit / capital_base * 100) if capital_base else 0.0
+        return {
+            "profit_display": format_signed_money_usd(profit),
+            "profit_class": profit_color_class(profit),
+            "return_pct_display": f"{return_pct:+.2f}%",
+            "return_pct_class": profit_color_class(return_pct),
+            "date_range": equity_curve_date_range(first_point, last_point),
+        }
+
+    def equity_curve_date_range(first_point, last_point):
+        return (
+            f"{format_equity_curve_date(first_point.get('date', ''))} -> "
+            f"{format_equity_curve_date(last_point.get('date', ''))}"
+        )
+
+    def format_equity_curve_date(value):
+        text_value = str(value or "").strip()
+        try:
+            parsed = datetime.fromisoformat(text_value[:10])
+        except ValueError:
+            return text_value
+        return parsed.strftime("%d/%m/%Y")
+
     def simulated_operation_from_file(txt_name, symbol, operation_key="", legacy_key="", signal_date="", signal_line=""):
         path = Path(os.environ.get("SIMULATED_OPERATIONS_FILE", DEFAULT_SIMULATED_OPERATIONS_FILE)).resolve()
         try:
@@ -8705,6 +9036,8 @@ def init_db():
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
         ensure_simulated_operations_table(connection)
+        ensure_strategy_equity_curve_table(connection)
+        ensure_strategy_activity_stats_table(connection)
         ensure_top_money_volume_table(connection)
         ensure_strategy_diagnostics_table(connection)
         ensure_market_news_table(connection)
@@ -9088,6 +9421,86 @@ def ensure_simulated_operations_table(connection):
     )
 
 
+def ensure_strategy_equity_curve_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_equity_curve (
+                txt_name TEXT NOT NULL,
+                strategy_name TEXT NOT NULL DEFAULT '',
+                curve_date TEXT NOT NULL,
+                capital_actual FLOAT NOT NULL DEFAULT 0,
+                capital_aportado FLOAT NOT NULL DEFAULT 0,
+                profit_usd FLOAT NOT NULL DEFAULT 0,
+                return_pct FLOAT NOT NULL DEFAULT 0,
+                open_operations INTEGER NOT NULL DEFAULT 0,
+                closed_operations INTEGER NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT 'simulated_operations',
+                updated_at TIMESTAMP,
+                PRIMARY KEY (txt_name, curve_date)
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_equity_curve_txt_date
+            ON strategy_equity_curve(txt_name, curve_date)
+            """
+        )
+    )
+
+
+def ensure_strategy_activity_stats_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_activity_stats (
+                strategy_id INTEGER,
+                strategy_name TEXT NOT NULL,
+                txt_name TEXT NOT NULL PRIMARY KEY,
+                calculated_at TIMESTAMP NOT NULL,
+                operations_today INTEGER NOT NULL DEFAULT 0,
+                open_operations_today INTEGER NOT NULL DEFAULT 0,
+                closed_operations_today INTEGER NOT NULL DEFAULT 0,
+                avg_ops_daily_total FLOAT NOT NULL DEFAULT 0,
+                avg_ops_daily_7d FLOAT NOT NULL DEFAULT 0,
+                avg_ops_daily_30d FLOAT NOT NULL DEFAULT 0,
+                max_ops_daily_30d INTEGER NOT NULL DEFAULT 0,
+                source_updated_at TIMESTAMP
+            )
+            """
+        )
+    )
+    ensure_strategy_activity_stats_column(connection, "open_operations_today", "INTEGER NOT NULL DEFAULT 0")
+    ensure_strategy_activity_stats_column(connection, "closed_operations_today", "INTEGER NOT NULL DEFAULT 0")
+
+
+def ensure_strategy_activity_stats_column(connection, column_name, definition):
+    if table_column_exists(connection, "strategy_activity_stats", column_name):
+        return
+    connection.execute(text(f"ALTER TABLE strategy_activity_stats ADD COLUMN {column_name} {definition}"))
+
+
+def table_column_exists(connection, table_name, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = :table_name
+                  AND column_name = :column_name
+                """
+            ),
+            {"table_name": table_name, "column_name": column_name},
+        )
+        return result.scalar_one() > 0
+    rows = connection.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+    return any(row[1] == column_name for row in rows)
+
+
 def ensure_top_money_volume_table(connection):
     connection.execute(
         text(
@@ -9181,6 +9594,7 @@ def ensure_execution_status_table(connection):
                 task_key TEXT PRIMARY KEY,
                 label TEXT NOT NULL DEFAULT '',
                 status TEXT NOT NULL DEFAULT 'IDLE',
+                last_started_at TIMESTAMP,
                 last_finished_at TIMESTAMP,
                 last_returncode INTEGER,
                 duration_seconds INTEGER NOT NULL DEFAULT 0,
@@ -9348,6 +9762,31 @@ def ensure_user_telegram_channel_access_table(connection):
             """
         )
     )
+    add_execution_status_column(connection, "last_started_at", "TIMESTAMP")
+
+
+def add_execution_status_column(connection, column_name, definition):
+    if execution_status_column_exists(connection, column_name):
+        return
+    connection.execute(text(f"ALTER TABLE execution_status ADD COLUMN {column_name} {definition}"))
+
+
+def execution_status_column_exists(connection, column_name):
+    if engine.dialect.name == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'execution_status'
+                  AND column_name = :column_name
+                """
+            ),
+            {"column_name": column_name},
+        ).scalar()
+        return bool(result)
+    result = connection.execute(text("PRAGMA table_info(execution_status)")).fetchall()
+    return any(row[1] == column_name for row in result)
 
 
 def ensure_user_simulator_tables(connection):

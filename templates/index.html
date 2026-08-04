@@ -295,14 +295,12 @@
                 <td>
                   <div class="report-strategy-name">
                     <span class="ranking-strategy-link ranking-strategy-link-disabled" aria-disabled="true">
-                      <span>{{ strategy.short_name }}</span>
                       {{ strategy.name }}
                     </span>
                     {% if strategy.is_locked %}
                       <span class="locked-mini">Solo miembros</span>
                     {% endif %}
                   </div>
-                  <p class="report-strategy-description mb-0">{{ strategy.description }}</p>
                 </td>
                 <td><span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span></td>
                 <td>

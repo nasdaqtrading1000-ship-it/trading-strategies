@@ -561,6 +561,201 @@ html {
   line-height: inherit;
 }
 
+.selected-curves-panel {
+  background: #012456;
+  border: 1px solid rgba(125, 211, 252, 0.36);
+  padding: 0.85rem;
+}
+
+.selected-curves-head {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.selected-curves-head strong {
+  color: #d8e7ff;
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.selected-curves-periods {
+  border: 1px solid rgba(125, 211, 252, 0.36);
+  display: inline-flex;
+  flex-wrap: wrap;
+}
+
+.selected-curves-periods button {
+  background: transparent;
+  border: 0;
+  border-right: 1px solid rgba(125, 211, 252, 0.24);
+  color: #d8e7ff;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.45rem 0.6rem;
+}
+
+.selected-curves-periods button:last-child {
+  border-right: 0;
+}
+
+.selected-curves-periods button.active,
+.selected-curves-periods button:hover {
+  background: rgba(22, 255, 122, 0.14);
+  color: #16ff7a;
+}
+
+.selected-curves-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.selected-curve-card {
+  background: rgba(0, 15, 40, 0.22);
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  color: #d8e7ff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  height: 214px;
+  min-height: 214px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.65rem;
+  text-decoration: none;
+}
+
+.selected-curve-card:hover {
+  border-color: rgba(22, 255, 122, 0.72);
+  color: #ffffff;
+}
+
+.selected-curve-card-head {
+  min-height: 34px;
+}
+
+.selected-curve-card-head span {
+  color: #16ff7a;
+  display: block;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.62rem;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.selected-curve-card-head strong {
+  color: #ffffff;
+  display: block;
+  font-size: 0.84rem;
+  line-height: 1.15;
+}
+
+.selected-curve-canvas {
+  border: 1px solid rgba(125, 211, 252, 0.14);
+  box-sizing: border-box;
+  display: block;
+  height: 92px;
+  max-height: 92px;
+  max-width: 100%;
+  min-height: 92px;
+  min-width: 0;
+  width: 100%;
+}
+
+.selected-curve-card-foot {
+  display: grid;
+  font-family: Consolas, "Courier New", monospace;
+  gap: 0.28rem 0.45rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 56px;
+}
+
+.selected-curve-card-foot div {
+  min-width: 0;
+}
+
+.selected-curve-card-foot span {
+  color: #8fa9d6;
+  display: block;
+  font-size: 0.58rem;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.selected-curve-card-foot strong {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-curve-card-empty,
+.selected-curves-empty {
+  align-items: center;
+  color: #8fa9d6;
+  display: flex;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.72rem;
+  justify-content: center;
+  text-align: center;
+}
+
+.selected-curves-empty {
+  border: 1px dashed rgba(125, 211, 252, 0.28);
+  min-height: 96px;
+}
+
+.equity-invested-summary {
+  border-color: rgba(245, 158, 11, 0.72) !important;
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+.equity-invested-summary strong {
+  color: #f59e0b !important;
+}
+
+.equity-invested-summary small {
+  color: #f59e0b;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+@media (max-width: 991.98px) {
+  .selected-curves-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .selected-curves-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .selected-curves-periods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .selected-curves-periods button:nth-child(2) {
+    border-right: 0;
+  }
+
+  .selected-curves-periods button:nth-child(-n + 2) {
+    border-bottom: 1px solid rgba(125, 211, 252, 0.24);
+  }
+}
+
 .strategy-return-item {
   display: flex;
   align-items: center;

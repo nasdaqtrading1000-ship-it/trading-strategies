@@ -9,17 +9,21 @@ rapida para probar la web en 127.0.0.1 sin depender de la red.
 """
 
 import os
+import time
 from pathlib import Path
 from decimal import Decimal
 
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from config_env import load_local_env
 
 
 BASE_DIR = Path(__file__).resolve().parent
 SQLITE_DATABASE = BASE_DIR / "strategies.db"
+SQLITE_BUSY_TIMEOUT_MS = 60000
+SQLITE_COPY_RETRIES = 4
+SQLITE_COPY_RETRY_DELAY_SECONDS = 5
 TABLES_TO_COPY = [
     "strategies",
     "users",
@@ -29,6 +33,8 @@ TABLES_TO_COPY = [
     "automation_schedules",
     "strategy_signals",
     "simulated_operations",
+    "strategy_equity_curve",
+    "strategy_activity_stats",
     "asset_universe",
     "asset_snapshots",
     "top_money_volume_assets",
@@ -59,17 +65,28 @@ def main():
         return 0
 
     postgres_engine = create_engine(normalized_database_url(database_url), future=True)
-    sqlite_engine = create_engine(f"sqlite:///{SQLITE_DATABASE}", future=True)
+    sqlite_engine = create_engine(
+        f"sqlite:///{SQLITE_DATABASE}",
+        connect_args={"timeout": SQLITE_BUSY_TIMEOUT_MS / 1000},
+        future=True,
+    )
+    configure_sqlite_engine(sqlite_engine)
     ensure_sqlite_schema()
 
     total_rows = 0
     for table_name in TABLES_TO_COPY:
-        copied = copy_table(postgres_engine, sqlite_engine, table_name)
+        copied = copy_table_with_retries(postgres_engine, sqlite_engine, table_name)
         total_rows += copied
         print(f"{table_name}: {copied} filas copiadas a SQLite")
 
     print(f"SQLite local sincronizado: {total_rows} filas.")
     return 0
+
+
+def configure_sqlite_engine(sqlite_engine):
+    with sqlite_engine.connect() as connection:
+        connection.execute(text(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}"))
+        connection.execute(text("PRAGMA journal_mode = WAL"))
 
 
 def ensure_sqlite_schema():
@@ -97,6 +114,27 @@ def copy_table(source_engine, target_engine, table_name):
         if rows:
             connection.execute(insert_statement(table_name, common_columns), rows)
     return len(rows)
+
+
+def copy_table_with_retries(source_engine, target_engine, table_name):
+    last_error = None
+    for attempt in range(1, SQLITE_COPY_RETRIES + 1):
+        try:
+            return copy_table(source_engine, target_engine, table_name)
+        except OperationalError as error:
+            last_error = error
+            if not is_sqlite_locked_error(error) or attempt == SQLITE_COPY_RETRIES:
+                raise
+            print(
+                f"{table_name}: SQLite ocupado, reintento {attempt}/{SQLITE_COPY_RETRIES - 1} "
+                f"en {SQLITE_COPY_RETRY_DELAY_SECONDS}s..."
+            )
+            time.sleep(SQLITE_COPY_RETRY_DELAY_SECONDS)
+    raise last_error
+
+
+def is_sqlite_locked_error(error):
+    return "database is locked" in str(error).lower()
 
 
 def table_columns(engine, table_name):

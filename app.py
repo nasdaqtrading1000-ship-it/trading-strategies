@@ -2569,6 +2569,12 @@ def build_totalizer(strategies):
     }
 
 
+def selected_strategy_chart_limit(value):
+    if value == "all":
+        return 360
+    return 420
+
+
 def strategy_info_key(value):
     return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
 
@@ -4756,6 +4762,65 @@ def create_app():
             }
         )
 
+    def selected_strategy_curve_cards(strategies):
+        selected = [
+            strategy
+            for strategy in strategies
+            if int(strategy.get("selected_for_totalizer") or 0) == 1
+        ][:4]
+        periods = {
+            "week": {"label": "Semana", "days": 7, "cumulative": False},
+            "month": {"label": "Mes", "days": 30, "cumulative": False},
+            "year": {"label": "Ano", "days": 365, "cumulative": False},
+            "all": {"label": "Historico", "days": None, "cumulative": True},
+        }
+        cards = []
+        for strategy in selected:
+            txt_name = strategy.get("signals_txt_name") or strategy.get("name")
+            strategy_name = strategy.get("name")
+            series = {}
+            summaries = {}
+            for key, period in periods.items():
+                points = strategy_equity_curve_points(
+                    txt_name,
+                    strategy_name=strategy_name,
+                    limit=selected_strategy_chart_limit(key),
+                    days=period["days"],
+                )
+                series[key] = points
+                summaries[key] = equity_curve_period_summary(points, cumulative=period["cumulative"])
+            official_summaries = equity_curve_summaries_for_strategy(
+                strategy,
+                {
+                    "all": series["all"],
+                    "year": series["year"],
+                    "month": series["month"],
+                },
+            )
+            summaries["all"] = official_summaries["all"]
+            summaries["year"] = official_summaries["year"]
+            summaries["month"] = official_summaries["month"]
+            latest_points = series["all"]
+            latest_summary = equity_curve_account_summary_for_strategy(strategy, latest_points)
+            cards.append(
+                {
+                    "id": strategy.get("id"),
+                    "name": strategy.get("name"),
+                    "short_name": strategy.get("short_name"),
+                    "url": url_for("strategy_equity_curve", strategy_id=strategy.get("id")),
+                    "series": series,
+                    "summaries": summaries,
+                    "latest_summary": latest_summary,
+                    "has_points": any(series.values()),
+                }
+            )
+        return {
+            "cards": cards,
+            "count": len(cards),
+            "max_count": 4,
+            "periods": periods,
+        }
+
     @app.route("/")
     def index():
         user = current_user()
@@ -4810,6 +4875,7 @@ def create_app():
         top_assets = top_money_volume_assets()
         news_preview = relevant_market_news(limit=60, days=3)
         totalizer = build_totalizer(strategies)
+        selected_curve_panel = selected_strategy_curve_cards(strategies)
         simulator = load_user_simulator(user["id"], strategies) if user else default_simulator_state(strategies)
         if user and request.args.get("simulator_ops") == "1":
             simulator["operations"] = simulator_operations(simulator["settings"], simulator["strategies"])
@@ -4818,6 +4884,7 @@ def create_app():
             "index.html",
             strategies=strategies,
             totalizer=totalizer,
+            selected_curve_panel=selected_curve_panel,
             simulator=simulator,
             top_money_volume_assets=top_assets["rows"],
             top_money_volume_updated_at=top_assets["updated_at"],
@@ -8290,7 +8357,7 @@ self.addEventListener("fetch", () => {});
             rows = g.db.execute(
                 text(
                     f"""
-                    SELECT curve_date, capital_actual, capital_aportado, profit_usd,
+                    SELECT curve_date, capital_actual, capital_aportado, capital_invertido, profit_usd,
                            return_pct, open_operations, closed_operations, updated_at
                     FROM strategy_equity_curve
                     WHERE (txt_name IN :lookup_names OR strategy_name IN :lookup_names)
@@ -8319,6 +8386,8 @@ self.addEventListener("fetch", () => {});
     def format_equity_curve_point(row):
         capital = parse_display_float(row.get("capital_actual"))
         capital_base = parse_display_float(row.get("capital_aportado"))
+        open_operations = int(row.get("open_operations") or 0)
+        capital_invested = parse_display_float(row.get("capital_invertido")) or (open_operations * 1000.0)
         profit = parse_display_float(row.get("profit_usd"))
         return_pct = parse_display_float(row.get("return_pct"))
         return {
@@ -8327,13 +8396,15 @@ self.addEventListener("fetch", () => {});
             "capital_display": format_money_usd(capital),
             "capital_aportado": round(capital_base, 4),
             "capital_base_display": format_money_usd(capital_base),
+            "capital_invertido": round(capital_invested, 4),
+            "capital_invertido_display": format_money_usd(capital_invested),
             "profit_usd": round(profit, 4),
             "profit_display": format_signed_money_usd(profit),
             "profit_class": profit_color_class(profit),
             "return_pct": round(return_pct, 6),
             "return_pct_display": f"{return_pct:+.2f}%",
             "return_pct_class": profit_color_class(return_pct),
-            "open_operations": int(row.get("open_operations") or 0),
+            "open_operations": open_operations,
             "closed_operations": int(row.get("closed_operations") or 0),
             "updated_at": row.get("updated_at"),
         }
@@ -8361,19 +8432,27 @@ self.addEventListener("fetch", () => {});
             profit = parse_profit_usd(return_text)
             capital_base = parse_strategy_capital_usd(return_text)
             current_capital = parse_current_capital_usd(return_text)
+            latest_point = points[-1] if points else {}
+            capital_invested = parse_display_float(latest_point.get("capital_invertido"))
             return_pct = parse_return_percent(return_text)
             return {
                 "capital_display": format_money_usd(current_capital),
                 "capital_base_display": format_money_usd(capital_base),
+                "invested_display": format_money_usd(capital_invested),
+                "invested_pct_display": f"{(capital_invested / current_capital * 100) if current_capital else 0.0:.2f}%",
                 "profit_display": format_signed_money_usd(profit),
                 "profit_class": profit_color_class(profit),
                 "return_pct_display": f"{return_pct:+.2f}%",
                 "return_pct_class": profit_color_class(return_pct),
             }
         latest_point = points[-1] if points else {}
+        capital = parse_display_float(latest_point.get("capital_actual"))
+        capital_invested = parse_display_float(latest_point.get("capital_invertido"))
         return {
             "capital_display": latest_point.get("capital_display", "Sin datos"),
             "capital_base_display": latest_point.get("capital_base_display", "Sin datos"),
+            "invested_display": latest_point.get("capital_invertido_display", "Sin datos"),
+            "invested_pct_display": f"{(capital_invested / capital * 100) if capital else 0.0:.2f}%",
             "profit_display": latest_point.get("profit_display", "Sin datos"),
             "profit_class": latest_point.get("profit_class", "return-sos"),
             "return_pct_display": latest_point.get("return_pct_display", "Sin datos"),
@@ -9528,6 +9607,7 @@ def ensure_strategy_equity_curve_table(connection):
                 curve_date TEXT NOT NULL,
                 capital_actual FLOAT NOT NULL DEFAULT 0,
                 capital_aportado FLOAT NOT NULL DEFAULT 0,
+                capital_invertido FLOAT NOT NULL DEFAULT 0,
                 profit_usd FLOAT NOT NULL DEFAULT 0,
                 return_pct FLOAT NOT NULL DEFAULT 0,
                 open_operations INTEGER NOT NULL DEFAULT 0,
@@ -9539,6 +9619,7 @@ def ensure_strategy_equity_curve_table(connection):
             """
         )
     )
+    ensure_table_column(connection, "strategy_equity_curve", "capital_invertido", "FLOAT NOT NULL DEFAULT 0")
     connection.execute(
         text(
             """
@@ -9578,6 +9659,12 @@ def ensure_strategy_activity_stats_column(connection, column_name, definition):
     if table_column_exists(connection, "strategy_activity_stats", column_name):
         return
     connection.execute(text(f"ALTER TABLE strategy_activity_stats ADD COLUMN {column_name} {definition}"))
+
+
+def ensure_table_column(connection, table_name, column_name, definition):
+    if table_column_exists(connection, table_name, column_name):
+        return
+    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"))
 
 
 def table_column_exists(connection, table_name, column_name):

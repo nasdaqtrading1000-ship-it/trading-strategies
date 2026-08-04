@@ -211,19 +211,57 @@
       <a class="btn btn-outline-light btn-sm align-self-start" href="#riesgo">Aviso de riesgo</a>
     </div>
     {% if strategies %}
-      <div class="totalizer-box totalizer-box-table mb-3">
-        <div>
-          <span class="text-secondary small d-block">Totalizador</span>
-          <strong class="{{ totalizer.result_class }}">{{ totalizer.display }}</strong>
+      <div class="selected-curves-panel mb-3" data-selected-curves-panel>
+        <div class="selected-curves-head">
+          <div>
+            <span class="text-secondary small d-block">Modelos seleccionados</span>
+            <strong>Curvas comparadas</strong>
+          </div>
+          <div class="selected-curves-periods" role="group" aria-label="Periodo de curvas">
+            <button class="active" type="button" data-selected-curve-period="week">Semana</button>
+            <button type="button" data-selected-curve-period="month">Mes</button>
+            <button type="button" data-selected-curve-period="year">Ano</button>
+            <button type="button" data-selected-curve-period="all">Historico</button>
+          </div>
         </div>
-        <p class="mb-0 text-secondary">
-          {% if totalizer.count %}
-            Beneficio / perdida acumulado de {{ totalizer.count }} modelos seleccionados.
-            <span class="d-block small totalizer-return-line">Capital base: {{ totalizer.capital_display }} | Capital actual: {{ totalizer.current_capital_display }} | Rentabilidad sobre capital base: <strong class="{{ totalizer.pct_class }}">{{ totalizer.pct_display }}</strong></span>
-          {% else %}
-            Selecciona modelos para incluirlos en el totalizador.
-          {% endif %}
-        </p>
+        {% if selected_curve_panel.cards %}
+          <div class="selected-curves-grid">
+            {% for card in selected_curve_panel.cards %}
+              <a class="selected-curve-card" href="{{ card.url }}" target="_blank" rel="noopener" data-selected-curve-card="{{ loop.index0 }}">
+                <div class="selected-curve-card-head">
+                  <span>{{ card.short_name or card.name }}</span>
+                  <strong>{{ card.name }}</strong>
+                </div>
+                <canvas class="selected-curve-canvas" height="92" aria-label="Curva seleccionada {{ card.name }}"></canvas>
+                <div class="selected-curve-card-foot">
+                  <div>
+                    <span>Actual</span>
+                    <strong data-selected-curve-current>{{ card.latest_summary.capital_display }}</strong>
+                  </div>
+                  <div>
+                    <span>Invertido</span>
+                    <strong data-selected-curve-invested>{{ card.latest_summary.invested_display }}</strong>
+                  </div>
+                  <div>
+                    <span>Resultado</span>
+                    <strong data-selected-curve-profit class="{{ card.summaries.week.profit_class }}">{{ card.summaries.week.profit_display }}</strong>
+                  </div>
+                  <div>
+                    <span>Rentab.</span>
+                    <strong data-selected-curve-return class="{{ card.summaries.week.return_pct_class }}">{{ card.summaries.week.return_pct_display }}</strong>
+                  </div>
+                </div>
+              </a>
+            {% endfor %}
+            {% for _ in range(selected_curve_panel.max_count - selected_curve_panel.count) %}
+              <div class="selected-curve-card selected-curve-card-empty">
+                <span>Selecciona otro modelo</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="selected-curves-empty">Selecciona hasta 4 modelos en la tabla para ver aqui sus curvas.</div>
+        {% endif %}
       </div>
       <div class="table-responsive report-ranking-table-wrap">
         <table class="table table-dark table-hover align-middle report-ranking-table mb-0">
@@ -466,4 +504,151 @@
     window.location.reload();
   }, 600000);
 </script>
+{% if selected_curve_panel.cards %}
+  <script type="application/json" id="selected-curves-data">{{ selected_curve_panel|tojson }}</script>
+  <script>
+  (() => {
+    const dataNode = document.getElementById("selected-curves-data");
+    const panel = document.querySelector("[data-selected-curves-panel]");
+    if (!dataNode || !panel) return;
+    const payload = JSON.parse(dataNode.textContent || "{}");
+    const cards = payload.cards || [];
+    const buttons = Array.from(panel.querySelectorAll("[data-selected-curve-period]"));
+    const cardNodes = Array.from(panel.querySelectorAll("[data-selected-curve-card]"));
+    const dpr = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
+    const storageKey = "selected-curves-active-period";
+    const validPeriods = new Set(["week", "month", "year", "all"]);
+    const savedPeriod = localStorage.getItem(storageKey) || "";
+    let activePeriod = validPeriods.has(savedPeriod) ? savedPeriod : "week";
+
+    const money = (value) => {
+      const amount = Number(value || 0);
+      if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+      if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+      return amount.toFixed(0);
+    };
+
+    const dateValue = (item) => {
+      const parsed = Date.parse(item.date || "");
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const drawMiniCurve = (canvas, points) => {
+      const host = canvas.closest(".selected-curve-card") || canvas.parentElement || canvas;
+      const hostWidth = host.clientWidth || host.getBoundingClientRect().width || 280;
+      const cssWidth = Math.max(180, Math.floor(hostWidth - 22));
+      const cssHeight = Number(canvas.dataset.cssHeight || canvas.getAttribute("height") || 92);
+      canvas.style.width = "100%";
+      canvas.style.height = `${cssHeight}px`;
+      canvas.width = Math.ceil(cssWidth * dpr);
+      canvas.height = Math.ceil(cssHeight * dpr);
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
+      ctx.fillStyle = "#012456";
+      ctx.fillRect(0, 0, cssWidth, cssHeight);
+      const padL = 54;
+      const padR = 8;
+      const padT = 8;
+      const padB = 18;
+      if (!points || points.length < 2) {
+        ctx.fillStyle = "#8fa9d6";
+        ctx.font = "11px Consolas, monospace";
+        ctx.fillText("Sin puntos", padL, 52);
+        return;
+      }
+      const values = points.map((item) => Number(item.capital_actual || 0));
+      const rawMin = Math.min(...values);
+      const rawMax = Math.max(...values);
+      const rawSpan = Math.max(1, rawMax - rawMin);
+      const min = rawMin - Math.max(rawSpan * 0.05, 1);
+      const max = rawMax + Math.max(rawSpan * 0.05, 1);
+      const span = Math.max(1, max - min);
+      const firstTime = dateValue(points[0]);
+      const lastTime = dateValue(points[points.length - 1]);
+      const timeSpan = Math.max(1, lastTime - firstTime);
+      ctx.strokeStyle = "rgba(125, 211, 252, 0.16)";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#d8e7ff";
+      ctx.font = "11px Consolas, monospace";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i <= 2; i += 1) {
+        const y = padT + ((cssHeight - padT - padB) * i / 2);
+        const value = max - (span * i / 2);
+        ctx.beginPath();
+        ctx.moveTo(padL, Math.round(y) + 0.5);
+        ctx.lineTo(cssWidth - padR, Math.round(y) + 0.5);
+        ctx.stroke();
+        ctx.fillText(money(value), padL - 6, Math.round(y));
+      }
+      ctx.strokeStyle = "rgba(125, 211, 252, 0.42)";
+      ctx.beginPath();
+      ctx.moveTo(Math.round(padL) + 0.5, padT);
+      ctx.lineTo(Math.round(padL) + 0.5, cssHeight - padB);
+      ctx.stroke();
+      ctx.strokeStyle = "#16ff7a";
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      points.forEach((item, index) => {
+        const timeRatio = (dateValue(item) - firstTime) / timeSpan;
+        const value = Number(item.capital_actual || 0);
+        const x = padL + ((cssWidth - padL - padR) * timeRatio);
+        const y = padT + ((cssHeight - padT - padB) * (max - value) / span);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.fillStyle = "#d8e7ff";
+      ctx.font = "12px Consolas, monospace";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(`${money(values[values.length - 1])} USD`, padL, cssHeight - 5);
+    };
+
+    const render = () => {
+      cardNodes.forEach((node, index) => {
+        const card = cards[index] || {};
+        const summary = (card.summaries || {})[activePeriod] || {};
+        const latestSummary = card.latest_summary || {};
+        const points = (card.series || {})[activePeriod] || [];
+        const currentNode = node.querySelector("[data-selected-curve-current]");
+        const investedNode = node.querySelector("[data-selected-curve-invested]");
+        const profitNode = node.querySelector("[data-selected-curve-profit]");
+        const returnNode = node.querySelector("[data-selected-curve-return]");
+        const canvas = node.querySelector("canvas");
+        if (canvas && !canvas.dataset.cssHeight) {
+          canvas.dataset.cssHeight = String(Number(canvas.getAttribute("height") || 92));
+        }
+        if (currentNode) currentNode.textContent = latestSummary.capital_display || "Sin datos";
+        if (investedNode) investedNode.textContent = latestSummary.invested_display || "Sin datos";
+        if (profitNode) {
+          profitNode.textContent = summary.profit_display || "Sin datos";
+          profitNode.className = summary.profit_class || "";
+        }
+        if (returnNode) {
+          returnNode.textContent = summary.return_pct_display || "";
+          returnNode.className = summary.return_pct_class || "";
+        }
+        if (canvas) drawMiniCurve(canvas, points);
+      });
+      buttons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.selectedCurvePeriod === activePeriod);
+      });
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const requestedPeriod = button.dataset.selectedCurvePeriod || "week";
+        activePeriod = validPeriods.has(requestedPeriod) ? requestedPeriod : "week";
+        localStorage.setItem(storageKey, activePeriod);
+        render();
+      });
+    });
+    window.addEventListener("resize", render);
+    render();
+  })();
+  </script>
+{% endif %}
 {% endblock %}

@@ -35,6 +35,11 @@
           <span>Capital aportado</span>
           <strong>{{ latest_summary.capital_base_display }}</strong>
         </div>
+        <div class="equity-invested-summary">
+          <span>Capital invertido</span>
+          <strong>{{ latest_summary.invested_display }}</strong>
+          <small class="d-block">{{ latest_summary.invested_pct_display }} del capital actual</small>
+        </div>
         <div>
           <span>Resultado</span>
           <strong class="{{ latest_summary.profit_class }}">{{ latest_summary.profit_display }}</strong>
@@ -109,7 +114,7 @@
     const canvases = Array.from(document.querySelectorAll(".equity-curve-canvas"));
     if (!node || !canvases.length) return;
     const series = JSON.parse(node.textContent || "{}");
-    const dpr = Math.max(2, window.devicePixelRatio || 1);
+    const dpr = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
     const money = (value) => {
       const amount = Number(value || 0);
       if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
@@ -192,13 +197,17 @@
       });
       return ticks;
     };
-    const pointGeometry = (item, index, chartPoints, bounds) => {
+    const pointGeometry = (item, index, chartPoints, bounds, field = "capital_actual") => {
       const itemTime = dateValue(item);
       const ratio = itemTime ? ((itemTime - bounds.firstTime) / bounds.timeSpan) : (index / Math.max(1, chartPoints.length - 1));
-      const value = Number(item.capital_actual || 0);
+      const value = Number(item[field] || 0);
+      const isInvested = field === "capital_invertido";
+      const scaleMin = isInvested ? bounds.investedMin : bounds.min;
+      const scaleMax = isInvested ? bounds.investedMax : bounds.max;
+      const scaleSpan = isInvested ? bounds.investedSpan : bounds.span;
       return {
         x: bounds.padL + ((bounds.width - bounds.padL - bounds.padR) * ratio),
-        y: bounds.padT + ((bounds.height - bounds.padT - bounds.padB) * (bounds.max - value) / bounds.span),
+        y: bounds.padT + ((bounds.height - bounds.padT - bounds.padB) * (scaleMax - value) / scaleSpan),
         value,
       };
     };
@@ -207,6 +216,7 @@
       if (hoverIndex === null || hoverIndex < 0 || hoverIndex >= chartPoints.length) return;
       const point = chartPoints[hoverIndex];
       const geometry = pointGeometry(point, hoverIndex, chartPoints, bounds);
+      const investedGeometry = pointGeometry(point, hoverIndex, chartPoints, bounds, "capital_invertido");
       ctx.save();
       ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
       ctx.lineWidth = 1;
@@ -214,20 +224,25 @@
       ctx.moveTo(crisp(geometry.x), bounds.padT);
       ctx.lineTo(crisp(geometry.x), bounds.height - bounds.padB);
       ctx.stroke();
-      ctx.fillStyle = "#16ff7a";
+      ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.arc(geometry.x, geometry.y, 3.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.arc(investedGeometry.x, investedGeometry.y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
       const returnPct = Number(point.return_pct || 0);
       const pctLabel = `${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(2)}%`;
-      const label = `${fullDateLabel(point.date)}  ${money(point.capital_actual)} USD  ${pctLabel}`;
-      ctx.font = "13px Consolas, monospace";
+      const investedPct = Number(point.capital_actual || 0) ? (Number(point.capital_invertido || 0) / Number(point.capital_actual || 0) * 100) : 0;
+      const label = `${fullDateLabel(point.date)}  Actual ${money(point.capital_actual)}  Inv. ${money(point.capital_invertido)} (${investedPct.toFixed(1)}%)  ${pctLabel}`;
+      ctx.font = "14px Consolas, monospace";
       const labelWidth = ctx.measureText(label).width + 16;
       const labelHeight = 24;
       const boxX = Math.min(Math.max(geometry.x + 8, bounds.padL), bounds.width - bounds.padR - labelWidth);
       const boxY = Math.max(bounds.padT + 4, geometry.y - 32);
       ctx.fillStyle = "rgba(1, 36, 86, 0.96)";
-      ctx.strokeStyle = "rgba(22, 255, 122, 0.85)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
       ctx.lineWidth = 1;
       ctx.fillRect(boxX, boxY, labelWidth, labelHeight);
       ctx.strokeRect(boxX, boxY, labelWidth, labelHeight);
@@ -242,10 +257,11 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
       const padL = 68;
-      const padR = 18;
+      const padR = 84;
       const padT = 18;
       const padB = 54;
       const values = chartPoints.map((item) => Number(item.capital_actual || 0));
+      const investedValues = chartPoints.map((item) => Number(item.capital_invertido || 0));
       const rawMin = Math.min(...values);
       const rawMax = Math.max(...values);
       const rawSpan = Math.max(1, rawMax - rawMin);
@@ -253,26 +269,45 @@
       const min = rawMin - verticalPad;
       const max = rawMax + verticalPad;
       const span = Math.max(1, max - min);
+      const investedRawMin = Math.min(...investedValues);
+      const investedRawMax = Math.max(...investedValues);
+      const investedRawSpan = Math.max(1, investedRawMax - investedRawMin);
+      const investedPad = Math.max(investedRawSpan * 0.05, 1);
+      const investedMin = Math.max(0, investedRawMin - investedPad);
+      const investedMax = investedRawMax + investedPad;
+      const investedSpan = Math.max(1, investedMax - investedMin);
       const firstTime = dateValue(chartPoints[0]);
       const lastTime = dateValue(chartPoints[chartPoints.length - 1]);
       const timeSpan = Math.max(1, lastTime - firstTime);
-      const bounds = { width, height, padL, padR, padT, padB, min, max, span, firstTime, lastTime, timeSpan };
+      const bounds = { width, height, padL, padR, padT, padB, min, max, span, investedMin, investedMax, investedSpan, firstTime, lastTime, timeSpan };
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = "#012456";
       ctx.fillRect(0, 0, width, height);
       ctx.strokeStyle = "rgba(125, 211, 252, 0.18)";
       ctx.lineWidth = 1;
-      ctx.font = "13px Consolas, monospace";
+      ctx.font = "14px Consolas, monospace";
       ctx.fillStyle = "#d8e7ff";
       for (let i = 0; i <= 4; i += 1) {
         const y = padT + ((height - padT - padB) * i / 4);
         const value = max - (span * i / 4);
+        const investedValue = investedMax - (investedSpan * i / 4);
         ctx.beginPath();
         ctx.moveTo(padL, crisp(y));
         ctx.lineTo(width - padR, crisp(y));
         ctx.stroke();
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#d8e7ff";
         ctx.fillText(`${money(value)} USD`, 8, Math.round(y + 4));
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#f59e0b";
+        ctx.fillText(`${money(investedValue)}`, width - 8, Math.round(y + 4));
       }
+      ctx.textAlign = "left";
+      ctx.strokeStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.moveTo(crisp(width - padR + 8), padT);
+      ctx.lineTo(crisp(width - padR + 8), height - padB);
+      ctx.stroke();
       const ticks = axisTicks(chartPoints, canvas.dataset.range || "all");
       ctx.strokeStyle = "rgba(125, 211, 252, 0.28)";
       ctx.fillStyle = "#d8e7ff";
@@ -286,15 +321,24 @@
         ctx.fillText(tick.label, Math.round(x), height - 24);
       });
       ctx.textAlign = "left";
-      ctx.strokeStyle = "#16ff7a";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      chartPoints.forEach((item, index) => {
-        const { x, y } = pointGeometry(item, index, chartPoints, bounds);
-        if (index === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
+      const drawLine = (field, color, widthLine) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = widthLine;
+        ctx.beginPath();
+        chartPoints.forEach((item, index) => {
+          const { x, y } = pointGeometry(item, index, chartPoints, bounds, field);
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      };
+      drawLine("capital_invertido", "#f59e0b", 2.4);
+      drawLine("capital_actual", "#ffffff", 2);
+      ctx.font = "13px Consolas, monospace";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText("Capital actual", padL + 8, padT + 14);
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillText("Capital invertido", padL + 8, padT + 30);
       const first = chartPoints[0];
       const last = chartPoints[chartPoints.length - 1];
       ctx.fillStyle = "#d8e7ff";
@@ -309,7 +353,7 @@
       const rect = canvas.getBoundingClientRect();
       const x = clientX - rect.left;
       const padL = 68;
-      const padR = 18;
+      const padR = 84;
       const cssWidth = Number(canvas.dataset.cssWidth || rect.width || canvas.width);
       const plotWidth = Math.max(1, cssWidth - padL - padR);
       const ratio = Math.min(1, Math.max(0, (x - padL) / plotWidth));

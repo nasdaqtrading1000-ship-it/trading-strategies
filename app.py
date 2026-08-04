@@ -3233,6 +3233,13 @@ def create_app():
     def can_view_strategy(strategy):
         if session.get("admin_logged_in"):
             return True
+        visible_value = strategy.get("web_visible")
+        if visible_value is None:
+            visible_value = strategy.get("is_active")
+        if visible_value is None:
+            visible_value = 1
+        if int(visible_value) != 1:
+            return False
         if member_has_full_access():
             return True
         return bool(int(strategy.get("public_visible") or 0))
@@ -3665,9 +3672,9 @@ def create_app():
         rows = g.db.execute(
             text(
                 """
-                SELECT id, name, signals_txt_name, historical_return, public_visible
+                SELECT id, name, signals_txt_name, historical_return, public_visible, web_visible
                 FROM strategies
-                WHERE is_active = 1
+                WHERE COALESCE(web_visible, is_active, 1) = 1
                 ORDER BY created_at DESC
                 """
             )
@@ -4705,7 +4712,7 @@ def create_app():
             flash("Entra con tu cuenta para seleccionar estrategias.", "warning")
             return redirect(url_for("user_login"))
         exists = g.db.execute(
-            text("SELECT id FROM strategies WHERE id = :id AND is_active = 1"),
+            text("SELECT id FROM strategies WHERE id = :id AND COALESCE(web_visible, is_active, 1) = 1"),
             {"id": strategy_id},
         ).fetchone()
         if not exists:
@@ -4830,7 +4837,7 @@ def create_app():
                s.historical_return, s.telegram_url, s.telegram_chat_id, s.has_telegram, s.signals_txt_name,
                s.python_file, s.auto_execute, s.schedule_start_time, s.schedule_end_time,
                s.schedule_interval_minutes, s.run_status, s.run_message, s.run_at,
-               s.run_txt_updated, s.run_returncode, s.include_in_totalizer, s.public_visible, s.is_active,
+               s.run_txt_updated, s.run_returncode, s.include_in_totalizer, s.public_visible, s.web_visible, s.is_active,
                s.closed_operations_count,
                COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS daily_operations_count,
                COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS open_operations_today,
@@ -4846,7 +4853,7 @@ def create_app():
         LEFT JOIN strategy_activity_stats a
           ON a.txt_name = s.signals_txt_name
           OR a.strategy_id = s.id
-        WHERE s.is_active = 1
+        WHERE COALESCE(s.web_visible, s.is_active, 1) = 1
         ORDER BY s.created_at DESC
         """
         rows = g.db.execute(text(query)).mappings().fetchall()
@@ -4909,7 +4916,7 @@ def create_app():
                s.historical_return, s.telegram_url, s.telegram_chat_id, s.has_telegram, s.signals_txt_name,
                s.python_file, s.auto_execute, s.schedule_start_time, s.schedule_end_time,
                s.schedule_interval_minutes, s.run_status, s.run_message, s.run_at,
-               s.run_txt_updated, s.run_returncode, s.include_in_totalizer, s.public_visible, s.is_active,
+               s.run_txt_updated, s.run_returncode, s.include_in_totalizer, s.public_visible, s.web_visible, s.is_active,
                s.closed_operations_count,
                COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS daily_operations_count,
                COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS open_operations_today,
@@ -4925,7 +4932,7 @@ def create_app():
         LEFT JOIN strategy_activity_stats a
           ON a.txt_name = s.signals_txt_name
           OR a.strategy_id = s.id
-        WHERE s.is_active = 1
+        WHERE COALESCE(s.web_visible, s.is_active, 1) = 1
         ORDER BY s.created_at DESC
         """
         rows = g.db.execute(text(query)).mappings().fetchall()
@@ -5480,7 +5487,7 @@ self.addEventListener("fetch", () => {});
                    s.schedule_interval_minutes, s.schedule_last_status, s.schedule_last_message,
                    s.schedule_last_run_at, s.run_status, s.run_message, s.run_at,
                    s.run_txt_updated, s.run_returncode, s.include_in_totalizer,
-                   s.public_visible, s.run_locally, s.is_active, s.created_at,
+                   s.public_visible, s.web_visible, s.run_locally, s.is_active, s.created_at,
                    s.closed_operations_count,
                    COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS daily_operations_count,
                    COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS open_operations_today,
@@ -5496,7 +5503,7 @@ self.addEventListener("fetch", () => {});
             LEFT JOIN strategy_activity_stats a
               ON a.txt_name = s.signals_txt_name
               OR a.strategy_id = s.id
-            ORDER BY s.is_active DESC, s.created_at DESC
+            ORDER BY COALESCE(s.web_visible, s.is_active, 1) DESC, s.created_at DESC
             """
             )
         ).mappings().fetchall()
@@ -5991,10 +5998,13 @@ self.addEventListener("fetch", () => {});
     @login_required
     def strategy_toggle(strategy_id):
         strategy = get_strategy_or_404(strategy_id)
-        next_state = 0 if strategy["is_active"] else 1
+        current_state = strategy.get("web_visible")
+        if current_state is None:
+            current_state = strategy.get("is_active") or 1
+        next_state = 0 if int(current_state) else 1
         g.db.execute(
-            text("UPDATE strategies SET is_active = :is_active WHERE id = :id"),
-            {"is_active": next_state, "id": strategy_id},
+            text("UPDATE strategies SET web_visible = :web_visible WHERE id = :id"),
+            {"web_visible": next_state, "id": strategy_id},
         )
         g.db.commit()
         flash("Estado actualizado.", "success")
@@ -6028,7 +6038,7 @@ self.addEventListener("fetch", () => {});
         python_file = request.form.get("python_file", "").strip()
         include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
         public_visible = 1 if request.form.get("public_visible") == "on" else 0
-        is_active = 1 if request.form.get("is_active") == "on" else 0
+        web_visible = 1 if request.form.get("web_visible") == "on" else 0
         run_locally = 1 if request.form.get("run_locally") == "on" else 0
 
         errors = []
@@ -6065,7 +6075,7 @@ self.addEventListener("fetch", () => {});
                     python_file = :python_file,
                     include_in_totalizer = :include_in_totalizer,
                     public_visible = :public_visible,
-                    is_active = :is_active,
+                    web_visible = :web_visible,
                     run_locally = :run_locally
                 WHERE id = :id
                 """
@@ -6082,7 +6092,7 @@ self.addEventListener("fetch", () => {});
                 "python_file": python_file,
                 "include_in_totalizer": include_in_totalizer,
                 "public_visible": public_visible,
-                "is_active": is_active,
+                "web_visible": web_visible,
                 "run_locally": run_locally,
                 "id": strategy_id,
             },
@@ -6148,7 +6158,7 @@ self.addEventListener("fetch", () => {});
                         python_file = :python_file,
                         include_in_totalizer = :include_in_totalizer,
                         public_visible = :public_visible,
-                        is_active = :is_active,
+                        web_visible = :web_visible,
                         run_locally = :run_locally
                     WHERE id = :id
                     """
@@ -6173,7 +6183,7 @@ self.addEventListener("fetch", () => {});
             "python_file": request.form.get(prefix + "python_file", "").strip(),
             "include_in_totalizer": 1 if request.form.get(prefix + "include_in_totalizer") == "on" else 0,
             "public_visible": 1 if request.form.get(prefix + "public_visible") == "on" else 0,
-            "is_active": 1 if request.form.get(prefix + "is_active") == "on" else 0,
+            "web_visible": 1 if request.form.get(prefix + "web_visible") == "on" else 0,
             "run_locally": 1 if request.form.get(prefix + "run_locally") == "on" else 0,
         }
 
@@ -6196,9 +6206,9 @@ self.addEventListener("fetch", () => {});
     @app.route("/admin/strategies/deactivate-all", methods=["POST"])
     @login_required
     def strategies_deactivate_all():
-        g.db.execute(text("UPDATE strategies SET is_active = 0 WHERE is_active = 1"))
+        g.db.execute(text("UPDATE strategies SET web_visible = 0 WHERE COALESCE(web_visible, is_active, 1) = 1"))
         g.db.commit()
-        flash("Todas las estrategias han sido ocultadas/desactivadas en la web. La ejecucion local no cambia.", "warning")
+        flash("Todas las estrategias han sido ocultadas en la web. La ejecucion local no cambia.", "warning")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/strategies/apply-recommended-schedules", methods=["POST"])
@@ -6314,6 +6324,7 @@ self.addEventListener("fetch", () => {});
         )
         include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
         public_visible = 1 if request.form.get("public_visible") == "on" else 0
+        web_visible = 1 if request.form.get("web_visible") == "on" else 0
         is_active = 1 if request.form.get("is_active") == "on" else 0
 
         errors = []
@@ -6356,6 +6367,7 @@ self.addEventListener("fetch", () => {});
             "schedule_interval_minutes": schedule_interval_minutes,
             "include_in_totalizer": include_in_totalizer,
             "public_visible": public_visible,
+            "web_visible": web_visible,
             "is_active": is_active,
         }
 
@@ -6392,6 +6404,7 @@ self.addEventListener("fetch", () => {});
                     schedule_interval_minutes = :schedule_interval_minutes,
                     include_in_totalizer = :include_in_totalizer,
                     public_visible = :public_visible,
+                    web_visible = :web_visible,
                     is_active = :is_active
                 WHERE id = :id
                 """,
@@ -6413,6 +6426,7 @@ self.addEventListener("fetch", () => {});
                     "schedule_interval_minutes": schedule_interval_minutes,
                     "include_in_totalizer": include_in_totalizer,
                     "public_visible": public_visible,
+                    "web_visible": web_visible,
                     "is_active": is_active,
                     "id": strategy_id,
                 },
@@ -6426,11 +6440,11 @@ self.addEventListener("fetch", () => {});
                 (name, description, risk_level, signal_frequency,
                  historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
                  python_file, auto_execute, schedule_start_time, schedule_end_time,
-                 schedule_interval_minutes, include_in_totalizer, public_visible, is_active)
+                 schedule_interval_minutes, include_in_totalizer, public_visible, web_visible, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
                         :historical_return, :telegram_url, :telegram_chat_id, :has_telegram, :signals_txt_name,
                         :python_file, :auto_execute, :schedule_start_time, :schedule_end_time,
-                        :schedule_interval_minutes, :include_in_totalizer, :public_visible, :is_active)
+                        :schedule_interval_minutes, :include_in_totalizer, :public_visible, :web_visible, :is_active)
                 """,
                 ),
                 {
@@ -6450,6 +6464,7 @@ self.addEventListener("fetch", () => {});
                     "schedule_interval_minutes": schedule_interval_minutes,
                     "include_in_totalizer": include_in_totalizer,
                     "public_visible": public_visible,
+                    "web_visible": web_visible,
                     "is_active": is_active,
                 },
             )
@@ -9165,6 +9180,7 @@ def init_db():
                     run_returncode INTEGER,
                     include_in_totalizer INTEGER NOT NULL DEFAULT 0,
                     public_visible INTEGER NOT NULL DEFAULT 0,
+                    web_visible INTEGER NOT NULL DEFAULT 1,
                     run_locally INTEGER NOT NULL DEFAULT 1,
                     closed_operations_count INTEGER NOT NULL DEFAULT 0,
                     daily_operations_count INTEGER NOT NULL DEFAULT 0,
@@ -9232,6 +9248,10 @@ def init_db():
         add_strategy_column(connection, "run_returncode", "INTEGER")
         add_strategy_column(connection, "include_in_totalizer", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "public_visible", "INTEGER NOT NULL DEFAULT 0")
+        web_visible_existed = strategy_column_exists(connection, "web_visible")
+        add_strategy_column(connection, "web_visible", "INTEGER NOT NULL DEFAULT 1")
+        if not web_visible_existed:
+            connection.execute(text("UPDATE strategies SET web_visible = COALESCE(is_active, 1)"))
         add_strategy_column(connection, "run_locally", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "closed_operations_count", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "daily_operations_count", "INTEGER NOT NULL DEFAULT 0")

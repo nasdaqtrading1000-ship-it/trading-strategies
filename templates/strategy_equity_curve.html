@@ -282,9 +282,15 @@
       });
       ctx.restore();
     };
+    const canvasCssWidth = (canvas) => {
+      const parent = canvas.parentElement;
+      const parentWidth = parent ? parent.clientWidth : 0;
+      const rectWidth = canvas.getBoundingClientRect().width;
+      return Math.max(240, Math.floor(parentWidth || rectWidth || 320));
+    };
     const drawChart = (canvas, chartPoints, hoverIndex = null) => {
       const ctx = canvas.getContext("2d");
-      const width = Number(canvas.dataset.cssWidth || canvas.getBoundingClientRect().width || canvas.width);
+      const width = Number(canvas.dataset.cssWidth || canvasCssWidth(canvas));
       const height = Number(canvas.dataset.cssHeight || canvas.getAttribute("height") || 300);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
@@ -394,7 +400,7 @@
       const x = clientX - rect.left;
       const padL = 82;
       const padR = 84;
-      const cssWidth = Number(canvas.dataset.cssWidth || rect.width || canvas.width);
+      const cssWidth = Number(canvas.dataset.cssWidth || canvasCssWidth(canvas));
       const plotWidth = Math.max(1, cssWidth - padL - padR);
       const ratio = Math.min(1, Math.max(0, (x - padL) / plotWidth));
       const firstTime = dateValue(chartPoints[0]);
@@ -415,12 +421,17 @@
       canvases.forEach((canvas) => {
         const chartPoints = series[canvas.dataset.range || "all"] || [];
         if (!chartPoints.length) return;
-        const rect = canvas.getBoundingClientRect();
         const cssHeight = Number(canvas.getAttribute("height") || 300);
-        const cssWidth = Math.max(320, rect.width);
+        const cssWidth = canvasCssWidth(canvas);
+        const previousWidth = Number(canvas.dataset.cssWidth || 0);
+        const previousHeight = Number(canvas.dataset.cssHeight || 0);
+        if (previousWidth === cssWidth && previousHeight === cssHeight) {
+          drawChart(canvas, chartPoints);
+          return;
+        }
         canvas.dataset.cssWidth = String(cssWidth);
         canvas.dataset.cssHeight = String(cssHeight);
-        canvas.style.width = `${cssWidth}px`;
+        canvas.style.width = "100%";
         canvas.style.height = `${cssHeight}px`;
         canvas.width = Math.ceil(cssWidth * dpr);
         canvas.height = Math.ceil(cssHeight * dpr);

@@ -333,8 +333,12 @@
               <td>
                 <div class="admin-inline-checks">
                   <div class="form-check form-switch">
-                    <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="is_active_{{ strategy.id }}" name="is_active" {% if strategy.is_active %}checked{% endif %}>
-                    <label class="form-check-label small" for="is_active_{{ strategy.id }}">Visible web</label>
+                    {% set strategy_web_visible = strategy.web_visible %}
+                    {% if strategy_web_visible is none %}
+                      {% set strategy_web_visible = strategy.is_active %}
+                    {% endif %}
+                    <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="web_visible_{{ strategy.id }}" name="web_visible" {% if strategy_web_visible %}checked{% endif %}>
+                    <label class="form-check-label small" for="web_visible_{{ strategy.id }}">Visible web</label>
                   </div>
                   <div class="form-check form-switch">
                     <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="run_locally_{{ strategy.id }}" name="run_locally" {% if strategy.run_locally %}checked{% endif %}>

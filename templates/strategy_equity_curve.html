@@ -27,7 +27,7 @@
 
     {% if points %}
       <div class="history-totalizer equity-curve-summary mb-4">
-        <div>
+        <div class="equity-current-summary">
           <span>Capital actual</span>
           <strong>{{ latest_summary.capital_display }}</strong>
         </div>
@@ -58,7 +58,13 @@
       {% if has_curve_access %}
         <div class="equity-chart-shell mb-4">
           <div class="equity-chart-head">
-            <h2 class="h6 mb-0">Historico completo</h2>
+            <div class="equity-chart-title">
+              <h2 class="h6 mb-0">Historico completo</h2>
+              <div class="equity-chart-legend">
+                <span class="equity-legend-current">Capital actual</span>
+                <span class="equity-legend-invested">% capital invertido</span>
+              </div>
+            </div>
             <div class="equity-period-result">
               <strong class="{{ curve_summaries['all'].profit_class }}">{{ curve_summaries['all'].profit_display }}</strong>
               <span class="{{ curve_summaries['all'].return_pct_class }}">{{ curve_summaries['all'].return_pct_display }}</span>
@@ -70,7 +76,13 @@
 
         <div class="equity-chart-shell mb-4">
           <div class="equity-chart-head">
-            <h2 class="h6 mb-0">1 year</h2>
+            <div class="equity-chart-title">
+              <h2 class="h6 mb-0">1 year</h2>
+              <div class="equity-chart-legend">
+                <span class="equity-legend-current">Capital actual</span>
+                <span class="equity-legend-invested">% capital invertido</span>
+              </div>
+            </div>
             <div class="equity-period-result">
               <strong class="{{ curve_summaries['year'].profit_class }}">{{ curve_summaries['year'].profit_display }}</strong>
               <span class="{{ curve_summaries['year'].return_pct_class }}">{{ curve_summaries['year'].return_pct_display }}</span>
@@ -82,7 +94,13 @@
 
         <div class="equity-chart-shell">
           <div class="equity-chart-head">
-            <h2 class="h6 mb-0">1 mes</h2>
+            <div class="equity-chart-title">
+              <h2 class="h6 mb-0">1 mes</h2>
+              <div class="equity-chart-legend">
+                <span class="equity-legend-current">Capital actual</span>
+                <span class="equity-legend-invested">% capital invertido</span>
+              </div>
+            </div>
             <div class="equity-period-result">
               <strong class="{{ curve_summaries['month'].profit_class }}">{{ curve_summaries['month'].profit_display }}</strong>
               <span class="{{ curve_summaries['month'].return_pct_class }}">{{ curve_summaries['month'].return_pct_display }}</span>
@@ -197,14 +215,19 @@
       });
       return ticks;
     };
+    const investedPctValue = (item) => {
+      const current = Number(item.capital_actual || 0);
+      const invested = Number(item.capital_invertido || 0);
+      return current ? (invested / current * 100) : 0;
+    };
     const pointGeometry = (item, index, chartPoints, bounds, field = "capital_actual") => {
       const itemTime = dateValue(item);
       const ratio = itemTime ? ((itemTime - bounds.firstTime) / bounds.timeSpan) : (index / Math.max(1, chartPoints.length - 1));
-      const value = Number(item[field] || 0);
-      const isInvested = field === "capital_invertido";
-      const scaleMin = isInvested ? bounds.investedMin : bounds.min;
-      const scaleMax = isInvested ? bounds.investedMax : bounds.max;
-      const scaleSpan = isInvested ? bounds.investedSpan : bounds.span;
+      const isInvestedPct = field === "capital_invertido_pct";
+      const value = isInvestedPct ? investedPctValue(item) : Number(item[field] || 0);
+      const scaleMin = isInvestedPct ? bounds.investedPctMin : bounds.min;
+      const scaleMax = isInvestedPct ? bounds.investedPctMax : bounds.max;
+      const scaleSpan = isInvestedPct ? bounds.investedPctSpan : bounds.span;
       return {
         x: bounds.padL + ((bounds.width - bounds.padL - bounds.padR) * ratio),
         y: bounds.padT + ((bounds.height - bounds.padT - bounds.padB) * (scaleMax - value) / scaleSpan),
@@ -216,7 +239,7 @@
       if (hoverIndex === null || hoverIndex < 0 || hoverIndex >= chartPoints.length) return;
       const point = chartPoints[hoverIndex];
       const geometry = pointGeometry(point, hoverIndex, chartPoints, bounds);
-      const investedGeometry = pointGeometry(point, hoverIndex, chartPoints, bounds, "capital_invertido");
+      const investedGeometry = pointGeometry(point, hoverIndex, chartPoints, bounds, "capital_invertido_pct");
       ctx.save();
       ctx.strokeStyle = "rgba(255, 255, 255, 0.72)";
       ctx.lineWidth = 1;
@@ -234,10 +257,15 @@
       ctx.fill();
       const returnPct = Number(point.return_pct || 0);
       const pctLabel = `${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(2)}%`;
-      const investedPct = Number(point.capital_actual || 0) ? (Number(point.capital_invertido || 0) / Number(point.capital_actual || 0) * 100) : 0;
-      const label = `${fullDateLabel(point.date)}  Actual ${money(point.capital_actual)}  Inv. ${money(point.capital_invertido)} (${investedPct.toFixed(1)}%)  ${pctLabel}`;
+      const investedPct = investedPctValue(point);
+      const labelSegments = [
+        { text: `${fullDateLabel(point.date)}  `, color: "#d8e7ff" },
+        { text: `Actual ${money(point.capital_actual)}  `, color: "#a78bfa" },
+        { text: `Inv. ${money(point.capital_invertido)} (${investedPct.toFixed(1)}%)  `, color: "#f59e0b" },
+        { text: pctLabel, color: "#16ff7a" },
+      ];
       ctx.font = "14px Consolas, monospace";
-      const labelWidth = ctx.measureText(label).width + 16;
+      const labelWidth = labelSegments.reduce((total, segment) => total + ctx.measureText(segment.text).width, 0) + 16;
       const labelHeight = 24;
       const boxX = Math.min(Math.max(geometry.x + 8, bounds.padL), bounds.width - bounds.padR - labelWidth);
       const boxY = Math.max(bounds.padT + 4, geometry.y - 32);
@@ -246,8 +274,12 @@
       ctx.lineWidth = 1;
       ctx.fillRect(boxX, boxY, labelWidth, labelHeight);
       ctx.strokeRect(boxX, boxY, labelWidth, labelHeight);
-      ctx.fillStyle = "#d8e7ff";
-      ctx.fillText(label, Math.round(boxX + 8), Math.round(boxY + 16));
+      let textX = Math.round(boxX + 8);
+      labelSegments.forEach((segment) => {
+        ctx.fillStyle = segment.color;
+        ctx.fillText(segment.text, textX, Math.round(boxY + 16));
+        textX += ctx.measureText(segment.text).width;
+      });
       ctx.restore();
     };
     const drawChart = (canvas, chartPoints, hoverIndex = null) => {
@@ -256,12 +288,11 @@
       const height = Number(canvas.dataset.cssHeight || canvas.getAttribute("height") || 300);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.imageSmoothingEnabled = false;
-      const padL = 68;
+      const padL = 82;
       const padR = 84;
       const padT = 18;
       const padB = 54;
       const values = chartPoints.map((item) => Number(item.capital_actual || 0));
-      const investedValues = chartPoints.map((item) => Number(item.capital_invertido || 0));
       const rawMin = Math.min(...values);
       const rawMax = Math.max(...values);
       const rawSpan = Math.max(1, rawMax - rawMin);
@@ -269,17 +300,13 @@
       const min = rawMin - verticalPad;
       const max = rawMax + verticalPad;
       const span = Math.max(1, max - min);
-      const investedRawMin = Math.min(...investedValues);
-      const investedRawMax = Math.max(...investedValues);
-      const investedRawSpan = Math.max(1, investedRawMax - investedRawMin);
-      const investedPad = Math.max(investedRawSpan * 0.05, 1);
-      const investedMin = Math.max(0, investedRawMin - investedPad);
-      const investedMax = investedRawMax + investedPad;
-      const investedSpan = Math.max(1, investedMax - investedMin);
+      const investedPctMin = 0;
+      const investedPctMax = 100;
+      const investedPctSpan = Math.max(1, investedPctMax - investedPctMin);
       const firstTime = dateValue(chartPoints[0]);
       const lastTime = dateValue(chartPoints[chartPoints.length - 1]);
       const timeSpan = Math.max(1, lastTime - firstTime);
-      const bounds = { width, height, padL, padR, padT, padB, min, max, span, investedMin, investedMax, investedSpan, firstTime, lastTime, timeSpan };
+      const bounds = { width, height, padL, padR, padT, padB, min, max, span, investedPctMin, investedPctMax, investedPctSpan, firstTime, lastTime, timeSpan };
       ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = "#012456";
       ctx.fillRect(0, 0, width, height);
@@ -287,26 +314,44 @@
       ctx.lineWidth = 1;
       ctx.font = "14px Consolas, monospace";
       ctx.fillStyle = "#d8e7ff";
+      const leftRuleX = padL - 10;
+      const rightRuleX = width - padR + 8;
       for (let i = 0; i <= 4; i += 1) {
         const y = padT + ((height - padT - padB) * i / 4);
         const value = max - (span * i / 4);
-        const investedValue = investedMax - (investedSpan * i / 4);
+        const investedValue = investedPctMax - (investedPctSpan * i / 4);
         ctx.beginPath();
         ctx.moveTo(padL, crisp(y));
         ctx.lineTo(width - padR, crisp(y));
         ctx.stroke();
-        ctx.textAlign = "left";
-        ctx.fillStyle = "#d8e7ff";
-        ctx.fillText(`${money(value)} USD`, 8, Math.round(y + 4));
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#a78bfa";
+        ctx.fillText(`${money(value)} USD`, leftRuleX - 10, Math.round(y + 4));
+        ctx.strokeStyle = "#a78bfa";
+        ctx.beginPath();
+        ctx.moveTo(crisp(leftRuleX - 5), crisp(y));
+        ctx.lineTo(crisp(leftRuleX + 5), crisp(y));
+        ctx.stroke();
         ctx.textAlign = "right";
         ctx.fillStyle = "#f59e0b";
-        ctx.fillText(`${money(investedValue)}`, width - 8, Math.round(y + 4));
+        ctx.fillText(`${investedValue.toFixed(1)}%`, width - 8, Math.round(y + 4));
+        ctx.strokeStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.moveTo(crisp(rightRuleX - 5), crisp(y));
+        ctx.lineTo(crisp(rightRuleX + 5), crisp(y));
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(125, 211, 252, 0.18)";
       }
       ctx.textAlign = "left";
+      ctx.strokeStyle = "#a78bfa";
+      ctx.beginPath();
+      ctx.moveTo(crisp(leftRuleX), padT);
+      ctx.lineTo(crisp(leftRuleX), height - padB);
+      ctx.stroke();
       ctx.strokeStyle = "#f59e0b";
       ctx.beginPath();
-      ctx.moveTo(crisp(width - padR + 8), padT);
-      ctx.lineTo(crisp(width - padR + 8), height - padB);
+      ctx.moveTo(crisp(rightRuleX), padT);
+      ctx.lineTo(crisp(rightRuleX), height - padB);
       ctx.stroke();
       const ticks = axisTicks(chartPoints, canvas.dataset.range || "all");
       ctx.strokeStyle = "rgba(125, 211, 252, 0.28)";
@@ -332,13 +377,8 @@
         });
         ctx.stroke();
       };
-      drawLine("capital_invertido", "#f59e0b", 2.4);
-      drawLine("capital_actual", "#ffffff", 2);
-      ctx.font = "13px Consolas, monospace";
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText("Capital actual", padL + 8, padT + 14);
-      ctx.fillStyle = "#f59e0b";
-      ctx.fillText("Capital invertido", padL + 8, padT + 30);
+      drawLine("capital_invertido_pct", "#f59e0b", 2.4);
+      drawLine("capital_actual", "#a78bfa", 2);
       const first = chartPoints[0];
       const last = chartPoints[chartPoints.length - 1];
       ctx.fillStyle = "#d8e7ff";
@@ -352,7 +392,7 @@
     const nearestIndex = (canvas, chartPoints, clientX) => {
       const rect = canvas.getBoundingClientRect();
       const x = clientX - rect.left;
-      const padL = 68;
+      const padL = 82;
       const padR = 84;
       const cssWidth = Number(canvas.dataset.cssWidth || rect.width || canvas.width);
       const plotWidth = Math.max(1, cssWidth - padL - padR);

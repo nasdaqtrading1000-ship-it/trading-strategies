@@ -713,13 +713,27 @@ html {
   min-height: 96px;
 }
 
+.equity-current-summary {
+  border-color: rgba(167, 139, 250, 0.72) !important;
+  box-shadow: inset 3px 0 0 #a78bfa;
+}
+
+.equity-current-summary span,
+.equity-current-summary strong {
+  color: #a78bfa !important;
+}
+
 .equity-invested-summary {
   border-color: rgba(245, 158, 11, 0.72) !important;
   box-shadow: inset 3px 0 0 #f59e0b;
 }
 
-.equity-invested-summary strong {
+.equity-invested-summary span {
   color: #f59e0b !important;
+}
+
+.equity-invested-summary strong {
+  color: #ffffff !important;
 }
 
 .equity-invested-summary small {
@@ -727,6 +741,20 @@ html {
   font-family: Consolas, "Courier New", monospace;
   font-size: 0.68rem;
   line-height: 1.1;
+}
+
+html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-current-summary span,
+html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-current-summary strong {
+  color: #a78bfa !important;
+}
+
+html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-invested-summary span,
+html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-invested-summary small {
+  color: #f59e0b !important;
+}
+
+html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-invested-summary strong {
+  color: #ffffff !important;
 }
 
 @media (max-width: 991.98px) {
@@ -6700,6 +6728,52 @@ html[data-bs-theme="dark"] .public-shell-warning a {
   gap: 0.75rem;
   justify-content: space-between;
   margin-bottom: 0.5rem;
+}
+
+.equity-chart-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+}
+
+.equity-chart-legend {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.68rem;
+  gap: 0.55rem;
+}
+
+.equity-chart-legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.equity-chart-legend span::before {
+  content: "";
+  display: inline-block;
+  height: 2px;
+  width: 18px;
+}
+
+.equity-legend-current {
+  color: #a78bfa;
+}
+
+.equity-legend-current::before {
+  background: #a78bfa;
+}
+
+.equity-legend-invested {
+  color: #f59e0b;
+}
+
+.equity-legend-invested::before {
+  background: #f59e0b;
 }
 
 .equity-period-result {

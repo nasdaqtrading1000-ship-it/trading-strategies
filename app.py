@@ -5337,6 +5337,66 @@ self.addEventListener("fetch", () => {});
         flash("Sesion cerrada.", "info")
         return redirect(url_for("index"))
 
+    @app.route("/admin/diagnostico/curvas")
+    @login_required
+    def admin_curve_diagnostics():
+        lines = [
+            "CURVAS DIAGNOSTICO",
+            f"db_dialect={engine.dialect.name}",
+            f"db_url={engine.url.render_as_string(hide_password=True)}",
+        ]
+        try:
+            total = g.db.execute(text("SELECT COUNT(*) FROM strategy_equity_curve")).scalar()
+            lines.append(f"strategy_equity_curve_total={total}")
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT txt_name, strategy_name, COUNT(*) AS points,
+                           MIN(curve_date) AS first_date, MAX(curve_date) AS last_date
+                    FROM strategy_equity_curve
+                    GROUP BY txt_name, strategy_name
+                    ORDER BY txt_name
+                    """
+                )
+            ).mappings().fetchall()
+            for row in rows:
+                lines.append(
+                    "curve "
+                    f"txt={row.get('txt_name')} "
+                    f"name={row.get('strategy_name')} "
+                    f"points={row.get('points')} "
+                    f"first={row.get('first_date')} "
+                    f"last={row.get('last_date')}"
+                )
+            strategy_rows = g.db.execute(
+                text(
+                    """
+                    SELECT s.id, s.name, s.signals_txt_name,
+                           COUNT(c.curve_date) AS points
+                    FROM strategies s
+                    LEFT JOIN strategy_equity_curve c
+                      ON c.txt_name = s.signals_txt_name
+                      OR c.strategy_name = s.name
+                      OR c.txt_name = s.name
+                      OR c.txt_name = (s.name || '.txt')
+                    GROUP BY s.id, s.name, s.signals_txt_name
+                    ORDER BY s.id
+                    """
+                )
+            ).mappings().fetchall()
+            for row in strategy_rows:
+                lines.append(
+                    "strategy "
+                    f"id={row.get('id')} "
+                    f"name={row.get('name')} "
+                    f"txt={row.get('signals_txt_name')} "
+                    f"points={row.get('points')}"
+                )
+        except Exception as error:
+            rollback_request_db()
+            lines.append(f"ERROR={type(error).__name__}: {error}")
+        return Response("\n".join(lines), mimetype="text/plain; charset=utf-8")
+
     @app.route("/admin")
     @login_required
     def admin_dashboard():
@@ -8225,8 +8285,13 @@ self.addEventListener("fetch", () => {});
                 ).bindparams(bindparam("lookup_names", expanding=True)),
                 {"lookup_names": lookup_names, "cutoff_date": cutoff_date},
             ).mappings().fetchall()
-        except Exception:
+        except Exception as error:
             rollback_request_db()
+            print(
+                "CURVA CAPITAL ERROR | "
+                f"lookup_names={lookup_names} | cutoff_date={cutoff_date} | {type(error).__name__}: {error}",
+                flush=True,
+            )
             return []
         if limit and len(rows) > limit:
             step = max(1, len(rows) // int(limit))

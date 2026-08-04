@@ -14,8 +14,13 @@
         </p>
       </div>
       <div class="d-flex gap-2 align-items-start">
-        <a class="btn btn-outline-info" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Avisos</a>
-        <a class="btn btn-outline-info" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Historial</a>
+        {% if has_curve_access %}
+          <a class="btn btn-outline-info" href="{{ url_for('strategy_signals', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Avisos</a>
+          <a class="btn btn-outline-info" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Historial</a>
+        {% else %}
+          <span class="btn btn-outline-secondary disabled">Avisos</span>
+          <span class="btn btn-outline-secondary disabled">Historial</span>
+        {% endif %}
         <a class="btn btn-outline-light" href="{{ url_for('index') }}#strategy-{{ strategy.id }}">Volver</a>
       </div>
     </div>
@@ -45,41 +50,48 @@
         </div>
       </div>
 
-      <div class="equity-chart-shell mb-4">
-        <div class="equity-chart-head">
-          <h2 class="h6 mb-0">Historico completo</h2>
-          <div class="equity-period-result">
-            <strong class="{{ curve_summaries['all'].profit_class }}">{{ curve_summaries['all'].profit_display }}</strong>
-            <span class="{{ curve_summaries['all'].return_pct_class }}">{{ curve_summaries['all'].return_pct_display }}</span>
-            <small>{{ curve_summaries['all'].date_range }}</small>
+      {% if has_curve_access %}
+        <div class="equity-chart-shell mb-4">
+          <div class="equity-chart-head">
+            <h2 class="h6 mb-0">Historico completo</h2>
+            <div class="equity-period-result">
+              <strong class="{{ curve_summaries['all'].profit_class }}">{{ curve_summaries['all'].profit_display }}</strong>
+              <span class="{{ curve_summaries['all'].return_pct_class }}">{{ curve_summaries['all'].return_pct_display }}</span>
+              <small>{{ curve_summaries['all'].date_range }}</small>
+            </div>
           </div>
+          <canvas class="equity-curve-canvas" data-range="all" height="220" aria-label="Curva historica completa {{ strategy.name }}"></canvas>
         </div>
-        <canvas class="equity-curve-canvas" data-range="all" height="220" aria-label="Curva historica completa {{ strategy.name }}"></canvas>
-      </div>
 
-      <div class="equity-chart-shell mb-4">
-        <div class="equity-chart-head">
-          <h2 class="h6 mb-0">1 year</h2>
-          <div class="equity-period-result">
-            <strong class="{{ curve_summaries['year'].profit_class }}">{{ curve_summaries['year'].profit_display }}</strong>
-            <span class="{{ curve_summaries['year'].return_pct_class }}">{{ curve_summaries['year'].return_pct_display }}</span>
-            <small>{{ curve_summaries['year'].date_range or "Ultimos 12 meses" }}</small>
+        <div class="equity-chart-shell mb-4">
+          <div class="equity-chart-head">
+            <h2 class="h6 mb-0">1 year</h2>
+            <div class="equity-period-result">
+              <strong class="{{ curve_summaries['year'].profit_class }}">{{ curve_summaries['year'].profit_display }}</strong>
+              <span class="{{ curve_summaries['year'].return_pct_class }}">{{ curve_summaries['year'].return_pct_display }}</span>
+              <small>{{ curve_summaries['year'].date_range or "Ultimos 12 meses" }}</small>
+            </div>
           </div>
+          <canvas class="equity-curve-canvas" data-range="year" height="180" aria-label="Curva ultimo ano {{ strategy.name }}"></canvas>
         </div>
-        <canvas class="equity-curve-canvas" data-range="year" height="180" aria-label="Curva ultimo ano {{ strategy.name }}"></canvas>
-      </div>
 
-      <div class="equity-chart-shell">
-        <div class="equity-chart-head">
-          <h2 class="h6 mb-0">1 mes</h2>
-          <div class="equity-period-result">
-            <strong class="{{ curve_summaries['month'].profit_class }}">{{ curve_summaries['month'].profit_display }}</strong>
-            <span class="{{ curve_summaries['month'].return_pct_class }}">{{ curve_summaries['month'].return_pct_display }}</span>
-            <small>{{ curve_summaries['month'].date_range or "Ultimos 30 dias" }}</small>
+        <div class="equity-chart-shell">
+          <div class="equity-chart-head">
+            <h2 class="h6 mb-0">1 mes</h2>
+            <div class="equity-period-result">
+              <strong class="{{ curve_summaries['month'].profit_class }}">{{ curve_summaries['month'].profit_display }}</strong>
+              <span class="{{ curve_summaries['month'].return_pct_class }}">{{ curve_summaries['month'].return_pct_display }}</span>
+              <small>{{ curve_summaries['month'].date_range or "Ultimos 30 dias" }}</small>
+            </div>
           </div>
+          <canvas class="equity-curve-canvas" data-range="month" height="180" aria-label="Curva ultimo mes {{ strategy.name }}"></canvas>
         </div>
-        <canvas class="equity-curve-canvas" data-range="month" height="180" aria-label="Curva ultimo mes {{ strategy.name }}"></canvas>
-      </div>
+      {% else %}
+        <div class="empty-state text-center py-5">
+          <h2 class="h4">Curva bloqueada</h2>
+          <p class="text-secondary mb-0">Inicia sesion con membresia activa para ver la grafica interactiva.</p>
+        </div>
+      {% endif %}
     {% else %}
       <div class="empty-state text-center py-5">
         <h2 class="h4">Curva no calculada todavia</h2>
@@ -89,7 +101,7 @@
   </div>
 </section>
 
-{% if points %}
+{% if points and has_curve_access %}
   <script type="application/json" id="equity-curve-data">{{ curve_series|tojson }}</script>
   <script>
   (() => {

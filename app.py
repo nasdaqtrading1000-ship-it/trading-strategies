@@ -3166,6 +3166,7 @@ def create_app():
             "subscription_portal",
             "stripe_webhook",
             "telegram_webhook",
+            "strategy_equity_curve",
         }
         if endpoint in allowed_endpoints:
             return False
@@ -5207,9 +5208,7 @@ self.addEventListener("fetch", () => {});
     @app.route("/estrategia/<int:strategy_id>/curva")
     def strategy_equity_curve(strategy_id):
         strategy = dict(get_strategy_or_404(strategy_id))
-        if not can_view_strategy(strategy):
-            flash("Crea una cuenta para ver la curva de capital.", "warning")
-            return redirect(url_for("user_login"))
+        has_curve_access = can_view_strategy(strategy)
         txt_name = strategy.get("signals_txt_name") or strategy.get("name")
         strategy_name = strategy.get("name")
         points = strategy_equity_curve_points(txt_name, strategy_name=strategy_name)
@@ -5232,6 +5231,7 @@ self.addEventListener("fetch", () => {});
             latest=latest,
             first=first,
             points_count=len(points),
+            has_curve_access=has_curve_access,
         ))
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"

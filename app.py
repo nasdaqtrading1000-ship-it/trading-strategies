@@ -3167,6 +3167,7 @@ def create_app():
             "stripe_webhook",
             "telegram_webhook",
             "strategy_equity_curve",
+            "public_curve_diagnostics",
         }
         if endpoint in allowed_endpoints:
             return False
@@ -5340,11 +5341,21 @@ self.addEventListener("fetch", () => {});
     @app.route("/admin/diagnostico/curvas")
     @login_required
     def admin_curve_diagnostics():
+        return curve_diagnostics_response(include_url=True)
+
+    @app.route("/diagnostico/curvas")
+    def public_curve_diagnostics():
+        return curve_diagnostics_response(include_url=False)
+
+    def curve_diagnostics_response(include_url=False):
         lines = [
             "CURVAS DIAGNOSTICO",
             f"db_dialect={engine.dialect.name}",
-            f"db_url={engine.url.render_as_string(hide_password=True)}",
+            f"database_url_present={bool(os.environ.get('DATABASE_URL'))}",
+            f"render_detected={any(os.environ.get(key) for key in ('RENDER', 'RENDER_SERVICE_ID', 'RENDER_EXTERNAL_URL', 'RENDER_INSTANCE_ID'))}",
         ]
+        if include_url:
+            lines.append(f"db_url={engine.url.render_as_string(hide_password=True)}")
         try:
             total = g.db.execute(text("SELECT COUNT(*) FROM strategy_equity_curve")).scalar()
             lines.append(f"strategy_equity_curve_total={total}")

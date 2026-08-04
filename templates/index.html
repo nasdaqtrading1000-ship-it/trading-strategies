@@ -533,10 +533,11 @@
 
     const drawMiniCurve = (canvas, points) => {
       const host = canvas.closest(".selected-curve-card") || canvas.parentElement || canvas;
-      const hostWidth = host.clientWidth || host.getBoundingClientRect().width || 280;
-      const cssWidth = Math.max(180, Math.floor(hostWidth - 22));
-      const cssHeight = Number(canvas.dataset.cssHeight || canvas.getAttribute("height") || 92);
       canvas.style.width = "100%";
+      const rectWidth = canvas.getBoundingClientRect().width;
+      const hostWidth = host.getBoundingClientRect().width || 280;
+      const cssWidth = Math.max(180, Math.floor(rectWidth || Math.max(0, hostWidth - 22)));
+      const cssHeight = Number(canvas.dataset.cssHeight || canvas.getAttribute("height") || 92);
       canvas.style.height = `${cssHeight}px`;
       canvas.width = Math.ceil(cssWidth * dpr);
       canvas.height = Math.ceil(cssHeight * dpr);
@@ -644,7 +645,17 @@
         render();
       });
     });
-    window.addEventListener("resize", render);
+    let lastSelectedCurvesViewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
+    window.addEventListener("resize", () => {
+      const viewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
+      if (Math.abs(viewportWidth - lastSelectedCurvesViewportWidth) <= 1) return;
+      lastSelectedCurvesViewportWidth = viewportWidth;
+      render();
+    });
+    if ("ResizeObserver" in window) {
+      const observer = new ResizeObserver(() => render());
+      cardNodes.forEach((node) => observer.observe(node));
+    }
     render();
   })();
   </script>

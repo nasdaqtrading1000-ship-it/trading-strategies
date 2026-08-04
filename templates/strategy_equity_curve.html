@@ -175,10 +175,11 @@
       if (Number.isNaN(parsed.getTime())) return dateText || "";
       return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
     };
-    const axisTicks = (chartPoints, range) => {
+    const axisTicks = (chartPoints, range, width) => {
       const firstTime = dateValue(chartPoints[0]);
       const lastTime = dateValue(chartPoints[chartPoints.length - 1]);
       if (!firstTime || !lastTime || lastTime <= firstTime) return [];
+      if (width < 640) return [];
       const ticks = [];
       if (range === "all") {
         const firstYear = new Date(firstTime).getFullYear();
@@ -283,10 +284,11 @@
       ctx.restore();
     };
     const canvasCssWidth = (canvas) => {
-      const parent = canvas.parentElement;
-      const parentWidth = parent ? parent.clientWidth : 0;
+      canvas.style.width = "100%";
       const rectWidth = canvas.getBoundingClientRect().width;
-      return Math.max(240, Math.floor(parentWidth || rectWidth || 320));
+      const parent = canvas.parentElement;
+      const parentWidth = parent ? parent.getBoundingClientRect().width : 0;
+      return Math.max(240, Math.floor(rectWidth || parentWidth || 320));
     };
     const drawChart = (canvas, chartPoints, hoverIndex = null) => {
       const ctx = canvas.getContext("2d");
@@ -359,7 +361,7 @@
       ctx.moveTo(crisp(rightRuleX), padT);
       ctx.lineTo(crisp(rightRuleX), height - padB);
       ctx.stroke();
-      const ticks = axisTicks(chartPoints, canvas.dataset.range || "all");
+      const ticks = axisTicks(chartPoints, canvas.dataset.range || "all", width);
       ctx.strokeStyle = "rgba(125, 211, 252, 0.28)";
       ctx.fillStyle = "#d8e7ff";
       ctx.textAlign = "center";
@@ -388,10 +390,11 @@
       const first = chartPoints[0];
       const last = chartPoints[chartPoints.length - 1];
       ctx.fillStyle = "#d8e7ff";
-      ctx.fillText(fullDateLabel(first.date), Math.round(padL + 8), height - 8);
+      ctx.textAlign = "left";
+      ctx.fillText(fullDateLabel(first.date), Math.round(padL), height - 8);
       const label = fullDateLabel(last.date);
-      const labelWidth = ctx.measureText(label).width;
-      ctx.fillText(label, Math.round(width - padR - labelWidth - 8), height - 8);
+      ctx.textAlign = "right";
+      ctx.fillText(label, Math.round(width - padR), height - 8);
       ctx.textAlign = "left";
       drawHover(ctx, canvas, chartPoints, bounds, hoverIndex);
     };
@@ -425,7 +428,7 @@
         const cssWidth = canvasCssWidth(canvas);
         const previousWidth = Number(canvas.dataset.cssWidth || 0);
         const previousHeight = Number(canvas.dataset.cssHeight || 0);
-        if (previousWidth === cssWidth && previousHeight === cssHeight) {
+        if (Math.abs(previousWidth - cssWidth) <= 1 && previousHeight === cssHeight) {
           drawChart(canvas, chartPoints);
           return;
         }
@@ -450,7 +453,19 @@
         drawChart(canvas, chartPoints);
       });
     });
-    window.addEventListener("resize", resize);
+    let lastViewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
+    window.addEventListener("resize", () => {
+      const viewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
+      if (Math.abs(viewportWidth - lastViewportWidth) <= 1) return;
+      lastViewportWidth = viewportWidth;
+      resize();
+    });
+    if ("ResizeObserver" in window) {
+      const observer = new ResizeObserver(() => resize());
+      canvases.forEach((canvas) => {
+        if (canvas.parentElement) observer.observe(canvas.parentElement);
+      });
+    }
     resize();
   })();
   </script>

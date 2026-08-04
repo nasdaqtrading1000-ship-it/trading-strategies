@@ -8283,18 +8283,22 @@ self.addEventListener("fetch", () => {});
         if days:
             cutoff_date = (datetime.now(MADRID_TZ).date() - timedelta(days=int(days))).isoformat()
         try:
+            cutoff_sql = "AND curve_date >= :cutoff_date" if cutoff_date else ""
+            params = {"lookup_names": lookup_names}
+            if cutoff_date:
+                params["cutoff_date"] = cutoff_date
             rows = g.db.execute(
                 text(
-                    """
+                    f"""
                     SELECT curve_date, capital_actual, capital_aportado, profit_usd,
                            return_pct, open_operations, closed_operations, updated_at
                     FROM strategy_equity_curve
                     WHERE (txt_name IN :lookup_names OR strategy_name IN :lookup_names)
-                      AND (:cutoff_date IS NULL OR curve_date >= :cutoff_date)
+                      {cutoff_sql}
                     ORDER BY curve_date ASC
                     """
                 ).bindparams(bindparam("lookup_names", expanding=True)),
-                {"lookup_names": lookup_names, "cutoff_date": cutoff_date},
+                params,
             ).mappings().fetchall()
         except Exception as error:
             rollback_request_db()

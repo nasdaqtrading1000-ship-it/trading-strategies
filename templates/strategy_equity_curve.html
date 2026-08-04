@@ -290,6 +290,7 @@
       const parentWidth = parent ? parent.getBoundingClientRect().width : 0;
       return Math.max(240, Math.floor(rectWidth || parentWidth || 320));
     };
+    const viewportWidth = () => Math.round(window.innerWidth || document.documentElement.clientWidth || 0);
     const drawChart = (canvas, chartPoints, hoverIndex = null) => {
       const ctx = canvas.getContext("2d");
       const width = Number(canvas.dataset.cssWidth || canvasCssWidth(canvas));
@@ -453,19 +454,13 @@
         drawChart(canvas, chartPoints);
       });
     });
-    let lastViewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
+    let lastViewportWidth = viewportWidth();
     window.addEventListener("resize", () => {
-      const viewportWidth = Math.round(window.visualViewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
-      if (Math.abs(viewportWidth - lastViewportWidth) <= 1) return;
-      lastViewportWidth = viewportWidth;
+      const nextViewportWidth = viewportWidth();
+      if (Math.abs(nextViewportWidth - lastViewportWidth) <= 1) return;
+      lastViewportWidth = nextViewportWidth;
       resize();
     });
-    if ("ResizeObserver" in window) {
-      const observer = new ResizeObserver(() => resize());
-      canvases.forEach((canvas) => {
-        if (canvas.parentElement) observer.observe(canvas.parentElement);
-      });
-    }
     resize();
   })();
   </script>

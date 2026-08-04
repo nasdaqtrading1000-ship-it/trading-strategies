@@ -5315,15 +5315,8 @@ self.addEventListener("fetch", () => {});
 
     @app.route("/estrategia/<int:strategy_id>/funcionamiento")
     def strategy_details(strategy_id):
-        strategy = dict(get_strategy_or_404(strategy_id))
-        if not can_view_strategy(strategy):
-            flash("Crea una cuenta para ver el detalle de esta estrategia.", "warning")
-            return redirect(url_for("user_login"))
-        return render_template(
-            "strategy_details.html",
-            strategy=strategy,
-            explanation=strategy_explanation_for(strategy),
-        )
+        flash("La descripcion ampliada de estrategias esta temporalmente desactivada.", "info")
+        return redirect(url_for("index"))
 
     @app.route("/filtrado-activos")
     def asset_filter():

@@ -7585,3 +7585,9 @@ html[data-bs-theme="dark"] .admin-strategy-name-highlight {
   color: #ff6b61 !important;
   font-weight: 800;
 }
+
+.ranking-strategy-link-disabled,
+.ranking-strategy-link-disabled:hover {
+  cursor: default !important;
+  text-decoration: none !important;
+}

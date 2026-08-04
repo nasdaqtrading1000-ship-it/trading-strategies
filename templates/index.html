@@ -294,10 +294,10 @@
                 </td>
                 <td>
                   <div class="report-strategy-name">
-                    <a class="ranking-strategy-link" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_details', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                    <span class="ranking-strategy-link ranking-strategy-link-disabled" aria-disabled="true">
                       <span>{{ strategy.short_name }}</span>
                       {{ strategy.name }}
-                    </a>
+                    </span>
                     {% if strategy.is_locked %}
                       <span class="locked-mini">Solo miembros</span>
                     {% endif %}

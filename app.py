@@ -5210,12 +5210,13 @@ self.addEventListener("fetch", () => {});
         if not can_view_strategy(strategy):
             flash("Crea una cuenta para ver la curva de capital.", "warning")
             return redirect(url_for("user_login"))
-        txt_name = strategy.get("signals_txt_name")
-        points = strategy_equity_curve_points(txt_name)
+        txt_name = strategy.get("signals_txt_name") or strategy.get("name")
+        strategy_name = strategy.get("name")
+        points = strategy_equity_curve_points(txt_name, strategy_name=strategy_name)
         curve_series = {
             "all": points,
-            "year": strategy_equity_curve_points(txt_name, days=365),
-            "month": strategy_equity_curve_points(txt_name, days=30),
+            "year": strategy_equity_curve_points(txt_name, strategy_name=strategy_name, days=365),
+            "month": strategy_equity_curve_points(txt_name, strategy_name=strategy_name, days=30),
         }
         curve_summaries = equity_curve_summaries_for_strategy(strategy, curve_series)
         latest_summary = equity_curve_account_summary_for_strategy(strategy, points)
@@ -8197,8 +8198,15 @@ self.addEventListener("fetch", () => {});
             rows = rows[:limit]
         return [format_simulated_operation(dict(row)) for row in rows]
 
-    def strategy_equity_curve_points(txt_name, limit=1600, days=None):
-        if not txt_name:
+    def strategy_equity_curve_points(txt_name, strategy_name=None, limit=1600, days=None):
+        lookup_names = sorted(
+            {
+                str(value or "").strip()
+                for value in (txt_name, strategy_name, f"{strategy_name}.txt" if strategy_name else "")
+                if str(value or "").strip()
+            }
+        )
+        if not lookup_names:
             return []
         cutoff_date = None
         if days:
@@ -8210,12 +8218,12 @@ self.addEventListener("fetch", () => {});
                     SELECT curve_date, capital_actual, capital_aportado, profit_usd,
                            return_pct, open_operations, closed_operations, updated_at
                     FROM strategy_equity_curve
-                    WHERE txt_name = :txt_name
+                    WHERE (txt_name IN :lookup_names OR strategy_name IN :lookup_names)
                       AND (:cutoff_date IS NULL OR curve_date >= :cutoff_date)
                     ORDER BY curve_date ASC
                     """
-                ),
-                {"txt_name": txt_name, "cutoff_date": cutoff_date},
+                ).bindparams(bindparam("lookup_names", expanding=True)),
+                {"lookup_names": lookup_names, "cutoff_date": cutoff_date},
             ).mappings().fetchall()
         except Exception:
             rollback_request_db()

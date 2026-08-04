@@ -37,14 +37,14 @@ def database_url():
     mode = os.environ.get("TRADING_DATABASE_MODE", "auto").strip().lower()
     url = os.environ.get("DATABASE_URL")
 
+    if running_on_render() and url:
+        return normalized_database_url(url)
     if mode in {"local", "sqlite"}:
         return local_url
     if mode in {"remote", "postgres", "postgresql"} and url:
         return normalized_database_url(url)
     if not url:
         return local_url
-    if running_on_render():
-        return normalized_database_url(url)
     if running_local_web_app():
         return local_url
     return normalized_database_url(url)

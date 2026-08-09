@@ -561,7 +561,7 @@
       ctx.fillStyle = "#012456";
       ctx.fillRect(0, 0, cssWidth, cssHeight);
       const padL = 74;
-      const padR = 8;
+      const padR = 42;
       const padT = 8;
       const padB = 18;
       if (!points || points.length < 2) {
@@ -608,6 +608,23 @@
       ctx.moveTo(Math.round(padL) + 0.5, padT);
       ctx.lineTo(Math.round(padL) + 0.5, cssHeight - padB);
       ctx.stroke();
+      const rightRuleX = cssWidth - padR + 6;
+      ctx.strokeStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.moveTo(Math.round(rightRuleX) + 0.5, padT);
+      ctx.lineTo(Math.round(rightRuleX) + 0.5, cssHeight - padB);
+      ctx.stroke();
+      ctx.fillStyle = "#f59e0b";
+      ctx.textAlign = "left";
+      for (let i = 0; i <= 2; i += 1) {
+        const y = padT + ((cssHeight - padT - padB) * i / 2);
+        const value = 100 - (50 * i);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(rightRuleX - 3) + 0.5, Math.round(y) + 0.5);
+        ctx.lineTo(Math.round(rightRuleX + 3) + 0.5, Math.round(y) + 0.5);
+        ctx.stroke();
+        ctx.fillText(`${value}%`, rightRuleX + 6, Math.round(y));
+      }
       ctx.fillStyle = "rgba(125, 211, 252, 0.16)";
       ctx.beginPath();
       points.forEach((item, index) => {

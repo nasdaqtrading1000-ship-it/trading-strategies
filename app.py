@@ -2240,6 +2240,33 @@ def format_signed_money_usd(value):
     return f"{sign}{format_money_usd(abs(amount))}"
 
 
+def format_chart_money_usd(value):
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+
+    absolute = abs(amount)
+    if absolute >= 1_000_000_000_000:
+        return f"{amount / 1_000_000_000_000:.2f} T USD"
+    if absolute >= 1_000_000_000:
+        return f"{amount / 1_000_000_000:.2f} B USD"
+    if absolute >= 1_000_000:
+        return f"{amount / 1_000_000:.2f} M USD"
+    if absolute >= 1_000:
+        return f"{amount / 1_000:.2f} K USD"
+    return f"{amount:.2f} USD"
+
+
+def format_signed_chart_money_usd(value):
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+    sign = "+" if amount >= 0 else "-"
+    return f"{sign}{format_chart_money_usd(abs(amount))}"
+
+
 def format_one_decimal(value):
     text_value = str(value or "").strip()
     match = re.search(r"[-+]?\d+(?:[.,]\d+)?", text_value)
@@ -2573,6 +2600,19 @@ def selected_strategy_chart_limit(value):
     if value == "all":
         return 360
     return 420
+
+
+def equity_curve_period_definitions():
+    return {
+        "day": {"label": "1 dia", "days": None, "latest_points": 2, "cumulative": False, "height": 180},
+        "week": {"label": "Semana", "days": 7, "cumulative": False, "height": 180},
+        "month": {"label": "Mes", "days": 30, "cumulative": False, "height": 180},
+        "two_months": {"label": "2 meses", "days": 60, "cumulative": False, "height": 180},
+        "three_months": {"label": "3 meses", "days": 90, "cumulative": False, "height": 180},
+        "six_months": {"label": "6 meses", "days": 180, "cumulative": False, "height": 180},
+        "year": {"label": "Ano", "days": 365, "cumulative": False, "height": 180},
+        "all": {"label": "Historico", "days": None, "cumulative": True, "height": 200},
+    }
 
 
 def strategy_info_key(value):
@@ -4718,6 +4758,14 @@ def create_app():
         if not exists:
             abort(404)
         selected = 1 if request.form.get("selected") == "on" else 0
+        current_selection = load_user_totalizer_selection(user["id"])
+        if selected and strategy_id not in current_selection and len(current_selection) >= 4:
+            flash(
+                "No puedes seleccionar mas de 4 estrategias para comparar. "
+                "Quita la seleccion a una estrategia antes de anadir otra.",
+                "warning",
+            )
+            return redirect(url_for("index", _anchor=f"strategy-{strategy_id}"))
         save_user_strategy_selection(user["id"], strategy_id, selected)
         return redirect(url_for("index", _anchor=f"strategy-{strategy_id}"))
 
@@ -4775,12 +4823,7 @@ def create_app():
             for strategy in strategies
             if int(strategy.get("selected_for_totalizer") or 0) == 1
         ][:4]
-        periods = {
-            "week": {"label": "Semana", "days": 7, "cumulative": False},
-            "month": {"label": "Mes", "days": 30, "cumulative": False},
-            "year": {"label": "Ano", "days": 365, "cumulative": False},
-            "all": {"label": "Historico", "days": None, "cumulative": True},
-        }
+        periods = equity_curve_period_definitions()
         cards = []
         for strategy in selected:
             txt_name = strategy.get("signals_txt_name") or strategy.get("name")
@@ -4793,6 +4836,7 @@ def create_app():
                     strategy_name=strategy_name,
                     limit=selected_strategy_chart_limit(key),
                     days=period["days"],
+                    latest_points=period.get("latest_points"),
                 )
                 series[key] = points
                 summaries[key] = equity_curve_period_summary(points, cumulative=period["cumulative"])
@@ -5287,11 +5331,17 @@ self.addEventListener("fetch", () => {});
         txt_name = strategy.get("signals_txt_name") or strategy.get("name")
         strategy_name = strategy.get("name")
         points = strategy_equity_curve_points(txt_name, strategy_name=strategy_name)
-        curve_series = {
-            "all": points,
-            "year": strategy_equity_curve_points(txt_name, strategy_name=strategy_name, days=365),
-            "month": strategy_equity_curve_points(txt_name, strategy_name=strategy_name, days=30),
-        }
+        curve_series = {}
+        for key, period in equity_curve_period_definitions().items():
+            if key == "all":
+                curve_series[key] = points
+            else:
+                curve_series[key] = strategy_equity_curve_points(
+                    txt_name,
+                    strategy_name=strategy_name,
+                    days=period["days"],
+                    latest_points=period.get("latest_points"),
+                )
         curve_summaries = equity_curve_summaries_for_strategy(strategy, curve_series)
         latest_summary = equity_curve_account_summary_for_strategy(strategy, points)
         latest = points[-1] if points else None
@@ -5302,6 +5352,7 @@ self.addEventListener("fetch", () => {});
             points=points,
             curve_series=curve_series,
             curve_summaries=curve_summaries,
+            curve_periods=equity_curve_period_definitions(),
             latest_summary=latest_summary,
             latest=latest,
             first=first,
@@ -8344,7 +8395,7 @@ self.addEventListener("fetch", () => {});
             rows = rows[:limit]
         return [format_simulated_operation(dict(row)) for row in rows]
 
-    def strategy_equity_curve_points(txt_name, strategy_name=None, limit=1600, days=None):
+    def strategy_equity_curve_points(txt_name, strategy_name=None, limit=1600, days=None, latest_points=None):
         lookup_names = sorted(
             {
                 str(value or "").strip()
@@ -8355,13 +8406,17 @@ self.addEventListener("fetch", () => {});
         if not lookup_names:
             return []
         cutoff_date = None
-        if days:
+        if days and not latest_points:
             cutoff_date = (datetime.now(MADRID_TZ).date() - timedelta(days=int(days))).isoformat()
         try:
             cutoff_sql = "AND curve_date >= :cutoff_date" if cutoff_date else ""
             params = {"lookup_names": lookup_names}
             if cutoff_date:
                 params["cutoff_date"] = cutoff_date
+            order_sql = "ORDER BY curve_date DESC" if latest_points else "ORDER BY curve_date ASC"
+            limit_sql = "LIMIT :latest_points" if latest_points else ""
+            if latest_points:
+                params["latest_points"] = int(latest_points)
             rows = g.db.execute(
                 text(
                     f"""
@@ -8370,7 +8425,8 @@ self.addEventListener("fetch", () => {});
                     FROM strategy_equity_curve
                     WHERE (txt_name IN :lookup_names OR strategy_name IN :lookup_names)
                       {cutoff_sql}
-                    ORDER BY curve_date ASC
+                    {order_sql}
+                    {limit_sql}
                     """
                 ).bindparams(bindparam("lookup_names", expanding=True)),
                 params,
@@ -8383,6 +8439,8 @@ self.addEventListener("fetch", () => {});
                 flush=True,
             )
             return []
+        if latest_points:
+            rows = list(reversed(rows))
         if limit and len(rows) > limit:
             step = max(1, len(rows) // int(limit))
             sampled = list(rows[::step])
@@ -8401,13 +8459,13 @@ self.addEventListener("fetch", () => {});
         return {
             "date": str(row.get("curve_date") or ""),
             "capital_actual": round(capital, 4),
-            "capital_display": format_money_usd(capital),
+            "capital_display": format_chart_money_usd(capital),
             "capital_aportado": round(capital_base, 4),
-            "capital_base_display": format_money_usd(capital_base),
+            "capital_base_display": format_chart_money_usd(capital_base),
             "capital_invertido": round(capital_invested, 4),
-            "capital_invertido_display": format_money_usd(capital_invested),
+            "capital_invertido_display": format_chart_money_usd(capital_invested),
             "profit_usd": round(profit, 4),
-            "profit_display": format_signed_money_usd(profit),
+            "profit_display": format_signed_chart_money_usd(profit),
             "profit_class": profit_color_class(profit),
             "return_pct": round(return_pct, 6),
             "return_pct_display": f"{return_pct:+.2f}%",
@@ -8419,19 +8477,18 @@ self.addEventListener("fetch", () => {});
 
     def equity_curve_summaries_for_strategy(strategy, curve_series):
         fallback = {
-            "all": equity_curve_period_summary(curve_series["all"], cumulative=True),
-            "year": equity_curve_period_summary(curve_series["year"]),
-            "month": equity_curve_period_summary(curve_series["month"]),
+            key: equity_curve_period_summary(points, cumulative=(key == "all"))
+            for key, points in curve_series.items()
         }
         return_text = strategy.get("historical_return", "")
         official = {
-            "all": equity_curve_summary_from_return_text(return_text, "", curve_series["all"]),
-            "year": equity_curve_summary_from_return_text(return_text, "Last 12M", curve_series["year"]),
-            "month": equity_curve_summary_from_return_text(return_text, "Last 1M", curve_series["month"]),
+            "all": equity_curve_summary_from_return_text(return_text, "", curve_series.get("all", [])),
+            "year": equity_curve_summary_from_return_text(return_text, "Last 12M", curve_series.get("year", [])),
+            "month": equity_curve_summary_from_return_text(return_text, "Last 1M", curve_series.get("month", [])),
         }
         return {
-            key: value or fallback[key]
-            for key, value in official.items()
+            key: official.get(key) or value
+            for key, value in fallback.items()
         }
 
     def equity_curve_account_summary_for_strategy(strategy, points):
@@ -8442,16 +8499,19 @@ self.addEventListener("fetch", () => {});
             current_capital = parse_current_capital_usd(return_text)
             latest_point = points[-1] if points else {}
             capital_invested = parse_display_float(latest_point.get("capital_invertido"))
-            return_pct = parse_return_percent(return_text)
+            return_pct = (profit / current_capital * 100) if current_capital else 0.0
+            invested_return_pct = (profit / capital_invested * 100) if capital_invested else 0.0
             return {
-                "capital_display": format_money_usd(current_capital),
-                "capital_base_display": format_money_usd(capital_base),
-                "invested_display": format_money_usd(capital_invested),
+                "capital_display": format_chart_money_usd(current_capital),
+                "capital_base_display": format_chart_money_usd(capital_base),
+                "invested_display": format_chart_money_usd(capital_invested),
                 "invested_pct_display": f"{(capital_invested / current_capital * 100) if current_capital else 0.0:.2f}%",
-                "profit_display": format_signed_money_usd(profit),
+                "profit_display": format_signed_chart_money_usd(profit),
                 "profit_class": profit_color_class(profit),
                 "return_pct_display": f"{return_pct:+.2f}%",
                 "return_pct_class": profit_color_class(return_pct),
+                "invested_return_pct_display": f"{invested_return_pct:+.2f}%",
+                "invested_return_pct_class": profit_color_class(invested_return_pct),
             }
         latest_point = points[-1] if points else {}
         capital = parse_display_float(latest_point.get("capital_actual"))
@@ -8465,6 +8525,8 @@ self.addEventListener("fetch", () => {});
             "profit_class": latest_point.get("profit_class", "return-sos"),
             "return_pct_display": latest_point.get("return_pct_display", "Sin datos"),
             "return_pct_class": latest_point.get("return_pct_class", "return-sos"),
+            "invested_return_pct_display": f"{(parse_display_float(latest_point.get('profit_usd')) / capital_invested * 100) if capital_invested else 0.0:+.2f}%",
+            "invested_return_pct_class": profit_color_class((parse_display_float(latest_point.get("profit_usd")) / capital_invested * 100) if capital_invested else 0.0),
         }
 
     def equity_curve_summary_from_return_text(return_text, period_label, points):
@@ -8482,14 +8544,20 @@ self.addEventListener("fetch", () => {});
         else:
             text_after_label = parts[0] if parts else ""
         profit = parse_profit_usd(text_after_label)
-        return_pct = parse_return_percent(text_after_label)
         first_point = points[0]
         last_point = points[-1]
+        return_pct = equity_curve_account_return_pct(profit, points)
+        invested_return_pct = equity_curve_invested_return_pct(profit, points)
         return {
-            "profit_display": format_signed_money_usd(profit),
+            "profit_display": format_signed_chart_money_usd(profit),
             "profit_class": profit_color_class(profit),
             "return_pct_display": f"{return_pct:+.2f}%",
             "return_pct_class": profit_color_class(return_pct),
+            "invested_return_pct_display": f"{invested_return_pct:+.2f}%",
+            "invested_return_pct_class": profit_color_class(invested_return_pct),
+            "current_display": last_point.get("capital_display", "Sin datos"),
+            "invested_display": equity_curve_average_invested_display(points),
+            "invested_pct_display": equity_curve_average_invested_pct_display(points),
             "date_range": equity_curve_date_range(first_point, last_point),
         }
 
@@ -8500,22 +8568,61 @@ self.addEventListener("fetch", () => {});
                 "profit_class": "return-sos",
                 "return_pct_display": "Sin datos",
                 "return_pct_class": "return-sos",
+                "invested_return_pct_display": "Sin datos",
+                "invested_return_pct_class": "return-sos",
+                "current_display": "Sin datos",
+                "invested_display": "Sin datos",
+                "invested_pct_display": "Sin datos",
                 "date_range": "",
             }
         first_point = points[0]
         last_point = points[-1]
         first_profit = parse_display_float(first_point.get("profit_usd"))
         last_profit = parse_display_float(last_point.get("profit_usd"))
-        capital_base = parse_display_float(last_point.get("capital_aportado"))
         profit = last_profit if cumulative else last_profit - first_profit
-        return_pct = (profit / capital_base * 100) if capital_base else 0.0
+        return_pct = equity_curve_account_return_pct(profit, points)
+        invested_return_pct = equity_curve_invested_return_pct(profit, points)
         return {
-            "profit_display": format_signed_money_usd(profit),
+            "profit_display": format_signed_chart_money_usd(profit),
             "profit_class": profit_color_class(profit),
             "return_pct_display": f"{return_pct:+.2f}%",
             "return_pct_class": profit_color_class(return_pct),
+            "invested_return_pct_display": f"{invested_return_pct:+.2f}%",
+            "invested_return_pct_class": profit_color_class(invested_return_pct),
+            "current_display": last_point.get("capital_display", "Sin datos"),
+            "invested_display": equity_curve_average_invested_display(points),
+            "invested_pct_display": equity_curve_average_invested_pct_display(points),
             "date_range": equity_curve_date_range(first_point, last_point),
         }
+
+    def equity_curve_invested_return_pct(profit, points):
+        if not points:
+            return 0.0
+        invested_base = equity_curve_average_invested(points)
+        return (profit / invested_base * 100) if invested_base else 0.0
+
+    def equity_curve_average_invested(points):
+        invested_values = [
+            parse_display_float(point.get("capital_invertido"))
+            for point in points
+            if parse_display_float(point.get("capital_invertido")) > 0
+        ]
+        return (sum(invested_values) / len(invested_values)) if invested_values else 0.0
+
+    def equity_curve_average_invested_display(points):
+        return format_chart_money_usd(equity_curve_average_invested(points))
+
+    def equity_curve_average_invested_pct_display(points):
+        invested_base = equity_curve_average_invested(points)
+        current_capital = parse_display_float(points[-1].get("capital_actual")) if points else 0.0
+        pct = (invested_base / current_capital * 100) if current_capital else 0.0
+        return f"{pct:.2f}%"
+
+    def equity_curve_account_return_pct(profit, points):
+        if not points:
+            return 0.0
+        capital_base = parse_display_float(points[-1].get("capital_actual"))
+        return (profit / capital_base * 100) if capital_base else 0.0
 
     def equity_curve_date_range(first_point, last_point):
         return (

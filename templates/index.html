@@ -215,11 +215,21 @@
         <div class="selected-curves-head">
           <div>
             <span class="text-secondary small d-block">Modelos seleccionados</span>
-            <strong>Curvas comparadas</strong>
+            <div class="selected-curves-title-line">
+              <strong>Curvas comparadas</strong>
+              <div class="equity-chart-legend selected-curves-legend">
+                <span class="equity-legend-current">Capital actual</span>
+                <span class="equity-legend-invested">% capital invertido</span>
+              </div>
+            </div>
           </div>
           <div class="selected-curves-periods" role="group" aria-label="Periodo de curvas">
+            <button type="button" data-selected-curve-period="day">1 dia</button>
             <button class="active" type="button" data-selected-curve-period="week">Semana</button>
             <button type="button" data-selected-curve-period="month">Mes</button>
+            <button type="button" data-selected-curve-period="two_months">2 meses</button>
+            <button type="button" data-selected-curve-period="three_months">3 meses</button>
+            <button type="button" data-selected-curve-period="six_months">6 meses</button>
             <button type="button" data-selected-curve-period="year">Ano</button>
             <button type="button" data-selected-curve-period="all">Historico</button>
           </div>
@@ -236,19 +246,21 @@
                 <div class="selected-curve-card-foot">
                   <div>
                     <span>Actual</span>
-                    <strong data-selected-curve-current>{{ card.latest_summary.capital_display }}</strong>
+                    <span class="selected-curve-metric-line">
+                      <strong data-selected-curve-current>{{ card.summaries.week.current_display }}</strong>
+                      <strong data-selected-curve-current-return class="selected-curve-metric-return {{ card.summaries.week.return_pct_class }}">{{ card.summaries.week.return_pct_display }}</strong>
+                    </span>
                   </div>
                   <div>
                     <span>Invertido</span>
-                    <strong data-selected-curve-invested>{{ card.latest_summary.invested_display }}</strong>
+                    <span class="selected-curve-metric-line">
+                      <strong data-selected-curve-invested>{{ card.summaries.week.invested_display }}</strong>
+                      <strong data-selected-curve-invested-return class="selected-curve-metric-return {{ card.summaries.week.invested_return_pct_class }}">{{ card.summaries.week.invested_return_pct_display }}</strong>
+                    </span>
                   </div>
                   <div>
                     <span>Resultado</span>
                     <strong data-selected-curve-profit class="{{ card.summaries.week.profit_class }}">{{ card.summaries.week.profit_display }}</strong>
-                  </div>
-                  <div>
-                    <span>Rentab.</span>
-                    <strong data-selected-curve-return class="{{ card.summaries.week.return_pct_class }}">{{ card.summaries.week.return_pct_display }}</strong>
                   </div>
                 </div>
               </a>
@@ -515,15 +527,15 @@
     const cardNodes = Array.from(panel.querySelectorAll("[data-selected-curve-card]"));
     const dpr = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
     const storageKey = "selected-curves-active-period";
-    const validPeriods = new Set(["week", "month", "year", "all"]);
+    const validPeriods = new Set(["day", "week", "month", "two_months", "three_months", "six_months", "year", "all"]);
     const savedPeriod = localStorage.getItem(storageKey) || "";
     let activePeriod = validPeriods.has(savedPeriod) ? savedPeriod : "week";
 
     const money = (value) => {
       const amount = Number(value || 0);
-      if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
-      if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(0)}K`;
-      return amount.toFixed(0);
+      if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(2)}M`;
+      if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(2)}K`;
+      return amount.toFixed(2);
     };
 
     const dateValue = (item) => {
@@ -548,7 +560,7 @@
       ctx.clearRect(0, 0, cssWidth, cssHeight);
       ctx.fillStyle = "#012456";
       ctx.fillRect(0, 0, cssWidth, cssHeight);
-      const padL = 54;
+      const padL = 74;
       const padR = 8;
       const padT = 8;
       const padB = 18;
@@ -568,9 +580,17 @@
       const firstTime = dateValue(points[0]);
       const lastTime = dateValue(points[points.length - 1]);
       const timeSpan = Math.max(1, lastTime - firstTime);
+      const investedPctValue = (item) => {
+        const current = Number(item.capital_actual || 0);
+        const invested = Number(item.capital_invertido || 0);
+        return current ? (invested / current * 100) : 0;
+      };
+      const pointX = (item) => padL + ((cssWidth - padL - padR) * ((dateValue(item) - firstTime) / timeSpan));
+      const capitalY = (item) => padT + ((cssHeight - padT - padB) * (max - Number(item.capital_actual || 0)) / span);
+      const investedY = (item) => padT + ((cssHeight - padT - padB) * (100 - investedPctValue(item)) / 100);
       ctx.strokeStyle = "rgba(125, 211, 252, 0.16)";
       ctx.lineWidth = 1;
-      ctx.fillStyle = "#d8e7ff";
+      ctx.fillStyle = "#7dd3fc";
       ctx.font = "11px Consolas, monospace";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
@@ -583,19 +603,39 @@
         ctx.stroke();
         ctx.fillText(money(value), padL - 6, Math.round(y));
       }
-      ctx.strokeStyle = "rgba(125, 211, 252, 0.42)";
+      ctx.strokeStyle = "#7dd3fc";
       ctx.beginPath();
       ctx.moveTo(Math.round(padL) + 0.5, padT);
       ctx.lineTo(Math.round(padL) + 0.5, cssHeight - padB);
       ctx.stroke();
-      ctx.strokeStyle = "#16ff7a";
-      ctx.lineWidth = 1.8;
+      ctx.fillStyle = "rgba(125, 211, 252, 0.16)";
       ctx.beginPath();
       points.forEach((item, index) => {
-        const timeRatio = (dateValue(item) - firstTime) / timeSpan;
-        const value = Number(item.capital_actual || 0);
-        const x = padL + ((cssWidth - padL - padR) * timeRatio);
-        const y = padT + ((cssHeight - padT - padB) * (max - value) / span);
+        const x = pointX(item);
+        const y = capitalY(item);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.lineTo(pointX(points[points.length - 1]), cssHeight - padB);
+      ctx.lineTo(pointX(points[0]), cssHeight - padB);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      points.forEach((item, index) => {
+        const x = pointX(item);
+        const y = investedY(item);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.strokeStyle = "#7dd3fc";
+      ctx.lineWidth = 1.9;
+      ctx.beginPath();
+      points.forEach((item, index) => {
+        const x = pointX(item);
+        const y = capitalY(item);
         if (index === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
@@ -616,20 +656,25 @@
         const currentNode = node.querySelector("[data-selected-curve-current]");
         const investedNode = node.querySelector("[data-selected-curve-invested]");
         const profitNode = node.querySelector("[data-selected-curve-profit]");
-        const returnNode = node.querySelector("[data-selected-curve-return]");
+        const returnNode = node.querySelector("[data-selected-curve-current-return]");
+        const investedReturnNode = node.querySelector("[data-selected-curve-invested-return]");
         const canvas = node.querySelector("canvas");
         if (canvas && !canvas.dataset.cssHeight) {
           canvas.dataset.cssHeight = String(Number(canvas.getAttribute("height") || 92));
         }
-        if (currentNode) currentNode.textContent = latestSummary.capital_display || "Sin datos";
-        if (investedNode) investedNode.textContent = latestSummary.invested_display || "Sin datos";
+        if (currentNode) currentNode.textContent = summary.current_display || latestSummary.capital_display || "Sin datos";
+        if (investedNode) investedNode.textContent = summary.invested_display || latestSummary.invested_display || "Sin datos";
         if (profitNode) {
           profitNode.textContent = summary.profit_display || "Sin datos";
           profitNode.className = summary.profit_class || "";
         }
         if (returnNode) {
           returnNode.textContent = summary.return_pct_display || "";
-          returnNode.className = summary.return_pct_class || "";
+          returnNode.className = `selected-curve-metric-return ${summary.return_pct_class || ""}`.trim();
+        }
+        if (investedReturnNode) {
+          investedReturnNode.textContent = summary.invested_return_pct_display || "";
+          investedReturnNode.className = `selected-curve-metric-return ${summary.invested_return_pct_class || ""}`.trim();
         }
         if (canvas) drawMiniCurve(canvas, points);
       });

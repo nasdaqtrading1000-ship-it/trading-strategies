@@ -582,6 +582,17 @@ html {
   line-height: 1.15;
 }
 
+.selected-curves-title-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+}
+
+.selected-curves-legend {
+  font-size: 0.62rem;
+}
+
 .selected-curves-periods {
   border: 1px solid rgba(125, 211, 252, 0.36);
   display: inline-flex;
@@ -596,7 +607,7 @@ html {
   font-family: Consolas, "Courier New", monospace;
   font-size: 0.72rem;
   line-height: 1;
-  padding: 0.45rem 0.6rem;
+  padding: 0.45rem 0.52rem;
 }
 
 .selected-curves-periods button:last-child {
@@ -697,6 +708,22 @@ html {
   white-space: nowrap;
 }
 
+.selected-curve-card-foot .selected-curve-metric-line {
+  align-items: baseline;
+  display: flex;
+  gap: 0.35rem;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.selected-curve-card-foot .selected-curve-metric-line strong:first-child {
+  min-width: 0;
+}
+
+.selected-curve-card-foot .selected-curve-metric-return {
+  font-size: 0.62rem;
+}
+
 .selected-curve-card-empty,
 .selected-curves-empty {
   align-items: center;
@@ -714,13 +741,13 @@ html {
 }
 
 .equity-current-summary {
-  border-color: rgba(167, 139, 250, 0.72) !important;
-  box-shadow: inset 3px 0 0 #a78bfa;
+  border-color: rgba(125, 211, 252, 0.72) !important;
+  box-shadow: inset 3px 0 0 #7dd3fc;
 }
 
 .equity-current-summary span,
 .equity-current-summary strong {
-  color: #a78bfa !important;
+  color: #7dd3fc !important;
 }
 
 .equity-invested-summary {
@@ -745,7 +772,7 @@ html {
 
 html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-current-summary span,
 html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-current-summary strong {
-  color: #a78bfa !important;
+  color: #7dd3fc !important;
 }
 
 html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-invested-summary span,
@@ -776,10 +803,14 @@ html[data-bs-theme="dark"] .equity-curve-page .history-totalizer .equity-investe
   }
 
   .selected-curves-periods button:nth-child(2) {
+    border-right: 1px solid rgba(125, 211, 252, 0.24);
+  }
+
+  .selected-curves-periods button:nth-child(even) {
     border-right: 0;
   }
 
-  .selected-curves-periods button:nth-child(-n + 2) {
+  .selected-curves-periods button:nth-child(-n + 6) {
     border-bottom: 1px solid rgba(125, 211, 252, 0.24);
   }
 }
@@ -6722,6 +6753,17 @@ html[data-bs-theme="dark"] .public-shell-warning a {
   padding: 0.75rem;
 }
 
+.equity-range-stack {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.equity-range-foot {
+  border-top: 1px solid rgba(125, 211, 252, 0.22);
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+}
+
 .equity-chart-head {
   align-items: flex-start;
   display: flex;
@@ -6761,11 +6803,11 @@ html[data-bs-theme="dark"] .public-shell-warning a {
 }
 
 .equity-legend-current {
-  color: #a78bfa;
+  color: #7dd3fc;
 }
 
 .equity-legend-current::before {
-  background: #a78bfa;
+  background: #7dd3fc;
 }
 
 .equity-legend-invested {

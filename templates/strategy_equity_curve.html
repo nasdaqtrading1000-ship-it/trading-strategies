@@ -246,13 +246,16 @@
       const returnPct = Number(point.return_pct || 0);
       const pctLabel = `${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(2)}%`;
       const investedPct = investedPctValue(point);
-      const investedReturnPct = Number(point.capital_invertido || 0) ? (Number(point.profit_usd || 0) / Number(point.capital_invertido || 0) * 100) : 0;
+      const investedReturnPct = Number(point.capital_invertido || 0)
+        ? (Number(point.profit_usd || 0) / Number(point.capital_invertido || 0) * 100)
+        : 0;
+      const investedReturnLabel = `${investedReturnPct >= 0 ? "+" : ""}${investedReturnPct.toFixed(2)}%`;
       const labelSegments = [
         { text: `${fullDateLabel(point.date)}  `, color: "#d8e7ff" },
         { text: `Actual ${money(point.capital_actual)}  `, color: "#7dd3fc" },
-        { text: `${money(point.capital_invertido)} (${investedPct.toFixed(1)}%)  `, color: "#f59e0b" },
-        { text: `${pctLabel}  `, color: "#16ff7a" },
-        { text: `${investedReturnPct >= 0 ? "+" : ""}${investedReturnPct.toFixed(2)}%`, color: "#f59e0b" },
+        { text: `Rent. cuenta ${pctLabel}  `, color: "#16ff7a" },
+        { text: `Invertido ${money(point.capital_invertido)} (${investedPct.toFixed(1)}%)  `, color: "#f59e0b" },
+        { text: `Rent. inv. ${investedReturnLabel}`, color: "#f59e0b" },
       ];
       ctx.font = "14px Consolas, monospace";
       const labelWidth = labelSegments.reduce((total, segment) => total + ctx.measureText(segment.text).width, 0) + 16;

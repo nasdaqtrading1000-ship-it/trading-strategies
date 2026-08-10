@@ -3212,6 +3212,9 @@ def create_app():
             "subscription_portal",
             "stripe_webhook",
             "telegram_webhook",
+            "replicator_api_login",
+            "replicator_api_strategies",
+            "replicator_api_operations",
             "strategy_equity_curve",
             "public_curve_diagnostics",
         }
@@ -3269,6 +3272,153 @@ def create_app():
     def member_has_full_access(user=None):
         user = user if user is not None else current_user()
         return bool(user and int(user.get("has_access") or 0))
+
+    def build_replicator_access_token(user_id):
+        expires_at = int(time.time()) + 60 * 60 * 24 * 90
+        payload = f"{int(user_id)}:{expires_at}"
+        signature = hmac.new(
+            app.config["SECRET_KEY"].encode("utf-8"),
+            payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        return f"{payload}:{signature}"
+
+    def verify_replicator_access_token(token):
+        parts = str(token or "").strip().split(":")
+        if len(parts) != 3:
+            return None
+        user_id, expires_at, signature = parts
+        payload = f"{user_id}:{expires_at}"
+        expected = hmac.new(
+            app.config["SECRET_KEY"].encode("utf-8"),
+            payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        if not compare_digest(signature, expected):
+            return None
+        try:
+            if int(expires_at) < int(time.time()):
+                return None
+            user_id_int = int(user_id)
+        except (TypeError, ValueError):
+            return None
+        return g.db.execute(
+            text(
+                """
+                SELECT id, email, has_access
+                FROM users
+                WHERE id = :id
+                """
+            ),
+            {"id": user_id_int},
+        ).mappings().fetchone()
+
+    def require_replicator_api_access():
+        auth_header = request.headers.get("Authorization", "").strip()
+        provided_token = ""
+        if auth_header.lower().startswith("bearer "):
+            provided_token = auth_header.split(" ", 1)[1].strip()
+        user = verify_replicator_access_token(provided_token)
+        if not user:
+            abort(401)
+        if not int(user.get("has_access") or 0):
+            abort(403)
+        return user
+
+    @app.route("/api/replicator/login", methods=["POST"])
+    def replicator_api_login():
+        payload = request.get_json(silent=True) or {}
+        email = str(payload.get("email") or "").strip().lower()
+        password = str(payload.get("password") or "")
+        user = g.db.execute(
+            text(
+                """
+                SELECT id, email, password_hash, has_access
+                FROM users
+                WHERE lower(email) = lower(:email)
+                """
+            ),
+            {"email": email},
+        ).mappings().fetchone()
+        if not user or not check_password_hash(user["password_hash"], password):
+            return jsonify({"ok": False, "error": "login_incorrecto"}), 401
+        if not int(user.get("has_access") or 0):
+            return jsonify({"ok": False, "error": "membresia_inactiva"}), 403
+        return jsonify(
+            {
+                "ok": True,
+                "access_token": build_replicator_access_token(user["id"]),
+                "user": {"id": user["id"], "email": user["email"]},
+            }
+        )
+
+    def madrid_day_window(days=1):
+        try:
+            days = max(1, min(int(days or 1), 7))
+        except (TypeError, ValueError):
+            days = 1
+        today_start = datetime.now(MADRID_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = today_start - timedelta(days=days - 1)
+        end = today_start + timedelta(days=1)
+        return start.replace(tzinfo=None).isoformat(sep=" "), end.replace(tzinfo=None).isoformat(sep=" ")
+
+    @app.route("/api/replicator/strategies")
+    def replicator_api_strategies():
+        require_replicator_api_access()
+        rows = g.db.execute(
+            text(
+                """
+                SELECT id, name, signals_txt_name, COALESCE(web_visible, is_active, 1) AS visible
+                FROM strategies
+                WHERE COALESCE(web_visible, is_active, 1) = 1
+                  AND COALESCE(signals_txt_name, '') <> ''
+                ORDER BY name
+                """
+            )
+        ).mappings().fetchall()
+        return jsonify({"ok": True, "strategies": [dict(row) for row in rows]})
+
+    @app.route("/api/replicator/operations", methods=["POST"])
+    def replicator_api_operations():
+        require_replicator_api_access()
+        payload = request.get_json(silent=True) or {}
+        selected = [
+            str(value).strip()
+            for value in payload.get("selected_txt_names", [])
+            if str(value).strip()
+        ][:50]
+        if not selected:
+            return jsonify({"ok": True, "operations": [], "selected_count": 0})
+        start, end = madrid_day_window(payload.get("days", 1))
+        query = text(
+            """
+            SELECT operation_key, strategy_name, txt_name, symbol, direction, status,
+                   signal_date, opened_at, closed_at, entry_price, target_price, stop_loss,
+                   shares, current_price, investment_value, profit_usd, profit_pct,
+                   close_reason, updated_at
+            FROM simulated_operations
+            WHERE txt_name IN :txt_names
+              AND (
+                (opened_at >= :start_at AND opened_at < :end_at)
+                OR (closed_at >= :start_at AND closed_at < :end_at)
+                OR (updated_at >= :start_at AND updated_at < :end_at)
+              )
+            ORDER BY COALESCE(updated_at, closed_at, opened_at) ASC
+            """
+        ).bindparams(bindparam("txt_names", expanding=True))
+        rows = g.db.execute(
+            query,
+            {"txt_names": selected, "start_at": start, "end_at": end},
+        ).mappings().fetchall()
+        return jsonify(
+            {
+                "ok": True,
+                "operations": [dict(row) for row in rows],
+                "selected_count": len(selected),
+                "start": start,
+                "end": end,
+            }
+        )
 
     def can_view_strategy(strategy):
         if session.get("admin_logged_in"):
@@ -5085,8 +5235,8 @@ def create_app():
     def mobile_manifest():
         return jsonify(
             {
-                "name": "Code Markets Mobile",
-                "short_name": "CodeMarkets",
+                "name": "Code Markets",
+                "short_name": "Code Markets",
                 "start_url": url_for("mobile_index"),
                 "scope": "/mobile",
                 "display": "standalone",

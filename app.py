@@ -4,14 +4,16 @@ import re
 import hmac
 import hashlib
 import subprocess
+import smtplib
 import sys
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from email.message import EmailMessage
 from hmac import compare_digest
-from functools import wraps
+from functools import lru_cache, wraps
 from uuid import uuid4
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -70,6 +72,7 @@ DEFAULT_V2_SIGNALS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "signals
 DEFAULT_V2_DIAGNOSTICS_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.json").resolve()
 DEFAULT_V2_DIAGNOSTICS_TXT_FILE = (BASE_DIR / "EstrategiasV2" / "outputs" / "diagnostics_v2.txt").resolve()
 DEFAULT_HISTORICAL_MANIFEST_FILE = (BASE_DIR / "EstrategiasV2" / "historical_data" / "manifest.json").resolve()
+DEFAULT_DAILY_PRICE_DIR = (BASE_DIR / "EstrategiasV2" / "historical_data" / "daily_txt").resolve()
 LOCAL_SQLITE_FILE = Path(SQLITE_DATABASE).resolve()
 STRATEGIES_RUNNER = BASE_DIR / "Estrategias" / "run_all_strategies.py"
 MADRID_TZ = ZoneInfo("Europe/Madrid")
@@ -2258,6 +2261,24 @@ def format_chart_money_usd(value):
     return f"{amount:.2f} USD"
 
 
+def format_current_money_usd(value):
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0.0
+
+    absolute = abs(amount)
+    if absolute >= 1_000_000_000_000:
+        return f"{amount / 1_000_000_000_000:.3f} T USD"
+    if absolute >= 1_000_000_000:
+        return f"{amount / 1_000_000_000:.3f} B USD"
+    if absolute >= 1_000_000:
+        return f"{amount / 1_000_000:.3f} M USD"
+    if absolute >= 1_000:
+        return f"{amount / 1_000:.2f} K USD"
+    return f"{amount:.2f} USD"
+
+
 def format_signed_chart_money_usd(value):
     try:
         amount = float(value or 0)
@@ -2450,7 +2471,7 @@ def build_return_metrics(value):
         "result": format_signed_money_usd(profit_usd),
         "percent": f"{return_pct:+.2f}%",
         "capital": format_money_usd(account_capital),
-        "current_capital": format_money_usd(current_capital),
+        "current_capital": format_current_money_usd(current_capital),
         "operations": parse_operations_summary(text_value) or "Operaciones registradas",
         "operations_parts": parse_operations_parts(text_value),
         "period_lines": parse_period_return_lines(text_value),
@@ -2604,7 +2625,7 @@ def selected_strategy_chart_limit(value):
 
 def equity_curve_period_definitions():
     return {
-        "day": {"label": "1 dia", "days": None, "latest_points": 2, "cumulative": False, "height": 180},
+        "day": {"label": "1 dia", "days": None, "latest_points": 2, "intraday": True, "cumulative": False, "height": 180},
         "week": {"label": "Semana", "days": 7, "cumulative": False, "height": 180},
         "month": {"label": "Mes", "days": 30, "cumulative": False, "height": 180},
         "two_months": {"label": "2 meses", "days": 60, "cumulative": False, "height": 180},
@@ -3273,6 +3294,67 @@ def create_app():
         user = user if user is not None else current_user()
         return bool(user and int(user.get("has_access") or 0))
 
+    def member_has_replicator_access(user=None):
+        user = user if user is not None else current_user()
+        return bool(user and int(user.get("has_access") or 0) and int(user.get("has_replicator_access") or 0))
+
+    def user_email_confirmation_pending(user):
+        if not user:
+            return False
+        return bool(
+            str(user.get("email_verification_token") or "").strip()
+            and not user.get("email_verified_at")
+        )
+
+    def smtp_configured():
+        return bool(os.environ.get("SMTP_HOST", "").strip() and os.environ.get("SMTP_FROM", "").strip())
+
+    def running_on_render_environment():
+        return any(os.environ.get(key) for key in ("RENDER", "RENDER_SERVICE_ID", "RENDER_EXTERNAL_URL", "RENDER_INSTANCE_ID"))
+
+    def send_email_message(to_email, subject, body):
+        host = os.environ.get("SMTP_HOST", "").strip()
+        from_email = os.environ.get("SMTP_FROM", "").strip()
+        if not host or not from_email:
+            return False, "smtp_not_configured"
+        try:
+            port = int(os.environ.get("SMTP_PORT", "587").strip() or "587")
+        except ValueError:
+            port = 587
+        username = os.environ.get("SMTP_USERNAME", "").strip()
+        password = os.environ.get("SMTP_PASSWORD", "")
+        use_tls = os.environ.get("SMTP_USE_TLS", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+        message = EmailMessage()
+        message["From"] = from_email
+        message["To"] = to_email
+        message["Subject"] = subject
+        message.set_content(body)
+        try:
+            with smtplib.SMTP(host, port, timeout=20) as smtp:
+                if use_tls:
+                    smtp.starttls()
+                if username or password:
+                    smtp.login(username, password)
+                smtp.send_message(message)
+            return True, ""
+        except Exception as error:
+            return False, str(error)
+
+    def send_account_confirmation_email(user, token):
+        confirmation_url = url_for("confirm_email", token=token, _external=True)
+        subject = "Confirma tu cuenta en Code Markets"
+        body = (
+            "Hola,\n\n"
+            "Confirma tu cuenta en Code Markets abriendo este enlace:\n\n"
+            f"{confirmation_url}\n\n"
+            "Si no has creado esta cuenta, puedes ignorar este email.\n"
+        )
+        ok, error = send_email_message(user["email"], subject, body)
+        if not ok:
+            print(f"EMAIL CONFIRMACION | no enviado a {user['email']} | {error} | {confirmation_url}", flush=True)
+        return ok, error, confirmation_url
+
     def build_replicator_access_token(user_id):
         expires_at = int(time.time()) + 60 * 60 * 24 * 90
         payload = f"{int(user_id)}:{expires_at}"
@@ -3305,7 +3387,7 @@ def create_app():
         return g.db.execute(
             text(
                 """
-                SELECT id, email, has_access
+                SELECT id, email, has_access, has_replicator_access
                 FROM users
                 WHERE id = :id
                 """
@@ -3321,7 +3403,7 @@ def create_app():
         user = verify_replicator_access_token(provided_token)
         if not user:
             abort(401)
-        if not int(user.get("has_access") or 0):
+        if not member_has_replicator_access(user):
             abort(403)
         return user
 
@@ -3333,7 +3415,7 @@ def create_app():
         user = g.db.execute(
             text(
                 """
-                SELECT id, email, password_hash, has_access
+                SELECT id, email, password_hash, has_access, has_replicator_access
                 FROM users
                 WHERE lower(email) = lower(:email)
                 """
@@ -3342,8 +3424,8 @@ def create_app():
         ).mappings().fetchone()
         if not user or not check_password_hash(user["password_hash"], password):
             return jsonify({"ok": False, "error": "login_incorrecto"}), 401
-        if not int(user.get("has_access") or 0):
-            return jsonify({"ok": False, "error": "membresia_inactiva"}), 403
+        if not member_has_replicator_access(user):
+            return jsonify({"ok": False, "error": "premium_requerido"}), 403
         return jsonify(
             {
                 "ok": True,
@@ -3596,6 +3678,7 @@ def create_app():
                 """
                 UPDATE users
                 SET has_access = 0,
+                    has_replicator_access = 0,
                     payment_status = :payment_status,
                     membership_expires_at = COALESCE(membership_expires_at, :now),
                     telegram_removed_at = NULL
@@ -3636,6 +3719,12 @@ def create_app():
         if not token:
             return ""
         return f"https://t.me/{username}?start=cm_{token}"
+
+    def telegram_connect_command_for_user(user):
+        token = ensure_telegram_connect_token(user)
+        if not token:
+            return ""
+        return f"/start cm_{token}"
 
     def parse_telegram_start_token(text_value):
         value = str(text_value or "").strip()
@@ -4092,6 +4181,7 @@ def create_app():
         return {
             "current_user": user,
             "member_has_access": member_has_full_access(user),
+            "member_has_replicator_access": member_has_replicator_access(user),
             "membership_price_text": membership_price_text(),
         }
 
@@ -4104,10 +4194,13 @@ def create_app():
     def membership_payment_url():
         return os.environ.get("MEMBERSHIP_PAYMENT_URL", "").strip()
 
+    def replicator_local_url():
+        return os.environ.get("REPLICATOR_LOCAL_URL", "http://127.0.0.1:5075/").strip() or "http://127.0.0.1:5075/"
+
     def payment_product_catalog():
         return {
             "trading_premium": {
-                "name": "Code Markets Premium",
+                "name": "Code Markets Miembro",
                 "description": "Acceso completo a estrategias, avisos, historiales y panel de cuenta.",
                 "subject_type": "membership",
                 "plans": {
@@ -4121,6 +4214,25 @@ def create_app():
                         "label": "Anual",
                         "price_text": os.environ.get("MEMBERSHIP_PRICE_YEARLY_TEXT", "300 USD/ano").strip() or "300 USD/ano",
                         "stripe_price_id": os.environ.get("STRIPE_PRICE_TRADING_YEARLY", "").strip(),
+                        "mode": "subscription",
+                    },
+                },
+            },
+            "code_markets_premium": {
+                "name": "Code Markets Premium",
+                "description": "Cuenta miembro mas acceso a Code Markets Replicator.",
+                "subject_type": "membership",
+                "plans": {
+                    "monthly": {
+                        "label": "Mensual",
+                        "price_text": os.environ.get("PREMIUM_PRICE_TEXT", "50 USD/mes").strip() or "50 USD/mes",
+                        "stripe_price_id": os.environ.get("STRIPE_PRICE_PREMIUM_MONTHLY", "").strip(),
+                        "mode": "subscription",
+                    },
+                    "yearly": {
+                        "label": "Anual",
+                        "price_text": os.environ.get("PREMIUM_PRICE_YEARLY_TEXT", "500 USD/ano").strip() or "500 USD/ano",
+                        "stripe_price_id": os.environ.get("STRIPE_PRICE_PREMIUM_YEARLY", "").strip(),
                         "mode": "subscription",
                     },
                 },
@@ -4208,15 +4320,20 @@ def create_app():
             params,
         )
 
-    def mark_user_membership_paid(user_id, amount_text="", customer_id="", subscription_id=""):
+    def mark_user_membership_paid(user_id, amount_text="", customer_id="", subscription_id="", product_key="trading_premium"):
         now = datetime.now(UTC).replace(tzinfo=None)
+        is_premium = product_key == "code_markets_premium"
         g.db.execute(
             text(
                 """
                 UPDATE users
                 SET has_access = 1,
+                    has_replicator_access = CASE
+                        WHEN :is_premium = 1 THEN 1
+                        ELSE has_replicator_access
+                    END,
                     payment_status = 'active',
-                    membership_plan = 'Code Markets Premium',
+                    membership_plan = :membership_plan,
                     membership_amount = COALESCE(NULLIF(:amount_text, ''), membership_amount),
                     membership_started_at = COALESCE(membership_started_at, :now),
                     telegram_removed_at = NULL,
@@ -4227,22 +4344,26 @@ def create_app():
             ),
             {
                 "id": user_id,
+                "is_premium": 1 if is_premium else 0,
+                "membership_plan": "Premium" if is_premium else "Miembro",
                 "amount_text": amount_text,
                 "customer_id": customer_id,
                 "subscription_id": subscription_id,
                 "now": now,
             },
         )
+        if is_premium and subscription_id:
+            cancel_replaced_member_subscriptions(user_id, subscription_id)
 
     def mark_user_membership_cancelled(customer_id="", subscription_id=""):
         conditions = []
         params = {}
-        if customer_id:
-            conditions.append("stripe_customer_id = :customer_id")
-            params["customer_id"] = customer_id
         if subscription_id:
             conditions.append("stripe_subscription_id = :subscription_id")
             params["subscription_id"] = subscription_id
+        elif customer_id:
+            conditions.append("stripe_customer_id = :customer_id")
+            params["customer_id"] = customer_id
         if not conditions:
             return
         affected_users = g.db.execute(
@@ -4257,6 +4378,69 @@ def create_app():
         ).mappings().fetchall()
         for user in affected_users:
             revoke_user_membership_and_telegram(user, payment_status="cancelled")
+
+    def cancel_replaced_member_subscriptions(user_id, new_subscription_id):
+        new_subscription_id = str(new_subscription_id or "").strip()
+        if not new_subscription_id:
+            return []
+        rows = g.db.execute(
+            text(
+                """
+                SELECT id, provider_subscription_id
+                FROM payments
+                WHERE user_id = :user_id
+                  AND provider = 'stripe'
+                  AND product_key = 'trading_premium'
+                  AND provider_subscription_id <> ''
+                  AND provider_subscription_id <> :new_subscription_id
+                  AND status NOT IN ('cancelled', 'cancelled_by_upgrade')
+                ORDER BY updated_at DESC, id DESC
+                """
+            ),
+            {"user_id": user_id, "new_subscription_id": new_subscription_id},
+        ).mappings().fetchall()
+        results = []
+        for row in rows:
+            old_subscription_id = str(row["provider_subscription_id"] or "").strip()
+            if not old_subscription_id:
+                continue
+            cancelled, response = stripe_cancel_subscription(old_subscription_id)
+            next_status = "cancelled_by_upgrade" if cancelled else "cancel_upgrade_failed"
+            g.db.execute(
+                text(
+                    """
+                    UPDATE payments
+                    SET status = :status,
+                        metadata_json = :metadata_json,
+                        updated_at = :updated_at
+                    WHERE id = :id
+                    """
+                ),
+                {
+                    "id": row["id"],
+                    "status": next_status,
+                    "metadata_json": json.dumps(
+                        {
+                            "premium_upgrade": True,
+                            "new_subscription_id": new_subscription_id,
+                            "cancel_response": response,
+                        }
+                    ),
+                    "updated_at": datetime.now(UTC).replace(tzinfo=None),
+                },
+            )
+            if cancelled:
+                print(
+                    f"STRIPE UPGRADE | suscripcion miembro cancelada | user_id={user_id} subscription={old_subscription_id}",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"STRIPE UPGRADE | fallo cancelando miembro | user_id={user_id} subscription={old_subscription_id} response={response}",
+                    flush=True,
+                )
+            results.append({"subscription_id": old_subscription_id, "cancelled": cancelled, "response": response})
+        return results
 
     def user_stripe_customer_id(user):
         if not user:
@@ -4399,11 +4583,14 @@ def create_app():
         except Exception as exc:
             return None, str(exc)
 
-    def stripe_checkout_error_message(plan_key, plan, error):
+    def stripe_checkout_error_message(product_key, plan_key, plan, error):
         if not stripe_secret_key() or not stripe_publishable_key():
             return "Faltan las claves de Stripe. Revisa STRIPE_SECRET_KEY y STRIPE_PUBLISHABLE_KEY."
         if not plan.get("stripe_price_id", "").strip():
-            variable_name = "STRIPE_PRICE_TRADING_YEARLY" if plan_key == "yearly" else "STRIPE_PRICE_TRADING_MONTHLY"
+            if product_key == "code_markets_premium":
+                variable_name = "STRIPE_PRICE_PREMIUM_YEARLY" if plan_key == "yearly" else "STRIPE_PRICE_PREMIUM_MONTHLY"
+            else:
+                variable_name = "STRIPE_PRICE_TRADING_YEARLY" if plan_key == "yearly" else "STRIPE_PRICE_TRADING_MONTHLY"
             return f"Falta el precio de Stripe para este plan. Pega el ID price_... en {variable_name}."
         error_text = str(error or "").lower()
         if "no such price" in error_text or "resource_missing" in error_text:
@@ -4474,16 +4661,18 @@ def create_app():
                 flash("Ese email ya tiene cuenta. Entra con tu contrasena.", "warning")
                 return redirect(url_for("user_login"))
 
-            trial_access = 1 if free_trial_enabled() else 0
-            payment_status = "trial" if trial_access else "registered"
+            verification_token = uuid4().hex
+            now = datetime.now(UTC).replace(tzinfo=None)
             result = g.db.execute(
                 text(
                     """
                     INSERT INTO users
                     (email, password_hash, name, has_access, payment_status, membership_plan,
-                     membership_amount, age_confirmed, risk_accepted, accepted_terms_at)
-                    VALUES (:email, :password_hash, :name, :has_access, :payment_status,
-                            'Miembro', :membership_amount, :age_confirmed, :risk_accepted, :accepted_terms_at)
+                     membership_amount, age_confirmed, risk_accepted, accepted_terms_at,
+                     email_verification_token, email_verification_sent_at)
+                    VALUES (:email, :password_hash, :name, 0, 'email_pending',
+                            'Miembro', :membership_amount, :age_confirmed, :risk_accepted,
+                            :accepted_terms_at, :email_verification_token, :email_verification_sent_at)
                     RETURNING id
                     """
                 )
@@ -4492,21 +4681,23 @@ def create_app():
                     """
                     INSERT INTO users
                     (email, password_hash, name, has_access, payment_status, membership_plan,
-                     membership_amount, age_confirmed, risk_accepted, accepted_terms_at)
-                    VALUES (:email, :password_hash, :name, :has_access, :payment_status,
-                            'Miembro', :membership_amount, :age_confirmed, :risk_accepted, :accepted_terms_at)
+                     membership_amount, age_confirmed, risk_accepted, accepted_terms_at,
+                     email_verification_token, email_verification_sent_at)
+                    VALUES (:email, :password_hash, :name, 0, 'email_pending',
+                            'Miembro', :membership_amount, :age_confirmed, :risk_accepted,
+                            :accepted_terms_at, :email_verification_token, :email_verification_sent_at)
                     """
                 ),
                 {
                     "email": email,
                     "password_hash": generate_password_hash(password),
                     "name": name,
-                    "has_access": trial_access,
-                    "payment_status": payment_status,
                     "membership_amount": membership_price_text(),
                     "age_confirmed": age_confirmed,
                     "risk_accepted": risk_accepted,
-                    "accepted_terms_at": datetime.now(UTC).replace(tzinfo=None),
+                    "accepted_terms_at": now,
+                    "email_verification_token": verification_token,
+                    "email_verification_sent_at": now,
                 },
             )
             if engine.dialect.name == "postgresql":
@@ -4515,15 +4706,113 @@ def create_app():
                 user_id = g.db.execute(text("SELECT last_insert_rowid()")).scalar_one()
             g.db.commit()
 
-            session["user_id"] = user_id
-            session["user_email"] = email
-            if trial_access:
-                flash("Cuenta creada. Acceso completo activado.", "success")
-                return redirect(url_for("index"))
-            flash("Cuenta creada. Activa tu membresia para ver todas las estrategias.", "success")
-            return redirect(url_for("membership"))
+            user = {"id": user_id, "email": email, "name": name}
+            email_sent, email_error, confirmation_url = send_account_confirmation_email(user, verification_token)
+            if email_sent:
+                flash("Cuenta creada. Te hemos enviado un email para confirmarla.", "success")
+            else:
+                flash("Cuenta creada, pero no se pudo enviar el email de confirmacion. Revisa SMTP.", "warning")
+            return render_template(
+                "email_confirmation_pending.html",
+                email=email,
+                email_sent=email_sent,
+                email_error=email_error,
+                debug_confirmation_url=confirmation_url if (not smtp_configured() and not running_on_render_environment()) else None,
+            )
 
         return render_template("user_register.html")
+
+    @app.route("/confirmar-email/<token>")
+    def confirm_email(token):
+        token = str(token or "").strip()
+        if not token:
+            abort(404)
+        user = g.db.execute(
+            text(
+                """
+                SELECT *
+                FROM users
+                WHERE email_verification_token = :token
+                """
+            ),
+            {"token": token},
+        ).mappings().fetchone()
+        if not user:
+            flash("El enlace de confirmacion no existe o ya fue usado.", "warning")
+            return redirect(url_for("user_login"))
+
+        trial_access = 1 if free_trial_enabled() else 0
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET email_verified_at = :now,
+                    email_verification_token = '',
+                    payment_status = :payment_status,
+                    has_access = :has_access
+                WHERE id = :id
+                """
+            ),
+            {
+                "id": user["id"],
+                "now": datetime.now(UTC).replace(tzinfo=None),
+                "payment_status": "trial" if trial_access else "registered",
+                "has_access": trial_access,
+            },
+        )
+        g.db.commit()
+        session["user_id"] = user["id"]
+        session["user_email"] = user["email"]
+        if trial_access:
+            flash("Email confirmado. Acceso activado.", "success")
+            return redirect(url_for("index"))
+        flash("Email confirmado. Ya puedes activar tu membresia.", "success")
+        return redirect(url_for("membership"))
+
+    @app.route("/reenviar-confirmacion", methods=["GET", "POST"])
+    def resend_email_confirmation():
+        email = request.form.get("email", "").strip().lower() if request.method == "POST" else request.args.get("email", "").strip().lower()
+        if request.method == "GET":
+            return render_template("resend_email_confirmation.html", email=email)
+        user = g.db.execute(
+            text(
+                """
+                SELECT *
+                FROM users
+                WHERE lower(email) = lower(:email)
+                """
+            ),
+            {"email": email},
+        ).mappings().fetchone()
+        if not user:
+            flash("No hay ninguna cuenta pendiente con ese email.", "warning")
+            return render_template("resend_email_confirmation.html", email=email)
+        if not user_email_confirmation_pending(user):
+            flash("Esa cuenta ya esta confirmada.", "info")
+            return redirect(url_for("user_login"))
+
+        token = str(user.get("email_verification_token") or "").strip() or uuid4().hex
+        now = datetime.now(UTC).replace(tzinfo=None)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET email_verification_token = :token,
+                    email_verification_sent_at = :now
+                WHERE id = :id
+                """
+            ),
+            {"id": user["id"], "token": token, "now": now},
+        )
+        g.db.commit()
+        email_sent, email_error, confirmation_url = send_account_confirmation_email(user, token)
+        return render_template(
+            "email_confirmation_pending.html",
+            email=user["email"],
+            email_sent=email_sent,
+            email_error=email_error,
+            debug_confirmation_url=confirmation_url if (not smtp_configured() and not running_on_render_environment()) else None,
+        )
 
     @app.route("/membresia", methods=["GET", "POST"])
     def membership():
@@ -4532,6 +4821,9 @@ def create_app():
             if not user:
                 flash("Crea una cuenta o entra antes de activar la membresia.", "warning")
                 return redirect(url_for("user_login"))
+            if user_email_confirmation_pending(user):
+                flash("Confirma tu email antes de activar la membresia.", "warning")
+                return redirect(url_for("resend_email_confirmation", email=user["email"]))
             g.db.execute(
                 text(
                     """
@@ -4554,7 +4846,9 @@ def create_app():
             "membership.html",
             user=user,
             payment_url=url_for("payment_page", product="trading_premium", plan="monthly"),
+            premium_payment_url=url_for("payment_page", product="code_markets_premium", plan="monthly"),
             price_text=membership_price_text(),
+            premium_price_text=payment_product_catalog()["code_markets_premium"]["plans"]["monthly"]["price_text"],
         )
 
     @app.route("/pago", methods=["GET"])
@@ -4563,6 +4857,9 @@ def create_app():
         if not user:
             flash("Entra o crea una cuenta antes de pagar.", "warning")
             return redirect(url_for("user_login"))
+        if user_email_confirmation_pending(user):
+            flash("Confirma tu email antes de pagar.", "warning")
+            return redirect(url_for("resend_email_confirmation", email=user["email"]))
         product_key = request.args.get("product", "trading_premium").strip() or "trading_premium"
         product = payment_product(product_key)
         if product is None:
@@ -4586,6 +4883,9 @@ def create_app():
         if not user:
             flash("Entra o crea una cuenta antes de pagar.", "warning")
             return redirect(url_for("user_login"))
+        if user_email_confirmation_pending(user):
+            flash("Confirma tu email antes de pagar.", "warning")
+            return redirect(url_for("resend_email_confirmation", email=user["email"]))
         product_key = request.form.get("product", "trading_premium").strip() or "trading_premium"
         plan_key = request.form.get("plan", "monthly").strip() or "monthly"
         product = payment_product(product_key)
@@ -4602,12 +4902,16 @@ def create_app():
                 """
                 UPDATE users
                 SET payment_status = 'payment_pending',
-                    membership_plan = 'Code Markets Premium',
+                    membership_plan = :membership_plan,
                     membership_amount = :membership_amount
                 WHERE id = :id
                 """
             ),
-            {"membership_amount": plan.get("price_text", membership_price_text()), "id": user["id"]},
+            {
+                "membership_plan": "Premium" if product_key == "code_markets_premium" else "Miembro",
+                "membership_amount": plan.get("price_text", membership_price_text()),
+                "id": user["id"],
+            },
         )
         g.db.commit()
 
@@ -4626,7 +4930,7 @@ def create_app():
 
         update_payment_record(payment_id, "configuration_pending", metadata_json=json.dumps({"error": error[:500]}))
         g.db.commit()
-        flash(stripe_checkout_error_message(plan_key, plan, error), "warning")
+        flash(stripe_checkout_error_message(product_key, plan_key, plan, error), "warning")
         return redirect(url_for("payment_page", product=product_key, plan=plan_key))
 
     @app.route("/pago/exito")
@@ -4649,11 +4953,14 @@ def create_app():
                     metadata_json=json.dumps(metadata),
                 )
             if user_id:
+                paid_product_key = metadata.get("product_key") or "trading_premium"
+                paid_plan = (payment_product(paid_product_key) or {}).get("plans", {}).get(metadata.get("plan_key") or "monthly", {})
                 mark_user_membership_paid(
                     int(user_id),
-                    membership_price_text(),
+                    paid_plan.get("price_text", membership_price_text()),
                     session_payload.get("customer", "") or "",
                     session_payload.get("subscription", "") or "",
+                    paid_product_key,
                 )
             g.db.commit()
         else:
@@ -4689,11 +4996,14 @@ def create_app():
                     metadata_json=json.dumps(metadata),
                 )
             if user_id:
+                paid_product_key = metadata.get("product_key") or "trading_premium"
+                paid_plan = (payment_product(paid_product_key) or {}).get("plans", {}).get(metadata.get("plan_key") or "monthly", {})
                 mark_user_membership_paid(
                     int(user_id),
-                    membership_price_text(),
+                    paid_plan.get("price_text", membership_price_text()),
                     session_object.get("customer", "") or "",
                     session_object.get("subscription", "") or "",
+                    paid_product_key,
                 )
             g.db.commit()
         elif event.get("type") == "customer.subscription.deleted":
@@ -4728,7 +5038,7 @@ def create_app():
             user = g.db.execute(
                 text(
                     """
-                    SELECT id, email, password_hash
+                    SELECT *
                     FROM users
                     WHERE lower(email) = lower(:email)
                     """
@@ -4736,10 +5046,13 @@ def create_app():
                 {"email": email},
             ).mappings().fetchone()
             if user and check_password_hash(user["password_hash"], password):
+                if user_email_confirmation_pending(user):
+                    flash("Confirma tu email antes de entrar.", "warning")
+                    return redirect(url_for("resend_email_confirmation", email=user["email"]))
                 session["user_id"] = user["id"]
                 session["user_email"] = user["email"]
                 flash("Has entrado correctamente.", "success")
-                return redirect(url_for("index"))
+                return redirect(session.pop("user_next_url", url_for("index")))
             flash("Email o contrasena incorrectos.", "danger")
 
         return render_template("user_login.html")
@@ -4764,6 +5077,7 @@ def create_app():
             stripe_customer_id=user_stripe_customer_id(user),
             telegram_bot_username=telegram_bot_username(),
             telegram_connect_url=telegram_connect_url,
+            telegram_connect_command=telegram_connect_command_for_user(user),
         )
 
     @app.route("/telegram/webhook", methods=["GET", "POST"])
@@ -4784,7 +5098,12 @@ def create_app():
         if expected_secret:
             received_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
             if not compare_digest(received_secret, expected_secret):
-                return jsonify({"ok": False}), 403
+                print(
+                    "TELEGRAM WEBHOOK | invalid_webhook_secret | "
+                    f"received={bool(received_secret)} expected_configured={bool(expected_secret)}",
+                    flush=True,
+                )
+                return jsonify({"ok": False, "error": "invalid_webhook_secret"}), 403
 
         payload = request.get_json(silent=True) or {}
         message = payload.get("message") or payload.get("edited_message") or {}
@@ -4800,7 +5119,20 @@ def create_app():
         text_value = message.get("text", "")
         token = parse_telegram_start_token(text_value)
         if not token:
-            return jsonify({"ok": True, "ignored": "not_connect_start"})
+            if str(text_value or "").strip().lower().startswith("/start") and should_reply_to_invalid_telegram_start(telegram_user_id):
+                telegram_send_message(
+                    telegram_user_id,
+                    (
+                        "He recibido tu Telegram, pero este inicio no trae el codigo de conexion. "
+                        f"Tu Telegram user ID es {telegram_user_id}. "
+                        "Vuelve a Mi cuenta y pulsa Conectar Telegram desde la web."
+                    ),
+                )
+            print(
+                f"TELEGRAM WEBHOOK | start sin token | telegram_user_id={telegram_user_id} text={text_value!r}",
+                flush=True,
+            )
+            return jsonify({"ok": True, "ignored": "not_connect_start", "telegram_user_id": telegram_user_id})
 
         username = str(sender.get("username") or "").strip()
         now = datetime.now(UTC).replace(tzinfo=None)
@@ -4830,20 +5162,36 @@ def create_app():
             account_url = url_for("account", _external=True)
             telegram_send_message(
                 telegram_user_id,
-                "Telegram conectado con Code Markets. Ya puedes volver a la web y entrar a los canales.",
+                (
+                    "Telegram conectado con Code Markets. "
+                    f"Tu Telegram user ID es {telegram_user_id}. "
+                    "Ya puedes volver a la web y entrar a los canales."
+                ),
                 reply_markup={
                     "inline_keyboard": [
                         [{"text": "Volver a Code Markets", "url": account_url}]
                     ]
                 },
             )
+            print(
+                f"TELEGRAM WEBHOOK | conectado | telegram_user_id={telegram_user_id} username={username!r}",
+                flush=True,
+            )
             return jsonify({"ok": True, "connected": True})
 
         if should_reply_to_invalid_telegram_start(telegram_user_id):
             telegram_send_message(
                 telegram_user_id,
-                "No he podido conectar Telegram. Vuelve a Code Markets y genera un enlace nuevo desde tu cuenta.",
+                (
+                    "No he podido conectar Telegram: el codigo esta caducado o no coincide. "
+                    f"Tu Telegram user ID es {telegram_user_id}. "
+                    "Vuelve a Code Markets y genera un enlace nuevo desde Mi cuenta."
+                ),
             )
+        print(
+            f"TELEGRAM WEBHOOK | token no encontrado | telegram_user_id={telegram_user_id} token={token[:8]}...",
+            flush=True,
+        )
         return jsonify({"ok": True, "connected": False})
 
     @app.route("/mi-cuenta/telegram", methods=["POST"])
@@ -4852,11 +5200,18 @@ def create_app():
         if not user:
             flash("Entra con tu cuenta para guardar tu Telegram.", "warning")
             return redirect(url_for("user_login"))
+        existing_telegram_user_id = str(user.get("telegram_user_id") or "").strip()
+        if existing_telegram_user_id:
+            flash("Telegram ya esta conectado. Por seguridad no se puede borrar ni cambiar el ID desde Mi cuenta.", "warning")
+            return redirect(url_for("account"))
         telegram_user_id = request.form.get("telegram_user_id", "").strip()
+        if not telegram_user_id:
+            flash("Introduce tu Telegram user ID o usa el boton Conectar Telegram.", "warning")
+            return redirect(url_for("account"))
         if telegram_user_id and not telegram_user_id.lstrip("-").isdigit():
             flash("El Telegram user ID debe ser numerico.", "danger")
             return redirect(url_for("account"))
-        now = datetime.now(UTC).replace(tzinfo=None) if telegram_user_id else None
+        now = datetime.now(UTC).replace(tzinfo=None)
         g.db.execute(
             text(
                 """
@@ -4981,12 +5336,11 @@ def create_app():
             series = {}
             summaries = {}
             for key, period in periods.items():
-                points = strategy_equity_curve_points(
+                points = strategy_equity_curve_period_points(
                     txt_name,
                     strategy_name=strategy_name,
+                    period=period,
                     limit=selected_strategy_chart_limit(key),
-                    days=period["days"],
-                    latest_points=period.get("latest_points"),
                 )
                 series[key] = points
                 summaries[key] = equity_curve_period_summary(points, cumulative=period["cumulative"])
@@ -5100,6 +5454,18 @@ def create_app():
             is_public_view=not has_full_access,
             user_totalizer_enabled=user is not None,
         )
+
+    @app.route("/replicator")
+    def replicator_access():
+        user = current_user()
+        if not user:
+            session["user_next_url"] = url_for("replicator_access")
+            flash("Entra con tu cuenta Premium para acceder al Replicator.", "warning")
+            return redirect(url_for("user_login"))
+        if not member_has_replicator_access(user):
+            flash("Code Markets Replicator requiere cuenta Premium activa.", "warning")
+            return redirect(url_for("payment_page", product="code_markets_premium", plan="monthly"))
+        return redirect(replicator_local_url())
 
     @app.route("/mobile")
     def mobile_index():
@@ -5404,11 +5770,12 @@ self.addEventListener("fetch", () => {});
             flash("Crea una cuenta para ver el historial completo.", "warning")
             return redirect(url_for("user_login"))
         txt_name = strategy.get("signals_txt_name", "")
+        sort_key, sort_dir = normalize_history_sort_args(request.args.get("sort"), request.args.get("dir"))
         total_closed_count = int(strategy.get("closed_operations_count") or 0)
         show_all = request.args.get("all") == "1"
         requested_limit = parse_int_arg(request.args.get("limit"), HISTORY_OPERATION_PAGE_SIZE, HISTORY_OPERATION_PAGE_SIZE, 5000)
         operation_limit = None if show_all else requested_limit
-        operations = closed_operations_for_strategy(txt_name, limit=operation_limit)
+        operations = closed_operations_for_strategy(txt_name, limit=operation_limit, sort_key=sort_key, sort_dir=sort_dir)
         return_text = strategy.get("historical_return", "")
         total_profit = parse_profit_usd(return_text) if has_profit_usd(return_text) else 0.0
         capital_base = parse_strategy_capital_usd(return_text)
@@ -5446,6 +5813,10 @@ self.addEventListener("fetch", () => {});
                 "has_more": (not show_all) and len(operations) < total_closed_count,
                 "total_count": total_closed_count,
             },
+            history_sort={
+                "key": sort_key,
+                "dir": sort_dir,
+            },
         )
 
     @app.route("/estrategia/<int:strategy_id>/historial/datos")
@@ -5454,6 +5825,7 @@ self.addEventListener("fetch", () => {});
         if not can_view_strategy(strategy):
             return jsonify({"error": "login_required"}), 403
         txt_name = strategy.get("signals_txt_name", "")
+        sort_key, sort_dir = normalize_history_sort_args(request.args.get("sort"), request.args.get("dir"))
         total_closed_count = int(strategy.get("closed_operations_count") or 0)
         offset = parse_int_arg(request.args.get("offset"), 0, 0, max(total_closed_count, 0))
         show_all = request.args.get("all") == "1"
@@ -5462,7 +5834,7 @@ self.addEventListener("fetch", () => {});
             if show_all
             else parse_int_arg(request.args.get("limit"), HISTORY_OPERATION_PAGE_SIZE, 1, HISTORY_OPERATION_PAGE_SIZE)
         )
-        operations = closed_operations_for_strategy(txt_name, limit=limit, offset=offset)
+        operations = closed_operations_for_strategy(txt_name, limit=limit, offset=offset, sort_key=sort_key, sort_dir=sort_dir)
         loaded_count = min(offset + len(operations), total_closed_count)
         return jsonify(
             {
@@ -5486,11 +5858,10 @@ self.addEventListener("fetch", () => {});
             if key == "all":
                 curve_series[key] = points
             else:
-                curve_series[key] = strategy_equity_curve_points(
+                curve_series[key] = strategy_equity_curve_period_points(
                     txt_name,
                     strategy_name=strategy_name,
-                    days=period["days"],
-                    latest_points=period.get("latest_points"),
+                    period=period,
                 )
         curve_summaries = equity_curve_summaries_for_strategy(strategy, curve_series)
         latest_summary = equity_curve_account_summary_for_strategy(strategy, points)
@@ -5507,6 +5878,7 @@ self.addEventListener("fetch", () => {});
             latest=latest,
             first=first,
             points_count=len(points),
+            latest_curve_price_date=latest_historical_price_date(),
             has_curve_access=has_curve_access,
         ))
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -5712,7 +6084,8 @@ self.addEventListener("fetch", () => {});
         users = g.db.execute(
             text(
                 """
-                SELECT id, email, name, telegram_user_id, has_access, payment_status, membership_plan,
+                SELECT id, email, name, telegram_user_id, has_access, has_replicator_access,
+                       payment_status, membership_plan,
                        membership_amount, membership_started_at, membership_expires_at,
                        telegram_removed_at, admin_notes, created_at
                 FROM users
@@ -5769,6 +6142,24 @@ self.addEventListener("fetch", () => {});
             database=database_status(),
         )
 
+    @app.route("/admin/telegram-diagnostico")
+    @login_required
+    def admin_telegram_diagnostics():
+        return jsonify(
+            {
+                "ok": True,
+                "webhook_url": url_for("telegram_webhook", _external=True),
+                "bot_token_configured": bool(telegram_bot_token()),
+                "bot_username": telegram_bot_username(),
+                "bot_username_configured": bool(telegram_bot_username()),
+                "webhook_secret_configured": bool(os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()),
+                "set_webhook_note": (
+                    "Si webhook_secret_configured=true, el setWebhook de Telegram debe llevar "
+                    "secret_token exactamente igual a TELEGRAM_WEBHOOK_SECRET. Si no, Telegram recibe 403."
+                ),
+            }
+        )
+
     @app.route("/admin/users/<int:user_id>/toggle-access", methods=["POST"])
     @login_required
     def user_toggle_access(user_id):
@@ -5780,11 +6171,13 @@ self.addEventListener("fetch", () => {});
             abort(404)
         next_access = 0 if int(user["has_access"] or 0) else 1
         next_status = "active" if next_access else "blocked"
+        next_replicator_access = int(user.get("has_replicator_access") or 0) if next_access else 0
         g.db.execute(
             text(
                 """
                 UPDATE users
                 SET has_access = :has_access,
+                    has_replicator_access = :has_replicator_access,
                     payment_status = :payment_status,
                     telegram_removed_at = NULL
                 WHERE id = :id
@@ -5792,6 +6185,7 @@ self.addEventListener("fetch", () => {});
             ),
             {
                 "has_access": next_access,
+                "has_replicator_access": next_replicator_access,
                 "payment_status": next_status,
                 "id": user_id,
             },
@@ -5862,6 +6256,9 @@ self.addEventListener("fetch", () => {});
         admin_notes = request.form.get("admin_notes", "").strip()
         telegram_user_id = request.form.get("telegram_user_id", "").strip()
         has_access = 1 if request.form.get("has_access") == "on" else 0
+        has_replicator_access = 1 if has_access and request.form.get("has_replicator_access") == "on" else 0
+        if has_replicator_access:
+            membership_plan = "Premium"
 
         if not email or "@" not in email:
             flash("Email de usuario no valido.", "danger")
@@ -5892,6 +6289,7 @@ self.addEventListener("fetch", () => {});
                 SET name = :name,
                     email = :email,
                     has_access = :has_access,
+                    has_replicator_access = :has_replicator_access,
                     payment_status = :payment_status,
                     membership_plan = :membership_plan,
                     membership_amount = :membership_amount,
@@ -5910,6 +6308,7 @@ self.addEventListener("fetch", () => {});
                 "name": name,
                 "email": email,
                 "has_access": has_access,
+                "has_replicator_access": has_replicator_access,
                 "payment_status": payment_status,
                 "membership_plan": membership_plan,
                 "membership_amount": membership_amount,
@@ -6009,6 +6408,10 @@ self.addEventListener("fetch", () => {});
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         has_access = 1 if request.form.get("has_access") == "on" else 0
+        has_replicator_access = 1 if has_access and request.form.get("has_replicator_access") == "on" else 0
+        requested_membership_plan = request.form.get("membership_plan", "Miembro").strip() or "Miembro"
+        if has_replicator_access:
+            requested_membership_plan = "Premium"
         payment_status = request.form.get("payment_status", "").strip()
         if not payment_status:
             payment_status = "active" if has_access else "manual_pending"
@@ -6032,10 +6435,12 @@ self.addEventListener("fetch", () => {});
             text(
                 """
                 INSERT INTO users
-                (email, password_hash, name, has_access, payment_status,
-                 membership_plan, membership_amount, age_confirmed, risk_accepted, accepted_terms_at)
-                VALUES (:email, :password_hash, :name, :has_access, :payment_status,
-                        :membership_plan, :membership_amount, 1, 1, :accepted_terms_at)
+                (email, password_hash, name, has_access, has_replicator_access, payment_status,
+                 membership_plan, membership_amount, age_confirmed, risk_accepted, accepted_terms_at,
+                 email_verified_at)
+                VALUES (:email, :password_hash, :name, :has_access, :has_replicator_access, :payment_status,
+                        :membership_plan, :membership_amount, 1, 1, :accepted_terms_at,
+                        :email_verified_at)
                 """
             ),
             {
@@ -6043,10 +6448,12 @@ self.addEventListener("fetch", () => {});
                 "password_hash": generate_password_hash(password),
                 "name": name,
                 "has_access": has_access,
+                "has_replicator_access": has_replicator_access,
                 "payment_status": payment_status,
-                "membership_plan": request.form.get("membership_plan", "Miembro").strip() or "Miembro",
+                "membership_plan": requested_membership_plan,
                 "membership_amount": request.form.get("membership_amount", membership_price_text()).strip(),
                 "accepted_terms_at": datetime.now(UTC).replace(tzinfo=None),
+                "email_verified_at": datetime.now(UTC).replace(tzinfo=None),
             },
         )
         g.db.commit()
@@ -8477,9 +8884,51 @@ self.addEventListener("fetch", () => {});
             str(item.get("symbol") or ""),
         )
 
-    def closed_operations_for_strategy(txt_name, limit=500, offset=0):
+    HISTORY_OPERATION_SORT_SQL = {
+        "opened_at": "CASE WHEN opened_at IS NULL THEN 1 ELSE 0 END ASC, opened_at {direction}, closed_at {direction}, updated_at {direction}, symbol ASC",
+        "closed_at": "CASE WHEN closed_at IS NULL THEN 1 ELSE 0 END ASC, closed_at {direction}, opened_at DESC, updated_at DESC, symbol ASC",
+        "profit_pct": "CASE WHEN profit_pct IS NULL THEN 1 ELSE 0 END ASC, profit_pct {direction}, opened_at DESC, closed_at DESC, symbol ASC",
+        "profit_usd": "CASE WHEN profit_usd IS NULL THEN 1 ELSE 0 END ASC, profit_usd {direction}, opened_at DESC, closed_at DESC, symbol ASC",
+    }
+
+    def normalize_history_sort_args(sort_key, sort_dir):
+        normalized_key = str(sort_key or "opened_at").strip().lower()
+        if normalized_key not in HISTORY_OPERATION_SORT_SQL:
+            normalized_key = "opened_at"
+        normalized_dir = str(sort_dir or "desc").strip().lower()
+        if normalized_dir not in {"asc", "desc"}:
+            normalized_dir = "desc"
+        return normalized_key, normalized_dir
+
+    def history_operation_sort_key(item, sort_key, sort_dir):
+        if sort_key in {"opened_at", "closed_at"}:
+            parsed = parse_status_datetime(item.get(sort_key))
+            value = parsed.timestamp() if parsed else None
+        else:
+            value = parse_display_float(item.get(sort_key))
+            if item.get(sort_key) is None:
+                value = None
+        missing = value is None
+        sortable_value = 0 if missing else value
+        if sort_dir == "desc":
+            sortable_value = -sortable_value
+        opened_fallback = operation_opened_sort_key(item)
+        return (
+            missing,
+            sortable_value,
+            -opened_fallback[0],
+            -opened_fallback[1],
+            str(item.get("symbol") or ""),
+        )
+
+    def sort_closed_operations(operations, sort_key, sort_dir):
+        operations.sort(key=lambda item: history_operation_sort_key(item, sort_key, sort_dir))
+        return operations
+
+    def closed_operations_for_strategy(txt_name, limit=500, offset=0, sort_key="opened_at", sort_dir="desc"):
         if not txt_name:
             return []
+        sort_key, sort_dir = normalize_history_sort_args(sort_key, sort_dir)
         operations = []
         loaded_from_database = False
         try:
@@ -8492,6 +8941,7 @@ self.addEventListener("fetch", () => {});
             if offset:
                 params["offset"] = int(offset)
                 offset_clause = "OFFSET :offset"
+            order_sql = HISTORY_OPERATION_SORT_SQL[sort_key].format(direction=sort_dir.upper())
             rows = g.db.execute(
                 text(
                     f"""
@@ -8503,11 +8953,7 @@ self.addEventListener("fetch", () => {});
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
                       AND status = 'CLOSED'
-                    ORDER BY CASE WHEN opened_at IS NULL THEN 1 ELSE 0 END ASC,
-                             opened_at DESC,
-                             closed_at DESC,
-                             updated_at DESC,
-                             symbol ASC
+                    ORDER BY {order_sql}
                     {limit_clause}
                     {offset_clause}
                     """
@@ -8519,7 +8965,7 @@ self.addEventListener("fetch", () => {});
         except Exception:
             rollback_request_db()
             operations = closed_operations_from_file(txt_name, limit=None)
-        operations.sort(key=operation_opened_sort_key, reverse=True)
+        sort_closed_operations(operations, sort_key, sort_dir)
         if offset and not loaded_from_database:
             operations = operations[offset:]
         if limit is None:
@@ -8599,6 +9045,61 @@ self.addEventListener("fetch", () => {});
             rows = sampled
         return [format_equity_curve_point(row) for row in rows]
 
+    def strategy_equity_curve_period_points(txt_name, strategy_name=None, period=None, limit=1600):
+        period = period or {}
+        if period.get("intraday"):
+            points = strategy_equity_curve_intraday_points(txt_name, strategy_name=strategy_name, limit=limit)
+            if points:
+                return points
+        return strategy_equity_curve_points(
+            txt_name,
+            strategy_name=strategy_name,
+            limit=limit,
+            days=period.get("days"),
+            latest_points=period.get("latest_points"),
+        )
+
+    def strategy_equity_curve_intraday_points(txt_name, strategy_name=None, limit=1600):
+        lookup_names = sorted(
+            {
+                str(value or "").strip()
+                for value in (txt_name, strategy_name, f"{strategy_name}.txt" if strategy_name else "")
+                if str(value or "").strip()
+            }
+        )
+        if not lookup_names:
+            return []
+        today = datetime.now(MADRID_TZ).date().isoformat()
+        try:
+            rows = g.db.execute(
+                text(
+                    """
+                    SELECT point_at AS curve_date, strategy_name, txt_name, capital_actual, capital_aportado,
+                           capital_invertido, profit_usd, return_pct, open_operations, closed_operations, updated_at
+                    FROM strategy_equity_curve_intraday
+                    WHERE (txt_name IN :lookup_names OR strategy_name IN :lookup_names)
+                      AND point_date = :today
+                    ORDER BY point_at ASC
+                    """
+                ).bindparams(bindparam("lookup_names", expanding=True)),
+                {"lookup_names": lookup_names, "today": today},
+            ).mappings().fetchall()
+        except Exception as error:
+            rollback_request_db()
+            print(
+                "CURVA INTRADIA ERROR | "
+                f"lookup_names={lookup_names} | {type(error).__name__}: {error}",
+                flush=True,
+            )
+            return []
+        if limit and len(rows) > limit:
+            step = max(1, len(rows) // int(limit))
+            sampled = list(rows[::step])
+            if sampled[-1]["curve_date"] != rows[-1]["curve_date"]:
+                sampled.append(rows[-1])
+            rows = sampled
+        return [format_equity_curve_point(row) for row in rows]
+
     def format_equity_curve_point(row):
         capital = parse_display_float(row.get("capital_actual"))
         capital_base = parse_display_float(row.get("capital_aportado"))
@@ -8609,7 +9110,7 @@ self.addEventListener("fetch", () => {});
         return {
             "date": str(row.get("curve_date") or ""),
             "capital_actual": round(capital, 4),
-            "capital_display": format_chart_money_usd(capital),
+            "capital_display": format_current_money_usd(capital),
             "capital_aportado": round(capital_base, 4),
             "capital_base_display": format_chart_money_usd(capital_base),
             "capital_invertido": round(capital_invested, 4),
@@ -8626,19 +9127,9 @@ self.addEventListener("fetch", () => {});
         }
 
     def equity_curve_summaries_for_strategy(strategy, curve_series):
-        fallback = {
+        return {
             key: equity_curve_period_summary(points, cumulative=(key == "all"))
             for key, points in curve_series.items()
-        }
-        return_text = strategy.get("historical_return", "")
-        official = {
-            "all": equity_curve_summary_from_return_text(return_text, "", curve_series.get("all", [])),
-            "year": equity_curve_summary_from_return_text(return_text, "Last 12M", curve_series.get("year", [])),
-            "month": equity_curve_summary_from_return_text(return_text, "Last 1M", curve_series.get("month", [])),
-        }
-        return {
-            key: official.get(key) or value
-            for key, value in fallback.items()
         }
 
     def equity_curve_account_summary_for_strategy(strategy, points):
@@ -8652,7 +9143,7 @@ self.addEventListener("fetch", () => {});
             return_pct = (profit / current_capital * 100) if current_capital else 0.0
             invested_return_pct = (profit / capital_invested * 100) if capital_invested else 0.0
             return {
-                "capital_display": format_chart_money_usd(current_capital),
+                "capital_display": format_current_money_usd(current_capital),
                 "capital_base_display": format_chart_money_usd(capital_base),
                 "invested_display": format_chart_money_usd(capital_invested),
                 "invested_pct_display": f"{(capital_invested / current_capital * 100) if current_capital else 0.0:.2f}%",
@@ -8727,6 +9218,20 @@ self.addEventListener("fetch", () => {});
             }
         first_point = points[0]
         last_point = points[-1]
+        if not cumulative and not equity_curve_period_has_reliable_prices(points):
+            return {
+                "profit_display": "Sin datos fiables",
+                "profit_class": "return-sos",
+                "return_pct_display": "",
+                "return_pct_class": "return-sos",
+                "invested_return_pct_display": "",
+                "invested_return_pct_class": "return-sos",
+                "current_display": last_point.get("capital_display", "Sin datos"),
+                "invested_display": equity_curve_average_invested_display(points),
+                "invested_pct_display": equity_curve_average_invested_pct_display(points),
+                "date_range": equity_curve_date_range(first_point, last_point),
+                "unreliable": True,
+            }
         first_profit = parse_display_float(first_point.get("profit_usd"))
         last_profit = parse_display_float(last_point.get("profit_usd"))
         profit = last_profit if cumulative else last_profit - first_profit
@@ -8743,7 +9248,54 @@ self.addEventListener("fetch", () => {});
             "invested_display": equity_curve_average_invested_display(points),
             "invested_pct_display": equity_curve_average_invested_pct_display(points),
             "date_range": equity_curve_date_range(first_point, last_point),
+            "unreliable": False,
         }
+
+    def equity_curve_period_has_reliable_prices(points):
+        if not points:
+            return False
+        if any("T" in str(point.get("date") or "") for point in points):
+            return True
+        latest_price_date = latest_historical_price_date()
+        if not latest_price_date:
+            return False
+        first_date = parse_equity_curve_date_value(points[0].get("date"))
+        last_date = parse_equity_curve_date_value(points[-1].get("date"))
+        if not first_date or not last_date:
+            return False
+        today = datetime.now(MADRID_TZ).date()
+        if first_date > latest_price_date and last_date >= today:
+            return False
+        return True
+
+    @lru_cache(maxsize=1)
+    def latest_historical_price_date():
+        latest_date = None
+        if not DEFAULT_DAILY_PRICE_DIR.exists():
+            return None
+        for path in DEFAULT_DAILY_PRICE_DIR.glob("*.txt"):
+            try:
+                lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+            except OSError:
+                continue
+            for line in reversed(lines):
+                text_value = line.strip()
+                if not text_value or text_value.lower().startswith("timestamp"):
+                    continue
+                parsed = parse_equity_curve_date_value(text_value.split(",", 1)[0])
+                if parsed and (latest_date is None or parsed > latest_date):
+                    latest_date = parsed
+                break
+        return latest_date
+
+    def parse_equity_curve_date_value(value):
+        text_value = str(value or "").strip()
+        if not text_value:
+            return None
+        try:
+            return datetime.fromisoformat(text_value[:10]).date()
+        except ValueError:
+            return None
 
     def equity_curve_invested_return_pct(profit, points):
         if not points:
@@ -9462,12 +10014,16 @@ def init_db():
         add_user_column(connection, "risk_accepted", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "accepted_terms_at", "TIMESTAMP")
         add_user_column(connection, "membership_plan", "TEXT NOT NULL DEFAULT 'Miembro'")
+        add_user_column(connection, "has_replicator_access", "INTEGER NOT NULL DEFAULT 0")
         add_user_column(connection, "membership_amount", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "membership_started_at", "TIMESTAMP")
         add_user_column(connection, "membership_expires_at", "TIMESTAMP")
         add_user_column(connection, "admin_notes", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "stripe_customer_id", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "stripe_subscription_id", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "email_verified_at", "TIMESTAMP")
+        add_user_column(connection, "email_verification_token", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "email_verification_sent_at", "TIMESTAMP")
         add_user_column(connection, "telegram_user_id", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "telegram_username", "TEXT NOT NULL DEFAULT ''")
         add_user_column(connection, "telegram_connect_token", "TEXT NOT NULL DEFAULT ''")
@@ -9898,6 +10454,36 @@ def ensure_strategy_equity_curve_table(connection):
             """
         )
     )
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_equity_curve_intraday (
+                txt_name TEXT NOT NULL,
+                strategy_name TEXT NOT NULL DEFAULT '',
+                point_date TEXT NOT NULL,
+                point_at TEXT NOT NULL,
+                capital_actual FLOAT NOT NULL DEFAULT 0,
+                capital_aportado FLOAT NOT NULL DEFAULT 0,
+                capital_invertido FLOAT NOT NULL DEFAULT 0,
+                profit_usd FLOAT NOT NULL DEFAULT 0,
+                return_pct FLOAT NOT NULL DEFAULT 0,
+                open_operations INTEGER NOT NULL DEFAULT 0,
+                closed_operations INTEGER NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT 'simulated_operations_intraday',
+                updated_at TIMESTAMP,
+                PRIMARY KEY (txt_name, point_at)
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_equity_curve_intraday_txt_at
+            ON strategy_equity_curve_intraday(txt_name, point_at)
+            """
+        )
+    )
 
 
 def ensure_strategy_activity_stats_table(connection):
@@ -10113,6 +10699,7 @@ def ensure_users_table(connection):
                 password_hash TEXT NOT NULL,
                 name TEXT NOT NULL DEFAULT '',
                 has_access INTEGER NOT NULL DEFAULT 1,
+                has_replicator_access INTEGER NOT NULL DEFAULT 0,
                 payment_status TEXT NOT NULL DEFAULT 'trial',
                 membership_plan TEXT NOT NULL DEFAULT 'Miembro',
                 membership_amount TEXT NOT NULL DEFAULT '',
@@ -10121,6 +10708,9 @@ def ensure_users_table(connection):
                 admin_notes TEXT NOT NULL DEFAULT '',
                 stripe_customer_id TEXT NOT NULL DEFAULT '',
                 stripe_subscription_id TEXT NOT NULL DEFAULT '',
+                email_verified_at TIMESTAMP,
+                email_verification_token TEXT NOT NULL DEFAULT '',
+                email_verification_sent_at TIMESTAMP,
                 telegram_user_id TEXT NOT NULL DEFAULT '',
                 telegram_username TEXT NOT NULL DEFAULT '',
                 telegram_connect_token TEXT NOT NULL DEFAULT '',

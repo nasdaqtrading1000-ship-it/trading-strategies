@@ -75,7 +75,11 @@
         </div>
         <p class="text-secondary small mt-3 mb-0">
           Si falta un precio de Stripe, crea el producto en Stripe y pega el ID
-          en STRIPE_PRICE_TRADING_MONTHLY o STRIPE_PRICE_TRADING_YEARLY.
+          {% if product_key == "code_markets_premium" %}
+            en STRIPE_PRICE_PREMIUM_MONTHLY o STRIPE_PRICE_PREMIUM_YEARLY.
+          {% else %}
+            en STRIPE_PRICE_TRADING_MONTHLY o STRIPE_PRICE_TRADING_YEARLY.
+          {% endif %}
         </p>
       </aside>
     </div>

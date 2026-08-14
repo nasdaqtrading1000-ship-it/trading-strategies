@@ -17,7 +17,12 @@ Estrategias/sent_signals.json
 Estrategias/strategy_run_status.json
 data/market_data.csv
 strategies.db
+strategies.db-shm
+strategies.db-wal
 trading_strategies.db
+replicator/config.json
+replicator/replicator_state.db
+replicator/*.log
 instance/
 .pytest_cache/
 local_panel_data/

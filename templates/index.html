@@ -180,6 +180,29 @@
   </details>
 </section>
 
+<section class="container pt-3">
+  <div class="strategy-card replicator-access-card">
+    <div class="replicator-access-copy">
+      <p class="eyebrow mb-1">Code Markets Replicator</p>
+      <h2 class="h5 fw-bold mb-1">Replica tus estrategias en Alpaca Paper.</h2>
+      <p class="text-secondary small mb-0">
+        Conecta tu cuenta Premium, selecciona estrategias y deja que la app local lea las operaciones de Code Markets
+        para replicarlas en tu cuenta paper.
+      </p>
+    </div>
+    <div class="replicator-access-actions">
+      <a class="btn btn-outline-success fw-semibold" href="{{ url_for('replicator_access') }}" target="_blank" rel="noopener">
+        Abrir Replicator
+      </a>
+      {% if is_public_view %}
+        <small class="text-warning d-block mt-2">Requiere cuenta Premium activa.</small>
+      {% elif not member_has_replicator_access %}
+        <small class="text-warning d-block mt-2">Tu cuenta Miembro no incluye Replicator.</small>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
 {% if not current_user %}
   <section class="container pt-4">
     <div class="strategy-access-guide">
@@ -537,6 +560,12 @@
       if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(2)}K`;
       return amount.toFixed(2);
     };
+    const axisMoney = (value) => {
+      const amount = Number(value || 0);
+      if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(3)}M`;
+      if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(2)}K`;
+      return amount.toFixed(2);
+    };
 
     const dateValue = (item) => {
       const parsed = Date.parse(item.date || "");
@@ -560,7 +589,7 @@
       ctx.clearRect(0, 0, cssWidth, cssHeight);
       ctx.fillStyle = "#012456";
       ctx.fillRect(0, 0, cssWidth, cssHeight);
-      const padL = 74;
+      const padL = 84;
       const padR = 42;
       const padT = 8;
       const padB = 18;
@@ -601,7 +630,7 @@
         ctx.moveTo(padL, Math.round(y) + 0.5);
         ctx.lineTo(cssWidth - padR, Math.round(y) + 0.5);
         ctx.stroke();
-        ctx.fillText(money(value), padL - 6, Math.round(y));
+        ctx.fillText(axisMoney(value), padL - 6, Math.round(y));
       }
       ctx.strokeStyle = "#7dd3fc";
       ctx.beginPath();
@@ -661,7 +690,7 @@
       ctx.font = "12px Consolas, monospace";
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(`${money(values[values.length - 1])} USD`, padL, cssHeight - 5);
+      ctx.fillText(`${axisMoney(values[values.length - 1])} USD`, padL, cssHeight - 5);
     };
 
     const render = () => {

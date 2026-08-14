@@ -142,7 +142,11 @@
       <div class="col-lg-1 col-md-6">
         <div class="form-check form-switch mb-1">
           <input class="form-check-input" type="checkbox" role="switch" id="manual_user_access" name="has_access" checked>
-          <label class="form-check-label small" for="manual_user_access">Acceso</label>
+          <label class="form-check-label small" for="manual_user_access">Miembro</label>
+        </div>
+        <div class="form-check form-switch mb-1">
+          <input class="form-check-input" type="checkbox" role="switch" id="manual_user_replicator" name="has_replicator_access">
+          <label class="form-check-label small" for="manual_user_replicator">Premium</label>
         </div>
       </div>
       <input type="hidden" name="membership_plan" value="Miembro">
@@ -253,7 +257,11 @@
                 </select>
                 <div class="form-check form-switch admin-inline-switch mb-2">
                   <input class="form-check-input" form="user-row-form-{{ user.id }}" type="checkbox" role="switch" id="user_access_{{ user.id }}" name="has_access" {% if user.has_access %}checked{% endif %}>
-                  <label class="form-check-label small" for="user_access_{{ user.id }}">Acceso completo</label>
+                  <label class="form-check-label small" for="user_access_{{ user.id }}">Miembro</label>
+                </div>
+                <div class="form-check form-switch admin-inline-switch mb-2">
+                  <input class="form-check-input" form="user-row-form-{{ user.id }}" type="checkbox" role="switch" id="user_replicator_access_{{ user.id }}" name="has_replicator_access" {% if user.has_replicator_access %}checked{% endif %}>
+                  <label class="form-check-label small" for="user_replicator_access_{{ user.id }}">Premium / Replicator</label>
                 </div>
                 <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="admin_notes" value="{{ user.admin_notes or '' }}" placeholder="Notas internas">
               </td>

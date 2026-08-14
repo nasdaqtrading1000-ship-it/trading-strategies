@@ -12,8 +12,10 @@
         <p class="text-secondary mb-0">{{ user.email }}</p>
       </div>
       <div class="account-access-pill {% if user.has_access %}account-access-ok{% else %}account-access-pending{% endif %}">
-        {% if user.has_access %}
-          Acceso completo
+        {% if user.has_replicator_access %}
+          Premium activo
+        {% elif user.has_access %}
+          Miembro activo
         {% else %}
           Acceso pendiente
         {% endif %}
@@ -23,7 +25,15 @@
     <div class="account-grid account-grid-main">
       <article class="account-card">
         <span class="text-secondary small d-block">Plan actual</span>
-        <strong>{{ user.membership_plan or "Sin plan activo" }}</strong>
+        <strong>
+          {% if user.has_replicator_access %}
+            Code Markets Premium
+          {% elif user.has_access %}
+            Code Markets Miembro
+          {% else %}
+            Sin plan activo
+          {% endif %}
+        </strong>
         <p class="text-secondary small mb-0 mt-2">{{ user.membership_amount or membership_price_text }}</p>
       </article>
 
@@ -52,7 +62,7 @@
           <h2 class="h5 mb-3">Acceso a estrategias</h2>
           <div class="account-status-list">
             <div>
-              <span>Ver estrategias privadas</span>
+              <span>Acceso</span>
               {% if user.has_access %}
                 <strong class="text-success">Activado</strong>
               {% else %}
@@ -73,6 +83,14 @@
                 <strong class="text-success">Disponible</strong>
               {% else %}
                 <strong class="text-secondary">Bloqueado</strong>
+              {% endif %}
+            </div>
+            <div>
+              <span>Code Markets Replicator</span>
+              {% if user.has_replicator_access %}
+                <strong class="text-success">Premium activo</strong>
+              {% else %}
+                <a class="text-warning fw-semibold" href="{{ url_for('payment_page', product='code_markets_premium', plan='monthly') }}">Requiere Premium</a>
               {% endif %}
             </div>
           </div>
@@ -110,15 +128,21 @@
         </div>
         {% if user.telegram_user_id %}
           <div>
-            <span>Usuario Telegram</span>
-            <strong>
-              {% if user.telegram_username %}
-                @{{ user.telegram_username }}
-              {% else %}
-                {{ user.telegram_user_id }}
-              {% endif %}
-            </strong>
+            <span>Telegram user ID</span>
+            <strong>{{ user.telegram_user_id }}</strong>
           </div>
+          {% if user.telegram_username %}
+            <div>
+              <span>Usuario Telegram</span>
+              <strong>@{{ user.telegram_username }}</strong>
+            </div>
+          {% endif %}
+          {% if user.telegram_connected_at %}
+            <div>
+              <span>Ultima conexion</span>
+              <strong>{{ user.telegram_connected_at }}</strong>
+            </div>
+          {% endif %}
         {% endif %}
       </div>
       {% if telegram_connect_url %}
@@ -131,22 +155,37 @@
         </div>
       {% endif %}
       <p class="text-secondary small mb-3">
-        Webhook para el bot: <code>{{ request.url_root.rstrip("/") }}/telegram/webhook</code>
+        El boton abre el bot con un codigo temporal. Si Telegram no envia el arranque automaticamente, copia el comando manual de abajo.
       </p>
-      <form method="post" action="{{ url_for('account_telegram_update') }}" class="row g-2 align-items-end">
-        <div class="col-md-8">
-          <label class="form-label small" for="telegram_user_id">Telegram user ID manual</label>
-          <input class="form-control" id="telegram_user_id" name="telegram_user_id" value="{{ user.telegram_user_id or '' }}" placeholder="Ej. 123456789">
+      {% if user.telegram_user_id %}
+        <div class="alert alert-info border-0 mb-0">
+          Telegram queda vinculado a tu cuenta. Por seguridad no se puede borrar el ID desde Mi cuenta.
         </div>
-        <div class="col-md-4">
-          <button class="btn btn-outline-info fw-semibold w-100" type="submit">Guardar Telegram</button>
-        </div>
-      </form>
+      {% else %}
+        {% if telegram_connect_command %}
+          <div class="alert alert-info border-0">
+            Si Telegram abre el bot pero no responde, copia este comando y pegalo en el chat del bot:
+            <code class="d-block mt-2">{{ telegram_connect_command }}</code>
+          </div>
+        {% endif %}
+        <form method="post" action="{{ url_for('account_telegram_update') }}" class="row g-2 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label small" for="telegram_user_id">Telegram user ID manual</label>
+            <input class="form-control" id="telegram_user_id" name="telegram_user_id" value="" placeholder="Ej. 123456789">
+          </div>
+          <div class="col-md-4">
+            <button class="btn btn-outline-info fw-semibold w-100" type="submit">Guardar Telegram</button>
+          </div>
+        </form>
+      {% endif %}
     </div>
 
     <div class="account-actions">
       {% if not user.has_access %}
         <a class="btn btn-warning fw-semibold" href="{{ url_for('membership') }}">Hacerme miembro</a>
+      {% endif %}
+      {% if user.has_access and not user.has_replicator_access %}
+        <a class="btn btn-success fw-semibold" href="{{ url_for('payment_page', product='code_markets_premium', plan='monthly') }}">Activar Premium</a>
       {% endif %}
       {% if stripe_customer_id %}
         <form method="post" action="{{ url_for('subscription_portal') }}">

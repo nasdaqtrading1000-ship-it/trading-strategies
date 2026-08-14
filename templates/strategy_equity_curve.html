@@ -119,6 +119,7 @@
     const canvases = Array.from(document.querySelectorAll(".equity-curve-canvas"));
     if (!node || !canvases.length) return;
     const series = JSON.parse(node.textContent || "{}");
+    const latestReliablePriceDate = "{{ latest_curve_price_date.isoformat() if latest_curve_price_date else '' }}";
     const dpr = Math.max(1, Math.ceil(window.devicePixelRatio || 1));
     const money = (value) => {
       const amount = Number(value || 0);
@@ -126,16 +127,31 @@
       if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(2)}K`;
       return amount.toFixed(2);
     };
+    const axisMoney = (value) => {
+      const amount = Number(value || 0);
+      if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(3)}M`;
+      if (Math.abs(amount) >= 1000) return `${(amount / 1000).toFixed(2)}K`;
+      return amount.toFixed(2);
+    };
     const dateValue = (item) => {
       const parsed = Date.parse(item.date || "");
       return Number.isFinite(parsed) ? parsed : 0;
     };
+    const parseChartDate = (dateText) => {
+      const raw = String(dateText || "").trim();
+      if (!raw) return null;
+      const parsed = new Date(raw.includes("T") ? raw : `${raw}T00:00:00`);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
     const dateLabel = (dateText, range) => {
-      const parsed = new Date(`${dateText}T00:00:00`);
-      if (Number.isNaN(parsed.getTime())) return dateText || "";
+      const parsed = parseChartDate(dateText);
+      if (!parsed) return dateText || "";
       const day = String(parsed.getDate()).padStart(2, "0");
       const month = String(parsed.getMonth() + 1).padStart(2, "0");
       const year = parsed.getFullYear();
+      const hour = String(parsed.getHours()).padStart(2, "0");
+      const minute = String(parsed.getMinutes()).padStart(2, "0");
+      if (range === "day" && String(dateText || "").includes("T")) return `${hour}:${minute}`;
       if (range === "all") return String(year);
       if (["year", "six_months", "three_months", "two_months"].includes(range)) return `${month}/${String(year).slice(-2)}`;
       return day;
@@ -158,9 +174,13 @@
       return ticks;
     };
     const fullDateLabel = (dateText) => {
-      const parsed = new Date(`${dateText}T00:00:00`);
-      if (Number.isNaN(parsed.getTime())) return dateText || "";
-      return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+      const parsed = parseChartDate(dateText);
+      if (!parsed) return dateText || "";
+      const dateLabelText = `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+      if (String(dateText || "").includes("T")) {
+        return `${dateLabelText} ${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
+      }
+      return dateLabelText;
     };
     const axisTicks = (chartPoints, range, width) => {
       const firstTime = dateValue(chartPoints[0]);
@@ -208,6 +228,31 @@
       const invested = Number(item.capital_invertido || 0);
       return current ? (invested / current * 100) : 0;
     };
+    const averageInvestedUntil = (chartPoints, hoverIndex) => {
+      const values = chartPoints
+        .slice(0, hoverIndex + 1)
+        .map((item) => Number(item.capital_invertido || 0))
+        .filter((value) => value > 0);
+      if (!values.length) return 0;
+      return values.reduce((total, value) => total + value, 0) / values.length;
+    };
+    const periodProfitUntil = (chartPoints, hoverIndex, cumulative) => {
+      const point = chartPoints[hoverIndex] || {};
+      const first = chartPoints[0] || {};
+      const pointProfit = Number(point.profit_usd || 0);
+      if (cumulative) return pointProfit;
+      return pointProfit - Number(first.profit_usd || 0);
+    };
+    const periodHasReliablePrices = (chartPoints, range) => {
+      if (range === "all") return true;
+      if (!latestReliablePriceDate || !chartPoints.length) return false;
+      const firstDate = chartPoints[0].date || "";
+      const lastDate = chartPoints[chartPoints.length - 1].date || "";
+      if (firstDate.includes("T") || lastDate.includes("T")) return true;
+      const today = new Date();
+      const todayText = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      return !(firstDate > latestReliablePriceDate && lastDate >= todayText);
+    };
     const pointGeometry = (item, index, chartPoints, bounds, field = "capital_actual") => {
       const itemTime = dateValue(item);
       const ratio = itemTime ? ((itemTime - bounds.firstTime) / bounds.timeSpan) : (index / Math.max(1, chartPoints.length - 1));
@@ -243,19 +288,27 @@
       ctx.beginPath();
       ctx.arc(investedGeometry.x, investedGeometry.y, 3.5, 0, Math.PI * 2);
       ctx.fill();
-      const returnPct = Number(point.return_pct || 0);
+      const range = canvas.dataset.range || "all";
+      const reliablePeriod = periodHasReliablePrices(chartPoints, range);
+      const periodProfit = periodProfitUntil(chartPoints, hoverIndex, range === "all");
+      const currentCapital = Number(point.capital_actual || 0);
+      const investedBase = averageInvestedUntil(chartPoints, hoverIndex);
+      const returnPct = currentCapital ? (periodProfit / currentCapital * 100) : 0;
       const pctLabel = `${returnPct >= 0 ? "+" : ""}${returnPct.toFixed(2)}%`;
       const investedPct = investedPctValue(point);
-      const investedReturnPct = Number(point.capital_invertido || 0)
-        ? (Number(point.profit_usd || 0) / Number(point.capital_invertido || 0) * 100)
-        : 0;
+      const investedReturnPct = investedBase ? (periodProfit / investedBase * 100) : 0;
       const investedReturnLabel = `${investedReturnPct >= 0 ? "+" : ""}${investedReturnPct.toFixed(2)}%`;
-      const labelSegments = [
+      const labelSegments = reliablePeriod ? [
         { text: `${fullDateLabel(point.date)}  `, color: "#d8e7ff" },
-        { text: `Actual ${money(point.capital_actual)}  `, color: "#7dd3fc" },
+        { text: `Actual ${axisMoney(point.capital_actual)}  `, color: "#7dd3fc" },
         { text: `Rent. cuenta ${pctLabel}  `, color: "#16ff7a" },
         { text: `Invertido ${money(point.capital_invertido)} (${investedPct.toFixed(1)}%)  `, color: "#f59e0b" },
-        { text: `Rent. inv. ${investedReturnLabel}`, color: "#f59e0b" },
+        { text: `Rent. inv. ${investedReturnLabel}`, color: "#16ff7a" },
+      ] : [
+        { text: `${fullDateLabel(point.date)}  `, color: "#d8e7ff" },
+        { text: `Actual ${axisMoney(point.capital_actual)}  `, color: "#7dd3fc" },
+        { text: `Invertido ${money(point.capital_invertido)} (${investedPct.toFixed(1)}%)  `, color: "#f59e0b" },
+        { text: "Periodo sin precios historicos fiables", color: "#facc15" },
       ];
       ctx.font = "14px Consolas, monospace";
       const labelWidth = labelSegments.reduce((total, segment) => total + ctx.measureText(segment.text).width, 0) + 16;
@@ -327,7 +380,7 @@
         ctx.stroke();
         ctx.textAlign = "right";
         ctx.fillStyle = "#7dd3fc";
-        ctx.fillText(`${money(value)} USD`, leftRuleX - 10, Math.round(y + 4));
+        ctx.fillText(`${axisMoney(value)} USD`, leftRuleX - 10, Math.round(y + 4));
         ctx.strokeStyle = "#7dd3fc";
         ctx.beginPath();
         ctx.moveTo(crisp(leftRuleX - 5), crisp(y));

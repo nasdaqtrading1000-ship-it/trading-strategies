@@ -19,8 +19,12 @@ import json
 import os
 import re
 import subprocess
+import sqlite3
 import sys
 import hashlib
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -63,6 +67,7 @@ CAPITAL_MAXIMA_TXT = OPERATIONS_DIR / "capital_maximos_estrategias.txt"
 BACKTEST_INCLUDED_TXT = OPERATIONS_DIR / "operaciones_backtest_incluidas.txt"
 BACKTEST_SUMMARY_CACHE = OPERATIONS_DIR / "backtest_resumen_estrategias.json"
 CHIP_STATUS_TXT = OPERATIONS_DIR / "chip_status.txt"
+TELEGRAM_SENT_OPERATIONS_FILE = OPERATIONS_DIR / "telegram_operaciones_enviadas.json"
 WEB_SETTINGS_FILE = PROJECT_DIR / "local_panel_data" / "web_settings.json"
 BACKTEST_JSON_FILE = PROJECT_DIR / "EstrategiasV2" / "outputs" / "historical_backtest_5y.json"
 BASE_ACCOUNT_CAPITAL_USD = 50_000.0
@@ -211,6 +216,8 @@ def main():
     chip_status_rows = build_chip_status_rows(now)
     write_chip_status_txt(chip_status_rows)
     sync_operations_to_database(operations, backtest_operations, performance_rows, duplicate_open_keys)
+    update_strategy_equity_curve_data()
+    send_today_open_operations_to_telegram(operations, now)
     mirror_postgres_to_sqlite()
 
     print(f"Operaciones nuevas: {new_operations}")
@@ -233,6 +240,214 @@ def mirror_postgres_to_sqlite():
     result = subprocess.run([sys.executable, str(sync_script)], cwd=str(PROJECT_DIR), text=True)
     if result.returncode != 0:
         print(f"Copia SQLite termino con codigo {result.returncode}.")
+
+
+def update_strategy_equity_curve_data():
+    if os.environ.get("TRADING_EQUITY_CURVE_AUTO_SYNC", "1").strip().lower() in {"0", "false", "no"}:
+        return
+
+    build_script = PROJECT_DIR / "build_strategy_equity_curve.py"
+    if not build_script.exists():
+        print("Curva capital omitida: no existe build_strategy_equity_curve.py")
+        return
+
+    database_url = os.environ.get("DATABASE_URL", "").strip()
+    is_postgres_url = database_url.startswith(("postgres://", "postgresql://", "postgresql+psycopg://"))
+    if not is_postgres_url:
+        print("Curva capital omitida: falta DATABASE_URL PostgreSQL para enviar datos.")
+        return
+
+    env = os.environ.copy()
+    env["TRADING_DATABASE_MODE"] = "remote"
+    print("Curva capital | actualizando datos en PostgreSQL")
+    result = subprocess.run([sys.executable, str(build_script)], cwd=str(PROJECT_DIR), text=True, env=env)
+    if result.returncode != 0:
+        print(f"Curva capital termino con codigo {result.returncode}.")
+
+
+def send_today_open_operations_to_telegram(operations, now):
+    if os.environ.get("TRADING_TELEGRAM_SEND_OPERATIONS", "1").strip().lower() in {"0", "false", "no"}:
+        return
+    targets = load_strategy_telegram_targets()
+    if not targets:
+        print("Telegram operaciones omitido: no hay estrategias con Chat ID activo en DB.")
+        return
+    token = telegram_operations_bot_token()
+    if not token:
+        print("Telegram operaciones omitido: falta TELEGRAM_BOT_TOKEN o TRADING_TELEGRAM_BOT_TOKEN.")
+        return
+
+    sent_registry = load_telegram_sent_operations()
+    sent_keys = set(sent_registry.get("sent_operation_keys", []))
+    today = now.astimezone(MADRID_TZ).date()
+    sent_count = 0
+    skipped_count = 0
+    error_count = 0
+    for operation in operations or []:
+        operation_key = str(operation.get("operation_key") or "").strip()
+        if not operation_key or operation_key in sent_keys:
+            skipped_count += 1
+            continue
+        opened_at = parse_datetime_value(operation.get("opened_at") or operation.get("signal_date"))
+        if not opened_at or opened_at.astimezone(MADRID_TZ).date() != today:
+            continue
+        if operation.get("status") != "OPEN":
+            continue
+        chat_id = targets.get(operation.get("txt_name")) or targets.get(operation.get("strategy_name"))
+        if not chat_id:
+            skipped_count += 1
+            continue
+        ok, error_message = send_telegram_operation_message(token, chat_id, operation)
+        if ok:
+            sent_keys.add(operation_key)
+            sent_count += 1
+            continue
+        error_count += 1
+        print(
+            "Telegram operaciones ERROR | "
+            f"{operation.get('strategy_name')} | {operation.get('symbol')} | {error_message}"
+        )
+
+    sent_registry["sent_operation_keys"] = sorted(sent_keys)
+    sent_registry["updated_at"] = now.isoformat()
+    save_telegram_sent_operations(sent_registry)
+    print(
+        "Telegram operaciones | "
+        f"enviadas={sent_count} omitidas={skipped_count} errores={error_count}"
+    )
+
+
+def telegram_operations_bot_token():
+    return (
+        os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        or os.environ.get("TRADING_TELEGRAM_BOT_TOKEN", "").strip()
+    )
+
+
+def load_strategy_telegram_targets():
+    targets = {}
+    if engine is None or text is None:
+        return load_strategy_telegram_targets_from_sqlite()
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(telegram_targets_query()).mappings().fetchall()
+        targets.update(targets_from_rows(rows))
+    except Exception as error:
+        print(f"Telegram operaciones: no se pudieron leer Chat IDs de la DB principal: {error}")
+    if targets:
+        return targets
+    return load_strategy_telegram_targets_from_sqlite()
+
+
+def telegram_targets_query():
+    return text(
+        """
+        SELECT name, signals_txt_name, telegram_chat_id
+        FROM strategies
+        WHERE has_telegram = 1
+          AND telegram_chat_id <> ''
+        """
+    )
+
+
+def targets_from_rows(rows):
+    targets = {}
+    for row in rows:
+        getter = row.get if hasattr(row, "get") else lambda key, default=None: row[key]
+        chat_id = str(getter("telegram_chat_id") or "").strip()
+        if not chat_id:
+            continue
+        txt_name = str(getter("signals_txt_name") or "").strip()
+        strategy_name = str(getter("name") or "").strip()
+        if txt_name:
+            targets[txt_name] = chat_id
+        if strategy_name:
+            targets[strategy_name] = chat_id
+    return targets
+
+
+def load_strategy_telegram_targets_from_sqlite():
+    sqlite_path = PROJECT_DIR / "strategies.db"
+    if not sqlite_path.exists():
+        return {}
+    try:
+        with sqlite3.connect(f"file:{sqlite_path}?mode=ro", uri=True) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                """
+                SELECT name, signals_txt_name, telegram_chat_id
+                FROM strategies
+                WHERE has_telegram = 1
+                  AND telegram_chat_id <> ''
+                """
+            ).fetchall()
+    except sqlite3.Error as error:
+        print(f"Telegram operaciones omitido: no se pudieron leer Chat IDs de SQLite: {error}")
+        return {}
+    return targets_from_rows(rows)
+
+
+def load_telegram_sent_operations():
+    try:
+        return json.loads(TELEGRAM_SENT_OPERATIONS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"sent_operation_keys": []}
+
+
+def save_telegram_sent_operations(registry):
+    TELEGRAM_SENT_OPERATIONS_FILE.write_text(
+        json.dumps(registry, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def send_telegram_operation_message(token, chat_id, operation):
+    payload = urllib.parse.urlencode(
+        {
+            "chat_id": str(chat_id).strip(),
+            "text": build_telegram_operation_message(operation),
+            "disable_web_page_preview": "true",
+        }
+    ).encode("utf-8")
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=payload,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        return False, f"HTTP {error.code}: {detail}"
+    except urllib.error.URLError as error:
+        return False, str(error)
+    if not data.get("ok"):
+        return False, json.dumps(data, ensure_ascii=False)
+    return True, ""
+
+
+def build_telegram_operation_message(operation):
+    symbol = operation.get("symbol", "")
+    strategy_name = operation.get("strategy_name", "")
+    direction = operation.get("direction", "")
+    entry_price = float_value(operation.get("entry_price"))
+    current_price = float_value(operation.get("current_price")) or entry_price
+    target_price = float_value(operation.get("target_price"))
+    stop_loss = float_value(operation.get("stop_loss"))
+    shares = float_value(operation.get("shares"))
+    opened_at = format_short_date(operation.get("opened_at") or operation.get("signal_date"))
+    lines = [
+        f"Nueva operacion {strategy_name}",
+        f"{symbol} | {direction}",
+        f"Entrada: {entry_price:.2f} USD",
+        f"Precio actual: {current_price:.2f} USD",
+        f"Objetivo: {target_price:.2f} USD",
+        f"Stop: {stop_loss:.2f} USD",
+        f"Acciones: {shares:.4f}",
+        f"Fecha: {opened_at}",
+    ]
+    return "\n".join(lines)
 
 
 def read_all_signals():
@@ -886,7 +1101,6 @@ def calculate_strategy_performance(
         total_ops = int(live.get("total_ops", 0)) + int(historical.get("total_ops", 0))
         open_ops = int(live.get("open_ops", 0)) + int(historical.get("open_ops", 0))
         closed_ops = int(live.get("closed_ops", 0)) + int(historical.get("closed_ops", 0))
-        daily_operations_count = int(live.get("daily_operations_count", 0))
         wins = int(live.get("wins", 0)) + int(historical.get("wins", 0))
         losses = int(live.get("losses", 0)) + int(historical.get("losses", 0))
         flat = max(0, closed_ops - wins - losses)
@@ -931,6 +1145,9 @@ def calculate_strategy_performance(
         average_close_seconds = (closed_duration_seconds / closed_ops) if closed_ops else 0.0
         success_rate = (wins / closed_ops * 100) if closed_ops else 0.0
         average_operation_return_pct = (closed_profit_pct_sum / closed_ops) if closed_ops else 0.0
+        first_operation_display = format_short_date(first_operation_at)
+        activity_stats = calculate_activity_stats(combined_operations, strategy["txt"], now_dt)
+        daily_operations_count = int(activity_stats["operations_today"])
         rows.append(
             {
                 "strategy_name": strategy["name"],
@@ -947,17 +1164,79 @@ def calculate_strategy_performance(
                 "open_ops": open_ops,
                 "closed_ops": closed_ops,
                 "daily_operations_count": daily_operations_count,
+                "open_operations_today": activity_stats["open_operations_today"],
+                "closed_operations_today": activity_stats["closed_operations_today"],
+                "average_daily_operations_count": activity_stats["avg_ops_daily_total"],
+                "avg_ops_daily_7d": activity_stats["avg_ops_daily_7d"],
+                "avg_ops_daily_30d": activity_stats["avg_ops_daily_30d"],
+                "max_ops_daily_30d": activity_stats["max_ops_daily_30d"],
                 "wins": wins,
                 "losses": losses,
                 "flat": flat,
                 "average_operation_return_pct": average_operation_return_pct,
                 "average_close_duration": format_duration_seconds(average_close_seconds),
                 "success_rate": f"{success_rate:.1f}%" if closed_ops else "Sin cierres todavia",
-                "first_operation_display": format_short_date(first_operation_at),
+                "first_operation_display": first_operation_display,
                 "updated_at": now,
             }
         )
     return rows
+
+
+def calculate_activity_stats(operations, txt_name, now_dt):
+    open_day_counts = {}
+    closed_day_counts = {}
+    activity_day_counts = {}
+    first_dt = None
+    now_date = now_dt.astimezone(MADRID_TZ).date()
+    for operation in operations or []:
+        if operation.get("txt_name") != txt_name:
+            continue
+        opened_dt = operation_activity_datetime(operation, ("opened_at", "signal_date"))
+        if opened_dt:
+            opened_date = opened_dt.astimezone(MADRID_TZ).date()
+            open_day_counts[opened_date] = open_day_counts.get(opened_date, 0) + 1
+            activity_day_counts[opened_date] = activity_day_counts.get(opened_date, 0) + 1
+            if first_dt is None or opened_dt < first_dt:
+                first_dt = opened_dt
+        closed_dt = operation_activity_datetime(operation, ("closed_at",)) if operation.get("status") == "CLOSED" else None
+        if closed_dt:
+            closed_date = closed_dt.astimezone(MADRID_TZ).date()
+            closed_day_counts[closed_date] = closed_day_counts.get(closed_date, 0) + 1
+            activity_day_counts[closed_date] = activity_day_counts.get(closed_date, 0) + 1
+            if first_dt is None or closed_dt < first_dt:
+                first_dt = closed_dt
+
+    total_ops = sum(activity_day_counts.values())
+    total_days = max(1, (now_date - first_dt.date()).days + 1) if first_dt else 1
+    last_7_start = now_date - timedelta(days=6)
+    last_30_start = now_date - timedelta(days=29)
+    last_7_ops = sum(count for op_date, count in activity_day_counts.items() if last_7_start <= op_date <= now_date)
+    last_30_counts = {
+        op_date: count
+        for op_date, count in activity_day_counts.items()
+        if last_30_start <= op_date <= now_date
+    }
+    last_30_ops = sum(last_30_counts.values())
+    return {
+        "operations_today": open_day_counts.get(now_date, 0),
+        "open_operations_today": open_day_counts.get(now_date, 0),
+        "closed_operations_today": closed_day_counts.get(now_date, 0),
+        "avg_ops_daily_total": float(total_ops) / total_days if total_ops else 0.0,
+        "avg_ops_daily_7d": float(last_7_ops) / 7,
+        "avg_ops_daily_30d": float(last_30_ops) / 30,
+        "max_ops_daily_30d": max(last_30_counts.values(), default=0),
+    }
+
+
+def operation_activity_datetime(operation, keys):
+    for key in keys:
+        parsed = parse_datetime_value(operation.get(key))
+        if parsed:
+            if getattr(parsed, "tzinfo", None) is None:
+                return parsed.replace(tzinfo=MADRID_TZ)
+            return parsed
+    return None
 
 
 def summarize_period_returns_by_strategy(operations, strategy_capital, capital_per_trade, now_dt):
@@ -1066,7 +1345,11 @@ def summarize_operations_by_strategy(operations):
         summary["total_ops"] += 1
         profit = float_value(operation.get("profit_usd"))
         opened_at = parse_datetime_value(operation.get("opened_at") or operation.get("signal_date"))
-        if opened_at and opened_at.astimezone(MADRID_TZ).date() == datetime.now(MADRID_TZ).date():
+        if (
+            operation.get("status") == "OPEN"
+            and opened_at
+            and opened_at.astimezone(MADRID_TZ).date() == datetime.now(MADRID_TZ).date()
+        ):
             summary["daily_operations_count"] += 1
         if operation.get("status") == "OPEN":
             summary["open_ops"] += 1
@@ -1224,7 +1507,7 @@ def max_open_operations(operations):
     return maximum, maximum_at
 
 
-def parse_datetime_value(value):
+def parse_datetime_value(value, naive_timezone=MADRID_TZ):
     if not value:
         return None
     if isinstance(value, datetime):
@@ -1241,7 +1524,7 @@ def parse_datetime_value(value):
             except ValueError:
                 return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=MADRID_TZ)
+        parsed = parsed.replace(tzinfo=naive_timezone)
     return parsed.astimezone(MADRID_TZ)
 
 
@@ -1269,7 +1552,7 @@ def normalize_signal_date(value):
 
 def write_strategy_performance_txt(rows):
     lines = [
-        "# strategy | txt | historical_return | return_pct | profit_usd | capital_base | current_capital | max_open | total_ops | open_ops | closed_ops | daily_operations_count | wins | losses | flat | average_operation_return_pct | average_close_duration | success_rate | first_operation | updated_at"
+        "# strategy | txt | historical_return | return_pct | profit_usd | capital_base | current_capital | max_open | total_ops | open_ops | closed_ops | daily_operations_count | open_operations_today | closed_operations_today | average_daily_operations_count | avg_ops_daily_7d | avg_ops_daily_30d | max_ops_daily_30d | wins | losses | flat | average_operation_return_pct | average_close_duration | success_rate | first_operation | updated_at"
     ]
     for row in rows:
         lines.append(
@@ -1287,6 +1570,12 @@ def write_strategy_performance_txt(rows):
                     str(row["open_ops"]),
                     str(row["closed_ops"]),
                     str(row["daily_operations_count"]),
+                    str(row["open_operations_today"]),
+                    str(row["closed_operations_today"]),
+                    f"{row['average_daily_operations_count']:.4f}",
+                    f"{row['avg_ops_daily_7d']:.4f}",
+                    f"{row['avg_ops_daily_30d']:.4f}",
+                    str(row["max_ops_daily_30d"]),
                     str(row["wins"]),
                     str(row["losses"]),
                     str(row["flat"]),
@@ -1455,14 +1744,20 @@ def sync_operations_to_database(live_operations, backtest_operations, performanc
             ensure_operations_table(connection)
             ensure_sync_metadata_table(connection)
             ensure_chip_status_table(connection)
+            ensure_strategy_activity_stats_table(connection)
             delete_operation_keys(connection, duplicate_open_keys or [], "duplicadas live")
-            print(f"Sincronizando operaciones live con DB: {len(live_operations)}")
-            upsert_operations(connection, live_operations, label="live")
+            live_operations_to_sync = filter_live_operations_for_sync(connection, live_operations)
+            print(
+                "Sincronizando operaciones live con DB: "
+                f"{len(live_operations_to_sync)}/{len(live_operations)} nuevas/cambiadas"
+            )
+            upsert_operations(connection, live_operations_to_sync, label="live")
             db_duplicates_deleted = delete_duplicate_open_operations_in_database(connection)
             if db_duplicates_deleted:
                 print(f"Duplicados abiertos eliminados de DB: {db_duplicates_deleted}")
             sync_backtest_operations_to_database(connection, backtest_operations)
             sync_strategy_performance(connection, performance_rows)
+            sync_strategy_activity_stats(connection, performance_rows)
             sync_chip_status_to_database(connection, read_chip_status_txt())
         print(
             "Operaciones sincronizadas con PostgreSQL/DB: "
@@ -1600,11 +1895,80 @@ def delete_duplicate_open_operations_in_database(connection):
 
 def upsert_operations(connection, operations, label="operaciones"):
     total_operations = len(operations)
+    if total_operations <= 0:
+        print(f"Operaciones {label} sincronizadas: 0/0")
+        return
     statement = operation_upsert_statement()
     for index, operation in enumerate(operations, start=1):
         connection.execute(statement, serialize_for_db(operation))
         if index % 1000 == 0 or index == total_operations:
             print(f"Operaciones {label} sincronizadas: {index}/{total_operations}")
+
+
+def filter_live_operations_for_sync(connection, operations):
+    if not operations:
+        return []
+    existing = load_existing_operation_sync_state(connection, operations)
+    selected = []
+    for operation in operations:
+        operation_key = str(operation.get("operation_key") or "").strip()
+        if not operation_key:
+            continue
+        current_state = operation_sync_state(operation)
+        existing_state = existing.get(operation_key)
+        if existing_state is None or operation.get("status") == "OPEN" or current_state != existing_state:
+            selected.append(operation)
+    skipped = len(operations) - len(selected)
+    if skipped:
+        print(f"Operaciones live sin cambios omitidas: {skipped}")
+    return selected
+
+
+def load_existing_operation_sync_state(connection, operations):
+    operation_keys = sorted(
+        {
+            str(operation.get("operation_key") or "").strip()
+            for operation in operations
+            if str(operation.get("operation_key") or "").strip()
+        }
+    )
+    existing = {}
+    chunk_size = 500
+    for start in range(0, len(operation_keys), chunk_size):
+        chunk = operation_keys[start : start + chunk_size]
+        placeholders = ", ".join(f":key_{index}" for index, _key in enumerate(chunk))
+        params = {f"key_{index}": key for index, key in enumerate(chunk)}
+        rows = connection.execute(
+            text(
+                "SELECT operation_key, status, closed_at, current_price, profit_usd, "
+                "profit_pct, close_reason "
+                f"FROM simulated_operations WHERE operation_key IN ({placeholders})"
+            ),
+            params,
+        ).mappings().fetchall()
+        for row in rows:
+            existing[str(row.get("operation_key") or "").strip()] = operation_sync_state(row, naive_timezone=UTC)
+    return existing
+
+
+def operation_sync_state(operation, naive_timezone=MADRID_TZ):
+    return (
+        str(operation.get("status") or "").strip(),
+        normalize_db_datetime(operation.get("closed_at"), naive_timezone=naive_timezone),
+        round(float_value(operation.get("current_price")), 6),
+        round(float_value(operation.get("profit_usd")), 6),
+        round(float_value(operation.get("profit_pct")), 6),
+        str(operation.get("close_reason") or "").strip(),
+    )
+
+
+def normalize_db_datetime(value, naive_timezone=MADRID_TZ):
+    parsed = parse_datetime_value(value, naive_timezone=naive_timezone)
+    if not parsed:
+        return ""
+    if getattr(parsed, "tzinfo", None) is not None:
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed.isoformat(timespec="seconds")
 
 
 def operation_upsert_statement():
@@ -1654,7 +2018,6 @@ def sync_strategy_performance(connection, performance_rows):
                 UPDATE strategies
                 SET historical_return = :historical_return,
                     closed_operations_count = :closed_operations_count,
-                    daily_operations_count = :daily_operations_count,
                     winning_operations_count = :winning_operations_count,
                     losing_operations_count = :losing_operations_count,
                     flat_operations_count = :flat_operations_count,
@@ -1669,7 +2032,6 @@ def sync_strategy_performance(connection, performance_rows):
             {
                 "historical_return": row["historical_return"],
                 "closed_operations_count": int(row["closed_ops"]),
-                "daily_operations_count": int(row["daily_operations_count"]),
                 "winning_operations_count": int(row["wins"]),
                 "losing_operations_count": int(row["losses"]),
                 "flat_operations_count": int(row["flat"]),
@@ -1683,6 +2045,57 @@ def sync_strategy_performance(connection, performance_rows):
         )
         updated += result.rowcount or 0
     print(f"Rentabilidad historica actualizada en PostgreSQL/DB: {updated} estrategias")
+
+
+def sync_strategy_activity_stats(connection, performance_rows):
+    ensure_strategy_activity_stats_table(connection)
+    statement = text(
+        """
+        INSERT INTO strategy_activity_stats
+        (strategy_id, strategy_name, txt_name, calculated_at,
+         operations_today, open_operations_today, closed_operations_today,
+         avg_ops_daily_total, avg_ops_daily_7d,
+         avg_ops_daily_30d, max_ops_daily_30d, source_updated_at)
+        VALUES
+        ((SELECT id FROM strategies WHERE name = :strategy_name OR signals_txt_name = :txt_name LIMIT 1),
+         :strategy_name, :txt_name, :calculated_at,
+         :operations_today, :open_operations_today, :closed_operations_today,
+         :avg_ops_daily_total, :avg_ops_daily_7d,
+         :avg_ops_daily_30d, :max_ops_daily_30d, :source_updated_at)
+        ON CONFLICT(txt_name) DO UPDATE SET
+            strategy_id = excluded.strategy_id,
+            strategy_name = excluded.strategy_name,
+            calculated_at = excluded.calculated_at,
+            operations_today = excluded.operations_today,
+            open_operations_today = excluded.open_operations_today,
+            closed_operations_today = excluded.closed_operations_today,
+            avg_ops_daily_total = excluded.avg_ops_daily_total,
+            avg_ops_daily_7d = excluded.avg_ops_daily_7d,
+            avg_ops_daily_30d = excluded.avg_ops_daily_30d,
+            max_ops_daily_30d = excluded.max_ops_daily_30d,
+            source_updated_at = excluded.source_updated_at
+        """
+    )
+    updated = 0
+    for row in performance_rows:
+        connection.execute(
+            statement,
+            {
+                "strategy_name": row["strategy_name"],
+                "txt_name": row["txt_name"],
+                "calculated_at": row["updated_at"],
+                "operations_today": int(row["daily_operations_count"]),
+                "open_operations_today": int(row["open_operations_today"]),
+                "closed_operations_today": int(row["closed_operations_today"]),
+                "avg_ops_daily_total": float(row["average_daily_operations_count"]),
+                "avg_ops_daily_7d": float(row["avg_ops_daily_7d"]),
+                "avg_ops_daily_30d": float(row["avg_ops_daily_30d"]),
+                "max_ops_daily_30d": int(row["max_ops_daily_30d"]),
+                "source_updated_at": row["updated_at"],
+            },
+        )
+        updated += 1
+    print(f"Actividad diaria actualizada en PostgreSQL/DB: {updated} estrategias")
 
 
 def ensure_strategy_performance_columns(connection):
@@ -1700,6 +2113,55 @@ def ensure_strategy_performance_columns(connection):
     for column_name, definition in column_defs:
         if not strategy_column_exists(connection, column_name):
             connection.execute(text(f"ALTER TABLE strategies ADD COLUMN {column_name} {definition}"))
+
+
+def ensure_strategy_activity_stats_table(connection):
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_activity_stats (
+                strategy_id INTEGER,
+                strategy_name TEXT NOT NULL,
+                txt_name TEXT NOT NULL PRIMARY KEY,
+                calculated_at TIMESTAMP NOT NULL,
+                operations_today INTEGER NOT NULL DEFAULT 0,
+                open_operations_today INTEGER NOT NULL DEFAULT 0,
+                closed_operations_today INTEGER NOT NULL DEFAULT 0,
+                avg_ops_daily_total FLOAT NOT NULL DEFAULT 0,
+                avg_ops_daily_7d FLOAT NOT NULL DEFAULT 0,
+                avg_ops_daily_30d FLOAT NOT NULL DEFAULT 0,
+                max_ops_daily_30d INTEGER NOT NULL DEFAULT 0,
+                source_updated_at TIMESTAMP
+            )
+            """
+        )
+    )
+    ensure_strategy_activity_stats_column(connection, "open_operations_today", "INTEGER NOT NULL DEFAULT 0")
+    ensure_strategy_activity_stats_column(connection, "closed_operations_today", "INTEGER NOT NULL DEFAULT 0")
+
+
+def ensure_strategy_activity_stats_column(connection, column_name, definition):
+    if table_column_exists(connection, "strategy_activity_stats", column_name):
+        return
+    connection.execute(text(f"ALTER TABLE strategy_activity_stats ADD COLUMN {column_name} {definition}"))
+
+
+def table_column_exists(connection, table_name, column_name):
+    if engine is not None and getattr(engine.dialect, "name", "") == "postgresql":
+        result = connection.execute(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_name = :table_name
+                  AND column_name = :column_name
+                """
+            ),
+            {"table_name": table_name, "column_name": column_name},
+        )
+        return result.scalar_one() > 0
+    rows = connection.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+    return any(row[1] == column_name for row in rows)
 
 
 def strategy_column_exists(connection, column_name):

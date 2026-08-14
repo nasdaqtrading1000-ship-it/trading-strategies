@@ -28,16 +28,29 @@
         {% if user and user.has_access %}
           <div class="alert alert-success mb-0">Tu acceso ya esta activo.</div>
         {% else %}
-          <form method="post">
-            <button class="btn btn-info fw-semibold w-100" type="submit">
-              {% if payment_url %}Continuar al pago{% else %}Solicitar activacion{% endif %}
-            </button>
-          </form>
+          <a class="btn btn-info fw-semibold w-100" href="{{ payment_url }}">Continuar al pago</a>
           {% if not payment_url %}
             <p class="text-secondary small mt-3 mb-0">
               Aun no hay pasarela conectada. El admin puede marcar el pago como activo manualmente.
             </p>
           {% endif %}
+        {% endif %}
+      </article>
+
+      <article class="membership-card membership-card-main">
+        <span class="text-secondary small d-block">Plan</span>
+        <strong>Premium</strong>
+        <span class="membership-price">{{ premium_price_text }}</span>
+        <ul class="membership-list">
+          <li>Todo lo incluido en cuenta Miembro.</li>
+          <li>Acceso a Code Markets Replicator.</li>
+          <li>Lectura de operaciones desde la web.</li>
+          <li>Automatic trading con la app local Replicator.</li>
+        </ul>
+        {% if user and user.has_replicator_access %}
+          <div class="alert alert-success mb-0">Tu Premium ya esta activo.</div>
+        {% else %}
+          <a class="btn btn-success fw-semibold w-100" href="{{ premium_payment_url }}">Activar Premium</a>
         {% endif %}
       </article>
 

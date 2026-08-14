@@ -3,6 +3,15 @@
 {% block title %}Historial {{ strategy.name }}{% endblock %}
 
 {% block content %}
+{% macro sortable_history_header(sort_key, label) -%}
+  {% set active = history_sort.key == sort_key %}
+  {% set next_dir = 'asc' if active and history_sort.dir == 'desc' else 'desc' %}
+  <a class="history-sort-link {% if active %}is-active{% endif %}" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, sort=sort_key, dir=next_dir) }}">
+    <span>{{ label }}</span>
+    <span class="history-sort-arrow">{% if active %}{{ '↑' if history_sort.dir == 'asc' else '↓' }}{% else %}↕{% endif %}</span>
+  </a>
+{%- endmacro %}
+
 <section class="container py-5">
   <div class="strategy-detail-panel history-page-panel p-4 p-md-5">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
@@ -51,12 +60,12 @@
             <tr>
               <th>Ticker</th>
               <th>Direccion</th>
-              <th>Fecha apertura</th>
-              <th>Fecha cierre</th>
+              <th>{{ sortable_history_header("opened_at", "Fecha apertura") }}</th>
+              <th>{{ sortable_history_header("closed_at", "Fecha cierre") }}</th>
               <th>Precio entrada</th>
               <th>Precio salida</th>
-              <th>Rentabilidad</th>
-              <th>Resultado</th>
+              <th>{{ sortable_history_header("profit_pct", "Rentabilidad") }}</th>
+              <th>{{ sortable_history_header("profit_usd", "Resultado") }}</th>
               <th>Motivo</th>
             </tr>
           </thead>
@@ -80,12 +89,12 @@
       {% if history_pagination.has_more or not history_pagination.show_all %}
         <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-4" id="history-actions">
           {% if history_pagination.has_more %}
-            <a class="btn btn-outline-info" id="history-load-more" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, limit=history_pagination.next_limit) }}" data-url="{{ url_for('strategy_closed_operations_data', strategy_id=strategy.id) }}" data-offset="{{ history_totalizer.loaded_count }}" data-limit="{{ history_pagination.page_size }}">
+            <a class="btn btn-outline-info" id="history-load-more" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, limit=history_pagination.next_limit, sort=history_sort.key, dir=history_sort.dir) }}" data-url="{{ url_for('strategy_closed_operations_data', strategy_id=strategy.id, sort=history_sort.key, dir=history_sort.dir) }}" data-offset="{{ history_totalizer.loaded_count }}" data-limit="{{ history_pagination.page_size }}">
               Ver mas
             </a>
           {% endif %}
           {% if not history_pagination.show_all %}
-            <a class="btn btn-outline-light" id="history-load-all" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, all=1) }}" data-url="{{ url_for('strategy_closed_operations_data', strategy_id=strategy.id) }}" data-offset="{{ history_totalizer.loaded_count }}">
+            <a class="btn btn-outline-light" id="history-load-all" href="{{ url_for('strategy_closed_operations', strategy_id=strategy.id, all=1, sort=history_sort.key, dir=history_sort.dir) }}" data-url="{{ url_for('strategy_closed_operations_data', strategy_id=strategy.id, sort=history_sort.key, dir=history_sort.dir) }}" data-offset="{{ history_totalizer.loaded_count }}">
               Ver todas
             </a>
           {% endif %}

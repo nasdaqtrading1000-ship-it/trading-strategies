@@ -4494,6 +4494,34 @@ html[data-bs-theme="light"] .report-signals-btn:focus {
   border-color: rgba(205, 235, 255, 0.52) !important;
 }
 
+.history-page-panel .history-sort-link {
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.history-page-panel .history-sort-link:hover {
+  color: #9ed2ff !important;
+}
+
+.history-page-panel .history-sort-link.is-active {
+  color: #00ff9c !important;
+  font-weight: 800;
+}
+
+.history-page-panel .history-sort-arrow {
+  color: #9ed2ff;
+  font-size: 0.92em;
+  line-height: 1;
+}
+
+.history-page-panel .history-sort-link.is-active .history-sort-arrow {
+  color: #00ff9c;
+}
+
 .history-page-panel .history-table tbody td {
   background: #012456 !important;
   color: #eef8ff !important;
@@ -4511,6 +4539,35 @@ html[data-bs-theme="light"] .report-signals-btn:focus {
 .history-page-panel .table-responsive {
   border: 1px solid rgba(158, 210, 255, 0.42);
   background: #012456;
+}
+
+.replicator-access-card {
+  align-items: center;
+  border-color: rgba(22, 255, 122, 0.42) !important;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.replicator-access-copy {
+  min-width: 0;
+}
+
+.replicator-access-actions {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .replicator-access-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .replicator-access-actions {
+    text-align: left;
+  }
 }
 
 /* Global blue interface pass: filters, account, membership, login, news and admin */

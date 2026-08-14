@@ -66,8 +66,11 @@ def main() -> int:
     load_local_env()
     args = parse_args()
     today = date.today()
+    intraday_point_at = datetime.now().replace(second=0, microsecond=0)
     with engine.begin() as connection:
         ensure_equity_curve_table(connection)
+        ensure_equity_curve_intraday_table(connection)
+        cleanup_intraday_curve_rows(connection, today)
         strategies = load_strategies(connection)
         backtest_txt_operations = load_operations_from_backtest_txt()
         operations = load_operations_from_database(connection, include_backtest=not bool(backtest_txt_operations))
@@ -91,6 +94,8 @@ def main() -> int:
         for txt_name, strategy_ops in sorted(grouped.items()):
             strategy_name = strategy_ops[0].strategy_name
             dates_to_save = curve_dates_to_save(connection, txt_name, curve_dates, args.rebuild, args.refresh_days, today)
+            latest_price_date = latest_price_date_for_operations(prices, strategy_ops)
+            dates_to_save = reliable_curve_dates_to_save(dates_to_save, latest_price_date, today)
             if not dates_to_save:
                 print(f"Curva capital | {txt_name} | ya actualizada.")
                 continue
@@ -109,6 +114,9 @@ def main() -> int:
             ]
             if rows:
                 upsert_curve_rows(connection, rows)
+                intraday_row = next((row for row in reversed(rows) if row["curve_date"] == today.isoformat()), None)
+                if intraday_row:
+                    upsert_intraday_curve_row(connection, intraday_row, intraday_point_at)
                 total_rows += len(rows)
                 print(
                     f"Curva capital | {txt_name} | {len(rows)} puntos | "
@@ -160,6 +168,46 @@ def ensure_equity_curve_table(connection) -> None:
             ON strategy_equity_curve(txt_name, curve_date)
             """
         )
+    )
+
+
+def ensure_equity_curve_intraday_table(connection) -> None:
+    connection.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_equity_curve_intraday (
+                txt_name TEXT NOT NULL,
+                strategy_name TEXT NOT NULL DEFAULT '',
+                point_date TEXT NOT NULL,
+                point_at TEXT NOT NULL,
+                capital_actual FLOAT NOT NULL DEFAULT 0,
+                capital_aportado FLOAT NOT NULL DEFAULT 0,
+                capital_invertido FLOAT NOT NULL DEFAULT 0,
+                profit_usd FLOAT NOT NULL DEFAULT 0,
+                return_pct FLOAT NOT NULL DEFAULT 0,
+                open_operations INTEGER NOT NULL DEFAULT 0,
+                closed_operations INTEGER NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT 'simulated_operations_intraday',
+                updated_at TIMESTAMP,
+                PRIMARY KEY (txt_name, point_at)
+            )
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_equity_curve_intraday_txt_at
+            ON strategy_equity_curve_intraday(txt_name, point_at)
+            """
+        )
+    )
+
+
+def cleanup_intraday_curve_rows(connection, today: date) -> None:
+    connection.execute(
+        text("DELETE FROM strategy_equity_curve_intraday WHERE point_date < :today"),
+        {"today": today.isoformat()},
     )
 
 
@@ -456,6 +504,26 @@ def curve_dates_to_save(
     return missing_dates | recent_dates
 
 
+def latest_price_date_for_operations(prices: dict[str, dict[str, Any]], operations: list[Operation]) -> date | None:
+    latest_dates = [
+        series["dates"][-1]
+        for operation in operations
+        for series in [prices.get(operation.symbol)]
+        if series and series.get("dates")
+    ]
+    return max(latest_dates) if latest_dates else None
+
+
+def reliable_curve_dates_to_save(dates_to_save: set[date], latest_price_date: date | None, today: date) -> set[date]:
+    if latest_price_date is None:
+        return {item for item in dates_to_save if item >= today}
+    return {
+        item
+        for item in dates_to_save
+        if item <= latest_price_date or item >= today
+    }
+
+
 def load_existing_curve_dates(connection, txt_name: str) -> set[date]:
     rows = connection.execute(
         text("SELECT curve_date FROM strategy_equity_curve WHERE txt_name = :txt_name"),
@@ -589,6 +657,41 @@ def upsert_curve_rows(connection, rows: list[dict[str, Any]]) -> None:
             """
         ),
         rows,
+    )
+
+
+def upsert_intraday_curve_row(connection, daily_row: dict[str, Any], point_at: datetime) -> None:
+    row = {
+        **daily_row,
+        "point_date": daily_row["curve_date"],
+        "point_at": point_at.isoformat(timespec="minutes"),
+        "source": "simulated_operations_intraday",
+        "updated_at": datetime.now(UTC).replace(tzinfo=None),
+    }
+    connection.execute(
+        text(
+            """
+            INSERT INTO strategy_equity_curve_intraday
+            (txt_name, strategy_name, point_date, point_at, capital_actual, capital_aportado, capital_invertido,
+             profit_usd, return_pct, open_operations, closed_operations, source, updated_at)
+            VALUES
+            (:txt_name, :strategy_name, :point_date, :point_at, :capital_actual, :capital_aportado, :capital_invertido,
+             :profit_usd, :return_pct, :open_operations, :closed_operations, :source, :updated_at)
+            ON CONFLICT (txt_name, point_at) DO UPDATE SET
+                strategy_name = excluded.strategy_name,
+                point_date = excluded.point_date,
+                capital_actual = excluded.capital_actual,
+                capital_aportado = excluded.capital_aportado,
+                capital_invertido = excluded.capital_invertido,
+                profit_usd = excluded.profit_usd,
+                return_pct = excluded.return_pct,
+                open_operations = excluded.open_operations,
+                closed_operations = excluded.closed_operations,
+                source = excluded.source,
+                updated_at = excluded.updated_at
+            """
+        ),
+        row,
     )
 
 

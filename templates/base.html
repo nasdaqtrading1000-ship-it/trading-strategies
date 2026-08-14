@@ -17,6 +17,7 @@
         </a>
         <div class="ms-auto d-flex align-items-center gap-2">
           {% if current_user %}
+            <a class="btn btn-outline-success btn-sm" href="{{ url_for('replicator_access') }}" target="_blank" rel="noopener">Replicator</a>
             <a class="btn btn-outline-info btn-sm" href="{{ url_for('account') }}">Mi cuenta</a>
             {% if not member_has_access %}
               <a class="btn btn-warning btn-sm fw-semibold" href="{{ url_for('membership') }}">Membresia</a>

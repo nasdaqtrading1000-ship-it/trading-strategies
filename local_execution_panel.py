@@ -32,7 +32,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from flask import Flask, Response, redirect, render_template_string, request, url_for
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from config_env import load_local_env
 from db import engine
@@ -50,6 +50,7 @@ AUTOMATION_FILE = PANEL_DATA_DIR / "automation.json"
 EXECUTION_QUEUE_FILE = PANEL_DATA_DIR / "execution_queue.json"
 TASK_STATUS_FILE = PANEL_DATA_DIR / "task_status.json"
 TASK_RUN_LOCK_FILE = PANEL_DATA_DIR / "task_runner.lock"
+EQUITY_CURVE_LOCK_FILE = PANEL_DATA_DIR / "equity_curve.lock"
 WEB_SETTINGS_FILE = PANEL_DATA_DIR / "web_settings.json"
 RUNNER_CONFIG_FILE = STRATEGIES_DIR / "runner_config.txt"
 RUNNER_SELECTION_FILE = STRATEGIES_DIR / "estrategias_a_ejecutar.txt"
@@ -58,6 +59,7 @@ V2_CONFIG_FILE = STRATEGIES_V2_DIR / "config.json"
 BACKTEST_JSON_FILE = STRATEGIES_V2_DIR / "outputs" / "historical_backtest_5y.json"
 HISTORICAL_DATA_DIR = STRATEGIES_V2_DIR / "historical_data" / "daily_txt"
 HISTORICAL_MANIFEST_FILE = STRATEGIES_V2_DIR / "historical_data" / "manifest.json"
+CURVE_PRICE_MANIFEST_FILE = STRATEGIES_V2_DIR / "historical_data" / "curve_prices_manifest.json"
 LOG_LINES = deque(maxlen=600)
 TASK_LOCK = threading.Lock()
 ACTIVE_PROCESS_LOCK = threading.Lock()
@@ -67,6 +69,7 @@ LAST_DAILY_QUEUE_RESET = ""
 UPLOAD_STATUS_SYNC_LAST = 0.0
 PANEL_STARTED_AT = datetime.now()
 QUEUE_DAILY_RESET_TIME = "22:00"
+COMMAND_ERROR_CONTEXT_LINES = 120
 TASK_STATE = {
     "running": False,
     "task_key": "",
@@ -171,6 +174,43 @@ TASKS = {
                 "command": [sys.executable, str(STRATEGIES_DIR / "simulate_operations.py")],
                 "cwd": STRATEGIES_DIR,
                 "timeout_seconds": 7200,
+            }
+        ],
+    },
+    "equity_curve": {
+        "label": "Curva de capital",
+        "button_label": "Actualizar grafica",
+        "description": "Actualiza precios diarios hasta hoy, lee operaciones simuladas/backset y guarda la curva de capital por estrategia.",
+        "independent": True,
+        "commands": [
+            {
+                "label": "Actualizar precios diarios para curvas",
+                "command": [
+                    sys.executable,
+                    str(STRATEGIES_V2_DIR / "download_historical_data.py"),
+                    "--years",
+                    "5",
+                    "--output-dir",
+                    str(HISTORICAL_DATA_DIR),
+                    "--manifest",
+                    str(CURVE_PRICE_MANIFEST_FILE),
+                    "--no-auto-cutoff",
+                ],
+                "cwd": BASE_DIR,
+                "timeout_seconds": 21600,
+            },
+            {
+                "label": "Construir curva de capital",
+                "command": [sys.executable, str(BASE_DIR / "build_strategy_equity_curve.py"), "--rebuild"],
+                "cwd": BASE_DIR,
+                "env": {"TRADING_DATABASE_MODE": "local"},
+                "timeout_seconds": 3600,
+            },
+            {
+                "label": "Sincronizar curva de capital a PostgreSQL",
+                "command": [sys.executable, str(BASE_DIR / "sync_strategy_equity_curve_to_postgres.py"), "--upsert-existing"],
+                "cwd": BASE_DIR,
+                "timeout_seconds": 1800,
             }
         ],
     },
@@ -585,9 +625,79 @@ PAGE = """
         {% endif %}
       </div>
 
+      {% set curve_task = tasks["equity_curve"] %}
+      <div class="panel p-3 mb-4 border border-info">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
+          <div>
+            <p class="text-info fw-semibold small mb-1">Grafica de estrategias</p>
+            <h2 class="h5 mb-1">{{ curve_task.label }}</h2>
+            <p class="text-secondary small mb-0">{{ curve_task.description }}</p>
+          </div>
+          <div class="d-flex flex-wrap gap-2 align-items-start">
+            <form method="post" action="{{ url_for('run_task', task_key='equity_curve') }}">
+              <button class="btn btn-info btn-sm fw-semibold" type="submit" {% if task_status["equity_curve"].status == "RUNNING" %}disabled{% endif %}>{{ curve_task.button_label }}</button>
+            </form>
+            <form method="post" action="{{ url_for('clear_task_status', task_key='equity_curve') }}">
+              <button class="btn btn-outline-warning btn-sm" type="submit">Liberar RUNNING</button>
+            </form>
+            <span class="badge text-bg-secondary">{{ task_status["equity_curve"].status_label }}</span>
+          </div>
+        </div>
+        <div class="clock-grid mt-3">
+          <div class="clock-box">
+            <span>Ultima vez ejecutado</span>
+            <strong>{{ task_status["equity_curve"].last_finished_at or "Sin datos" }}</strong>
+          </div>
+          <div class="clock-box">
+            <span>Duracion</span>
+            <strong>{{ task_status["equity_curve"].duration or "Sin datos" }}</strong>
+            {% if task_status["equity_curve"].running_elapsed %}
+              <small class="d-block text-warning">Lleva {{ task_status["equity_curve"].running_elapsed }}</small>
+            {% endif %}
+          </div>
+          <div class="clock-box">
+            <span>Proxima automatizacion</span>
+            <strong>{{ automation_status["equity_curve"].next_run or "Desactivada" }}</strong>
+          </div>
+        </div>
+        <form class="automation-form mt-3" method="post" action="{{ url_for('save_automation', task_key='equity_curve') }}" data-automation-key="equity_curve">
+          <div class="d-flex flex-wrap gap-3 align-items-end">
+            <div class="form-check form-switch mb-1">
+              <input class="form-check-input" type="checkbox" role="switch" id="auto-equity_curve" name="enabled" {% if automation["equity_curve"].enabled %}checked{% endif %}>
+              <label class="form-check-label" for="auto-equity_curve">Automatizar</label>
+            </div>
+            <div>
+              <label class="form-label small" for="start-equity_curve">Hora inicio</label>
+              <input class="form-control form-control-sm" id="start-equity_curve" name="start_time" type="time" value="{{ automation["equity_curve"].start_time }}">
+            </div>
+            <div>
+              <label class="form-label small" for="interval-equity_curve">Cada min.</label>
+              <input class="form-control form-control-sm" id="interval-equity_curve" name="interval_minutes" type="number" min="1" max="1440" value="{{ automation["equity_curve"].interval_minutes }}">
+            </div>
+            <div>
+              <label class="form-label small" for="runs-equity_curve">Ciclos/dia</label>
+              <input class="form-control form-control-sm" id="runs-equity_curve" name="runs_per_day" type="number" min="1" max="48" value="{{ automation["equity_curve"].runs_per_day }}">
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              {% for day_value, day_label in weekdays %}
+                <div class="form-check form-check-inline m-0">
+                  <input class="form-check-input" type="checkbox" id="day-equity_curve-{{ day_value }}" name="weekdays" value="{{ day_value }}" {% if day_value in automation["equity_curve"].weekdays %}checked{% endif %}>
+                  <label class="form-check-label small" for="day-equity_curve-{{ day_value }}">{{ day_label }}</label>
+                </div>
+              {% endfor %}
+            </div>
+            <div>
+              <button class="btn btn-outline-info btn-sm" type="submit">Guardar programacion</button>
+              <span class="text-secondary small ms-2">{{ automation_status["equity_curve"].summary }}</span>
+            </div>
+          </div>
+        </form>
+      </div>
+
       <div class="row g-2 mb-4">
         {% for key, task in tasks.items() %}
-          <div class="col-xl-4 col-lg-6">
+          {% if key != "equity_curve" %}
+            <div class="col-xl-4 col-lg-6">
             <div class="task h-100">
               <div class="task-grid">
                 <div>
@@ -638,6 +748,9 @@ PAGE = """
                   <div class="clock-box">
                     <span>Duracion</span>
                     <strong>{{ task_status[key].duration or "Sin datos" }}</strong>
+                    {% if task_status[key].running_elapsed %}
+                      <small class="d-block text-warning">Lleva {{ task_status[key].running_elapsed }}</small>
+                    {% endif %}
                   </div>
                   <div class="clock-box">
                     <span>Proxima automatizacion</span>
@@ -708,6 +821,7 @@ PAGE = """
               </div>
             </div>
           </div>
+          {% endif %}
         {% endfor %}
       </div>
 
@@ -857,6 +971,7 @@ PAGE = """
 def index():
     reconcile_stale_running_statuses()
     sync_upload_file_statuses_to_postgres()
+    dispatch_next_queued_execution()
     automation = load_automation()
     task_status = build_task_status()
     automation_status = build_automation_status(automation)
@@ -915,9 +1030,18 @@ def run_task(task_key):
         add_log(f"Tarea desconocida: {task_key}")
         return redirect(url_for("index"))
     task = task_for_manual_request(task_key, task, request.form)
+    if task.get("independent"):
+        if not independent_task_lock_available(task_key):
+            add_log(f"{task['label']} ya esta en ejecucion independiente.")
+            return redirect(url_for("index"))
+        threading.Thread(target=run_independent_command, args=(task_key, task, "manual"), daemon=True).start()
+        return redirect(url_for("index"))
     with TASK_LOCK:
         if TASK_STATE["running"]:
-            add_log("Ya hay una tarea en ejecucion.")
+            if enqueue_execution(task_key, trigger="manual"):
+                add_log(f"{task['label']} queda en cola: otra tarea local ya esta en ejecucion.")
+            else:
+                add_log(f"{task['label']} ya estaba pendiente en cola.")
             return redirect(url_for("index"))
         TASK_STATE.update(
             {
@@ -1114,7 +1238,6 @@ def clear_task_status(task_key):
             "status": "ERROR",
             "last_finished_at": now_text(),
             "last_returncode": 130,
-            "duration_seconds": 0,
         },
     )
     with TASK_LOCK:
@@ -1197,7 +1320,7 @@ def run_command(task_key, task, trigger, queue_item=None):
                 "last_finished_at": "",
                 "last_returncode": None,
                 "last_trigger": trigger,
-                "duration_seconds": 0,
+                "message": "",
             },
         )
         returncode = 0
@@ -1226,6 +1349,7 @@ def run_command(task_key, task, trigger, queue_item=None):
                 "last_finished_at": now_text(),
                 "last_returncode": returncode,
                 "duration_seconds": duration_seconds,
+                "message": "OK" if returncode == 0 else "La tarea termino con error.",
             },
         )
         sync_upload_file_statuses_to_postgres(force=True)
@@ -1243,9 +1367,74 @@ def run_command(task_key, task, trigger, queue_item=None):
         dispatch_next_queued_execution()
 
 
+def run_independent_command(task_key, task, trigger):
+    lock_handle = acquire_independent_task_lock(task_key)
+    if not lock_handle:
+        add_log(f"{task['label']} ya esta en ejecucion independiente.")
+        return
+    try:
+        write_text(task_log_path(task_key), "")
+        add_task_log(task_key, "")
+        started = datetime.now()
+        add_task_log(task_key, f"=== {now_text()} | INICIO | {task['label']} | {trigger} independiente ===")
+        update_task_status(
+            task_key,
+            {
+                "status": "RUNNING",
+                "last_started_at": now_text(),
+                "last_finished_at": "",
+                "last_returncode": None,
+                "last_trigger": f"{trigger} independiente",
+                "message": "",
+            },
+        )
+        returncode = 0
+        error_lines = []
+        try:
+            for item in task["commands"]:
+                add_task_log(task_key, f"--- {item['label']} ---")
+                returncode, command_errors = run_single_command(task_key, item, track_active=False)
+                error_lines.extend(command_errors)
+                if returncode != 0:
+                    break
+        except Exception as error:
+            returncode = 1
+            error_message = f"ERROR LOCAL: {error}"
+            error_lines.append(error_message)
+            add_task_log(task_key, error_message)
+        duration_seconds = int((datetime.now() - started).total_seconds())
+        returncode = normalize_returncode(returncode)
+        add_task_log(task_key, f"=== {now_text()} | FIN | {task['label']} | codigo {returncode} ===")
+        if returncode != 0 or error_lines:
+            save_task_error(task, returncode, error_lines)
+        update_task_status(
+            task_key,
+            {
+                "status": "OK" if returncode == 0 else "ERROR",
+                "last_finished_at": now_text(),
+                "last_returncode": returncode,
+                "duration_seconds": duration_seconds,
+                "message": "OK" if returncode == 0 else "La tarea termino con error.",
+            },
+        )
+        sync_upload_file_statuses_to_postgres(force=True)
+    finally:
+        release_task_run_lock(lock_handle)
+
+
 def acquire_task_run_lock():
-    TASK_RUN_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    handle = TASK_RUN_LOCK_FILE.open("a+b")
+    return acquire_file_lock(TASK_RUN_LOCK_FILE)
+
+
+def acquire_independent_task_lock(task_key):
+    if task_key == "equity_curve":
+        return acquire_file_lock(EQUITY_CURVE_LOCK_FILE)
+    return acquire_file_lock(PANEL_DATA_DIR / f"{task_key}.lock")
+
+
+def acquire_file_lock(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = path.open("a+b")
     try:
         handle.seek(0)
         msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
@@ -1273,11 +1462,12 @@ def release_task_run_lock(handle):
         pass
 
 
-def run_single_command(task_key, item):
+def run_single_command(task_key, item, track_active=True):
     global ACTIVE_PROCESS
     timeout_seconds = int(item.get("timeout_seconds") or 3600)
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    env.update({str(key): str(value) for key, value in dict(item.get("env") or {}).items()})
     process = subprocess.Popen(
         item["command"],
         cwd=str(item["cwd"]),
@@ -1287,8 +1477,9 @@ def run_single_command(task_key, item):
         text=True,
         bufsize=1,
     )
-    with ACTIVE_PROCESS_LOCK:
-        ACTIVE_PROCESS = process
+    if track_active:
+        with ACTIVE_PROCESS_LOCK:
+            ACTIVE_PROCESS = process
     assert process.stdout is not None
     output_queue = queue.Queue()
 
@@ -1299,6 +1490,7 @@ def run_single_command(task_key, item):
     reader_thread = threading.Thread(target=reader, daemon=True)
     reader_thread.start()
     error_lines = []
+    output_tail = []
     started = time.monotonic()
     timed_out = False
     while process.poll() is None:
@@ -1308,6 +1500,7 @@ def run_single_command(task_key, item):
             except queue.Empty:
                 break
             add_task_log(task_key, clean_line)
+            remember_output_tail(output_tail, clean_line)
             if looks_like_error(clean_line):
                 error_lines.append(clean_line)
         if time.monotonic() - started > timeout_seconds:
@@ -1328,17 +1521,50 @@ def run_single_command(task_key, item):
         except queue.Empty:
             break
         add_task_log(task_key, clean_line)
+        remember_output_tail(output_tail, clean_line)
         if looks_like_error(clean_line):
             error_lines.append(clean_line)
     returncode = process.poll()
     if returncode is None:
         returncode = process.wait(timeout=5)
-    with ACTIVE_PROCESS_LOCK:
-        if ACTIVE_PROCESS is process:
-            ACTIVE_PROCESS = None
+    if track_active:
+        with ACTIVE_PROCESS_LOCK:
+            if ACTIVE_PROCESS is process:
+                ACTIVE_PROCESS = None
     if timed_out and returncode == 0:
         returncode = 124
-    return normalize_returncode(returncode), error_lines
+    returncode = normalize_returncode(returncode)
+    if returncode != 0:
+        error_lines.extend(command_failure_summary(item, returncode, output_tail))
+    return returncode, error_lines
+
+
+def remember_output_tail(output_tail, line):
+    output_tail.append(str(line))
+    if len(output_tail) > COMMAND_ERROR_CONTEXT_LINES:
+        del output_tail[0]
+
+
+def command_failure_summary(item, returncode, output_tail):
+    command = item.get("command") or []
+    if isinstance(command, (list, tuple)):
+        command_text = " ".join(str(part) for part in command)
+    else:
+        command_text = str(command)
+    summary = [
+        "",
+        f"COMANDO FALLIDO: {item.get('label', 'Sin etiqueta')}",
+        f"Codigo salida: {returncode}",
+        f"Carpeta: {item.get('cwd', '')}",
+        f"Comando: {command_text}",
+        f"Ultimas {min(len(output_tail), COMMAND_ERROR_CONTEXT_LINES)} lineas de salida:",
+        "-" * 72,
+    ]
+    if output_tail:
+        summary.extend(output_tail)
+    else:
+        summary.append("El proceso no devolvio salida antes de fallar.")
+    return summary
 
 
 def normalize_returncode(returncode):
@@ -1376,7 +1602,20 @@ def save_task_error(task, returncode, error_lines):
         "-" * 72,
     ]
     body = error_lines or ["La tarea termino con error, pero no devolvio detalle."]
-    write_text(error_path_for_label(task["label"]), "\n".join(header + body[-80:]))
+    write_text(error_path_for_label(task["label"]), "\n".join(header + trim_error_lines(body)))
+
+
+def trim_error_lines(lines, max_lines=220):
+    cleaned = [str(line) for line in lines]
+    if len(cleaned) <= max_lines:
+        return cleaned
+    head_count = 40
+    tail_count = max_lines - head_count - 3
+    return (
+        cleaned[:head_count]
+        + ["", f"... {len(cleaned) - head_count - tail_count} lineas intermedias omitidas ...", ""]
+        + cleaned[-tail_count:]
+    )
 
 
 def load_all_notes():
@@ -1870,12 +2109,15 @@ def build_task_status():
     for key in TASKS:
         item = raw.get(key, {})
         status = item.get("status") or "IDLE"
+        running_elapsed = running_elapsed_display(item) if status == "RUNNING" else ""
         output[key] = {
             **item,
             "status": status,
             "status_label": status_label(status, item.get("last_returncode")),
             "status_class": status_class(status),
             "duration": format_duration(item.get("duration_seconds")),
+            "running_elapsed": running_elapsed,
+            "last_started_at": item.get("last_started_at", ""),
             "last_finished_at": item.get("last_finished_at", ""),
         }
     return output
@@ -1885,11 +2127,19 @@ def reconcile_stale_running_statuses():
     with TASK_LOCK:
         active_key = TASK_STATE.get("task_key") if TASK_STATE.get("running") else ""
     raw = load_json(TASK_STATUS_FILE, {})
+    lock_busy = not task_run_lock_available()
     changed = False
+    if lock_busy and not active_key:
+        recovered_key = recover_running_status_from_lock(raw)
+        if recovered_key:
+            active_key = recovered_key
+            changed = True
     for key, item in raw.items():
         if item.get("status") != "RUNNING":
             continue
         if key == active_key:
+            continue
+        if lock_busy and not TASKS.get(key, {}).get("independent"):
             continue
         item["status"] = "IDLE"
         item["last_finished_at"] = item.get("last_finished_at") or now_text()
@@ -1899,6 +2149,32 @@ def reconcile_stale_running_statuses():
         changed = True
     if changed:
         save_json(TASK_STATUS_FILE, raw)
+
+
+def recover_running_status_from_lock(raw):
+    running_items = [
+        key
+        for key, item in raw.items()
+        if item.get("status") == "RUNNING" and not TASKS.get(key, {}).get("independent")
+    ]
+    if running_items:
+        return running_items[0]
+    candidates = []
+    for key, item in raw.items():
+        if key not in TASKS or TASKS.get(key, {}).get("independent"):
+            continue
+        started_at = parse_panel_datetime(item.get("last_started_at"))
+        if not started_at:
+            continue
+        candidates.append((started_at, key, item))
+    if not candidates:
+        return ""
+    _started_at, key, item = max(candidates, key=lambda row: row[0])
+    item["status"] = "RUNNING"
+    item["last_finished_at"] = ""
+    item["last_returncode"] = None
+    item["message"] = "RUNNING recuperado: el candado principal sigue ocupado."
+    return key
 
 
 def clear_other_running_statuses(active_key):
@@ -1929,12 +2205,14 @@ def update_task_status(task_key, updates):
 def sync_task_status_to_postgres(task_key, item):
     task = TASKS.get(task_key, {})
     status = item.get("status") or "IDLE"
+    started_at = parse_panel_datetime(item.get("last_started_at"))
     finished_at = parse_panel_datetime(item.get("last_finished_at"))
     updated_at = datetime.now(UTC).replace(tzinfo=None)
     params = {
         "task_key": task_key,
         "label": task.get("label", task_key),
         "status": status,
+        "last_started_at": started_at,
         "last_finished_at": finished_at,
         "last_returncode": normalize_returncode(item.get("last_returncode")),
         "duration_seconds": int(item.get("duration_seconds") or 0),
@@ -1948,12 +2226,13 @@ def sync_task_status_to_postgres(task_key, item):
                 statement = text(
                     """
                     INSERT INTO execution_status
-                    (task_key, label, status, last_finished_at, last_returncode, duration_seconds, message, updated_at)
-                    VALUES (:task_key, :label, :status, :last_finished_at, :last_returncode, :duration_seconds, :message, :updated_at)
+                    (task_key, label, status, last_started_at, last_finished_at, last_returncode, duration_seconds, message, updated_at)
+                    VALUES (:task_key, :label, :status, :last_started_at, :last_finished_at, :last_returncode, :duration_seconds, :message, :updated_at)
                     ON CONFLICT (task_key)
                     DO UPDATE SET
                         label = EXCLUDED.label,
                         status = EXCLUDED.status,
+                        last_started_at = EXCLUDED.last_started_at,
                         last_finished_at = EXCLUDED.last_finished_at,
                         last_returncode = EXCLUDED.last_returncode,
                         duration_seconds = EXCLUDED.duration_seconds,
@@ -1965,12 +2244,13 @@ def sync_task_status_to_postgres(task_key, item):
                 statement = text(
                     """
                     INSERT INTO execution_status
-                    (task_key, label, status, last_finished_at, last_returncode, duration_seconds, message, updated_at)
-                    VALUES (:task_key, :label, :status, :last_finished_at, :last_returncode, :duration_seconds, :message, :updated_at)
+                    (task_key, label, status, last_started_at, last_finished_at, last_returncode, duration_seconds, message, updated_at)
+                    VALUES (:task_key, :label, :status, :last_started_at, :last_finished_at, :last_returncode, :duration_seconds, :message, :updated_at)
                     ON CONFLICT(task_key)
                     DO UPDATE SET
                         label = excluded.label,
                         status = excluded.status,
+                        last_started_at = excluded.last_started_at,
                         last_finished_at = excluded.last_finished_at,
                         last_returncode = excluded.last_returncode,
                         duration_seconds = excluded.duration_seconds,
@@ -2106,6 +2386,7 @@ def ensure_execution_status_table(connection):
                 task_key TEXT PRIMARY KEY,
                 label TEXT NOT NULL DEFAULT '',
                 status TEXT NOT NULL DEFAULT 'IDLE',
+                last_started_at TIMESTAMP,
                 last_finished_at TIMESTAMP,
                 last_returncode INTEGER,
                 duration_seconds INTEGER NOT NULL DEFAULT 0,
@@ -2115,6 +2396,15 @@ def ensure_execution_status_table(connection):
             """
         )
     )
+    ensure_table_column(connection, "execution_status", "last_started_at", "TIMESTAMP")
+
+
+def ensure_table_column(connection, table_name, column_name, definition):
+    inspector = inspect(connection)
+    columns = {column["name"] for column in inspector.get_columns(table_name)}
+    if column_name in columns:
+        return
+    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"))
 
 
 def ensure_upload_file_status_table(connection):
@@ -2147,6 +2437,14 @@ def parse_panel_datetime(value):
         except ValueError:
             continue
     return None
+
+
+def running_elapsed_display(item):
+    started_at = parse_panel_datetime(item.get("last_started_at"))
+    if not started_at:
+        return ""
+    elapsed_seconds = int((datetime.now(UTC).replace(tzinfo=None) - started_at).total_seconds())
+    return format_duration(max(0, elapsed_seconds))
 
 
 def status_label(status, returncode):
@@ -2195,6 +2493,16 @@ def scheduler_loop():
         time.sleep(10)
 
 
+def kickstart_pending_queue():
+    try:
+        reconcile_stale_running_statuses()
+        if load_execution_queue():
+            add_log("Arranque panel: cola pendiente detectada, intentando lanzar siguiente ejecucion.")
+            dispatch_next_queued_execution()
+    except Exception as error:
+        add_log(f"ERROR arranque cola pendiente: {error}")
+
+
 def process_due_automations():
     automation = load_automation()
     now = datetime.now()
@@ -2207,6 +2515,13 @@ def process_due_automations():
         config["executed_slots"].append(due_item["slot_key"])
         config["executed_slots"] = clean_executed_slots(config["executed_slots"])
         changed = True
+        if task.get("independent"):
+            if independent_task_lock_available(key):
+                add_log(f"Reloj automatico lanza {task['label']} independiente ({due_item['slot_key']}).")
+                threading.Thread(target=run_independent_command, args=(key, task, "automatico"), daemon=True).start()
+            else:
+                add_log(f"No se lanza {task['label']}: ya esta en ejecucion independiente.")
+            continue
         if enqueue_execution(
             key,
             trigger="automatico",
@@ -2318,6 +2633,14 @@ def dispatch_next_queued_execution():
 
 def task_run_lock_available():
     handle = acquire_task_run_lock()
+    if not handle:
+        return False
+    release_task_run_lock(handle)
+    return True
+
+
+def independent_task_lock_available(task_key):
+    handle = acquire_independent_task_lock(task_key)
     if not handle:
         return False
     release_task_run_lock(handle)
@@ -2540,4 +2863,5 @@ if __name__ == "__main__":
     if not AUTOMATION_THREAD_STARTED:
         AUTOMATION_THREAD_STARTED = True
         threading.Thread(target=scheduler_loop, daemon=True).start()
+        threading.Timer(1.0, kickstart_pending_queue).start()
     app.run(host="127.0.0.1", port=5050, debug=False)

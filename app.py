@@ -6121,7 +6121,7 @@ self.addEventListener("fetch", () => {});
         users = g.db.execute(
             text(
                 """
-                SELECT id, email, name, telegram_user_id, has_access, has_replicator_access,
+                SELECT id, email, name, telegram_user_id, telegram_username, has_access, has_replicator_access,
                        payment_status, membership_plan,
                        membership_amount, membership_started_at, membership_expires_at,
                        telegram_removed_at, admin_notes, created_at

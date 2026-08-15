@@ -232,6 +232,9 @@
                 <input class="form-control form-control-sm admin-inline-control fw-semibold mb-2" form="user-row-form-{{ user.id }}" name="name" value="{{ user.name or '' }}" placeholder="Nombre">
                 <input class="form-control form-control-sm admin-inline-control mb-2" form="user-row-form-{{ user.id }}" name="email" value="{{ user.email }}" type="email" required>
                 <input class="form-control form-control-sm admin-inline-control" form="user-row-form-{{ user.id }}" name="telegram_user_id" value="{{ user.telegram_user_id or '' }}" placeholder="Telegram user ID">
+                <div class="small text-info mt-1">
+                  Telegram: {% if user.telegram_username %}@{{ user.telegram_username }}{% else %}Sin usuario publico{% endif %}
+                </div>
               </td>
               <td>
                 <div class="row g-2">

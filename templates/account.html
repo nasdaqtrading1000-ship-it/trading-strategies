@@ -145,38 +145,23 @@
           {% endif %}
         {% endif %}
       </div>
-      {% if telegram_connect_url %}
-        <a class="btn btn-info fw-semibold mb-3" href="{{ telegram_connect_url }}" target="_blank" rel="noopener">
-          {% if user.telegram_user_id %}Reconectar Telegram{% else %}Conectar Telegram{% endif %}
-        </a>
-      {% else %}
-        <div class="alert alert-warning border-0">
-          Falta TELEGRAM_BOT_USERNAME en el entorno. Cuando lo pongamos, aqui aparecera el boton de conexion con el bot.
-        </div>
-      {% endif %}
-      <p class="text-secondary small mb-3">
-        El boton abre el bot con un codigo temporal. Si Telegram no envia el arranque automaticamente, copia el comando manual de abajo.
-      </p>
       {% if user.telegram_user_id %}
         <div class="alert alert-info border-0 mb-0">
           Telegram queda vinculado a tu cuenta. Por seguridad no se puede borrar el ID desde Mi cuenta.
         </div>
       {% else %}
-        {% if telegram_connect_command %}
-          <div class="alert alert-info border-0">
-            Si Telegram abre el bot pero no responde, copia este comando y pegalo en el chat del bot:
-            <code class="d-block mt-2">{{ telegram_connect_command }}</code>
+        {% if telegram_bot_username %}
+          <form method="post" action="{{ url_for('account_telegram_connect') }}" class="mb-3" target="_blank">
+            <button class="btn btn-info fw-semibold" type="submit">Conectar Telegram</button>
+          </form>
+        {% else %}
+          <div class="alert alert-warning border-0">
+            Falta TELEGRAM_BOT_USERNAME en el entorno. Cuando lo pongamos, aqui aparecera el boton de conexion con el bot.
           </div>
         {% endif %}
-        <form method="post" action="{{ url_for('account_telegram_update') }}" class="row g-2 align-items-end">
-          <div class="col-md-8">
-            <label class="form-label small" for="telegram_user_id">Telegram user ID manual</label>
-            <input class="form-control" id="telegram_user_id" name="telegram_user_id" value="" placeholder="Ej. 123456789">
-          </div>
-          <div class="col-md-4">
-            <button class="btn btn-outline-info fw-semibold w-100" type="submit">Guardar Telegram</button>
-          </div>
-        </form>
+        <p class="text-secondary small mb-3">
+          El boton abre el bot oficial de Code Markets. Si Telegram muestra Iniciar, pulsalo para terminar la conexion.
+        </p>
       {% endif %}
     </div>
 

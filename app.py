@@ -3726,6 +3726,26 @@ def create_app():
             return ""
         return f"/start cm_{token}"
 
+    def regenerate_telegram_connect_token(user):
+        if not user:
+            return ""
+        token = uuid4().hex
+        now = datetime.now(UTC).replace(tzinfo=None)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET telegram_connect_token = :token,
+                    telegram_connect_token_created_at = :now
+                WHERE id = :id
+                  AND COALESCE(telegram_user_id, '') = ''
+                """
+            ),
+            {"token": token, "now": now, "id": user["id"]},
+        )
+        g.db.commit()
+        return token
+
     def parse_telegram_start_token(text_value):
         value = str(text_value or "").strip()
         match = re.match(r"^/start(?:@\w+)?\s+cm_([A-Za-z0-9_-]{16,80})$", value)
@@ -5070,15 +5090,32 @@ def create_app():
         if not user:
             flash("Entra con tu cuenta para ver esta zona.", "warning")
             return redirect(url_for("user_login"))
-        telegram_connect_url = telegram_connect_url_for_user(user)
         return render_template(
             "account.html",
             user=current_user() or user,
             stripe_customer_id=user_stripe_customer_id(user),
             telegram_bot_username=telegram_bot_username(),
-            telegram_connect_url=telegram_connect_url,
-            telegram_connect_command=telegram_connect_command_for_user(user),
         )
+
+    @app.route("/mi-cuenta/telegram/conectar", methods=["POST"])
+    def account_telegram_connect():
+        user = current_user()
+        if not user:
+            flash("Entra con tu cuenta para conectar Telegram.", "warning")
+            return redirect(url_for("user_login"))
+        existing_telegram_user_id = str(user.get("telegram_user_id") or "").strip()
+        if existing_telegram_user_id:
+            flash("Telegram ya esta conectado.", "info")
+            return redirect(url_for("account"))
+        username = telegram_bot_username()
+        if not username:
+            flash("Falta TELEGRAM_BOT_USERNAME en el entorno.", "warning")
+            return redirect(url_for("account"))
+        token = regenerate_telegram_connect_token(user)
+        if not token:
+            flash("No se pudo generar el enlace de Telegram.", "danger")
+            return redirect(url_for("account"))
+        return redirect(f"https://t.me/{username}?start=cm_{token}")
 
     @app.route("/telegram/webhook", methods=["GET", "POST"])
     def telegram_webhook():

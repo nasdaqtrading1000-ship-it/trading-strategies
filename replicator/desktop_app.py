@@ -6,6 +6,7 @@ import argparse
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -18,6 +19,8 @@ LOCAL_URL = "http://127.0.0.1:5075/"
 HEALTH_URL = LOCAL_URL + "health"
 INSTALL_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Code Markets" / "Replicator"
 INSTALLED_EXE = INSTALL_DIR / "CodeMarketsReplicator.exe"
+PID_PATH = INSTALL_DIR / "replicator.pid"
+UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\CodeMarketsReplicator"
 
 
 def is_running() -> bool:
@@ -37,6 +40,54 @@ def register_protocol(executable: Path) -> None:
         winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base + r"\shell\open\command") as key:
         winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f'"{executable}" "%1"')
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as key:
+        winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, "Code Markets Replicator")
+        winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, "1.0.0")
+        winreg.SetValueEx(key, "Publisher", 0, winreg.REG_SZ, "Code Markets")
+        winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, str(INSTALL_DIR))
+        winreg.SetValueEx(key, "DisplayIcon", 0, winreg.REG_SZ, str(executable))
+        winreg.SetValueEx(key, "UninstallString", 0, winreg.REG_SZ, f'"{executable}" --uninstall')
+        winreg.SetValueEx(key, "NoModify", 0, winreg.REG_DWORD, 1)
+        winreg.SetValueEx(key, "NoRepair", 0, winreg.REG_DWORD, 1)
+
+
+def delete_registry_tree(path: str) -> None:
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_READ | winreg.KEY_WRITE) as key:
+            while True:
+                try:
+                    child = winreg.EnumKey(key, 0)
+                except OSError:
+                    break
+                delete_registry_tree(path + "\\" + child)
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, path)
+    except FileNotFoundError:
+        pass
+
+
+def uninstall() -> int:
+    import ctypes
+
+    answer = ctypes.windll.user32.MessageBoxW(
+        None,
+        "Se eliminaran Code Markets Replicator y sus datos locales. ¿Continuar?",
+        "Desinstalar Code Markets Replicator",
+        0x00000004 | 0x00000020,
+    )
+    if answer != 6:
+        return 0
+    if PID_PATH.exists():
+        try:
+            os.kill(int(PID_PATH.read_text(encoding="utf-8").strip()), signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
+    delete_registry_tree(r"Software\Classes\replicator")
+    delete_registry_tree(UNINSTALL_KEY)
+    cleanup = f'timeout /t 2 /nobreak >nul & rmdir /s /q "{INSTALL_DIR}"'
+    subprocess.Popen(["cmd.exe", "/d", "/c", cleanup], creationflags=subprocess.CREATE_NO_WINDOW)
+    return 0
 
 
 def install() -> None:
@@ -76,15 +127,22 @@ def serve() -> None:
     os.environ["REPLICATOR_DATA_DIR"] = str(INSTALL_DIR)
     from replicator_app import app, start_auto_worker
 
-    start_auto_worker()
-    app.run(host="127.0.0.1", port=5075, debug=False)
+    PID_PATH.write_text(str(os.getpid()), encoding="utf-8")
+    try:
+        start_auto_worker()
+        app.run(host="127.0.0.1", port=5075, debug=False)
+    finally:
+        PID_PATH.unlink(missing_ok=True)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("uri", nargs="?")
     parser.add_argument("--serve", action="store_true")
+    parser.add_argument("--uninstall", action="store_true")
     args = parser.parse_args()
+    if args.uninstall:
+        return uninstall()
     if args.serve:
         serve()
         return 0

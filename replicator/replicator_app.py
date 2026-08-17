@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
+import sys
 import threading
 import time
 import urllib.error
@@ -18,7 +20,13 @@ from flask import Flask, jsonify, redirect, render_template_string, request, url
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-APP_DIR = Path(__file__).resolve().parent
+if os.environ.get("REPLICATOR_DATA_DIR"):
+    APP_DIR = Path(os.environ["REPLICATOR_DATA_DIR"]).expanduser().resolve()
+elif getattr(sys, "frozen", False):
+    APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Code Markets" / "Replicator"
+else:
+    APP_DIR = Path(__file__).resolve().parent
+APP_DIR.mkdir(parents=True, exist_ok=True)
 MAIN_DB = BASE_DIR / "strategies.db"
 STATE_DB = APP_DIR / "replicator_state.db"
 CONFIG_PATH = APP_DIR / "config.json"
@@ -57,6 +65,20 @@ CAPITAL_PROFILE_LABELS = {
 app = Flask(__name__)
 SCAN_LOCK = threading.Lock()
 AUTO_THREAD_STARTED = False
+
+
+@app.after_request
+def allow_local_health_check(response):
+    """Allow the publication page to check this local-only service."""
+    if request.path == "/health":
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.route("/health")
+def health():
+    return jsonify({"ok": True, "service": "code-markets-replicator"})
 
 
 @dataclass

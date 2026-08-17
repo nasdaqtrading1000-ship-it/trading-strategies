@@ -5502,7 +5502,15 @@ def create_app():
         if not member_has_replicator_access(user):
             flash("Code Markets Replicator requiere cuenta Premium activa.", "warning")
             return redirect(url_for("payment_page", product="code_markets_premium", plan="monthly"))
-        return redirect(replicator_local_url())
+        return render_template(
+            "replicator.html",
+            user=user,
+            replicator_local_url=replicator_local_url(),
+            replicator_installer_url=os.environ.get(
+                "REPLICATOR_INSTALLER_URL",
+                url_for("static", filename="downloads/CodeMarketsReplicatorSetup.exe"),
+            ).strip(),
+        )
 
     @app.route("/mobile")
     def mobile_index():

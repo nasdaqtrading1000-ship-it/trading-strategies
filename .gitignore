@@ -23,6 +23,11 @@ trading_strategies.db
 replicator/config.json
 replicator/replicator_state.db
 replicator/*.log
+static/downloads/*.exe
+replicator/build/
+replicator/dist/
+replicator/*.spec
+/work/
 instance/
 .pytest_cache/
 local_panel_data/

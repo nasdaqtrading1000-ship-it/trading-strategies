@@ -5923,7 +5923,7 @@ self.addEventListener("fetch", () => {});
             latest=latest,
             first=first,
             points_count=len(points),
-            latest_curve_price_date=latest_historical_price_date(),
+            latest_curve_price_date=latest_reliable_curve_price_date(points),
             has_curve_access=has_curve_access,
         ))
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -9301,7 +9301,7 @@ self.addEventListener("fetch", () => {});
             return False
         if any("T" in str(point.get("date") or "") for point in points):
             return True
-        latest_price_date = latest_historical_price_date()
+        latest_price_date = latest_reliable_curve_price_date(points)
         if not latest_price_date:
             return False
         first_date = parse_equity_curve_date_value(points[0].get("date"))
@@ -9312,6 +9312,23 @@ self.addEventListener("fetch", () => {});
         if first_date > latest_price_date and last_date >= today:
             return False
         return True
+
+    def latest_reliable_curve_price_date(points):
+        local_price_date = latest_historical_price_date()
+        if local_price_date:
+            return local_price_date
+        # Render receives rebuilt curves through PostgreSQL but intentionally has
+        # no private historical-price directory. The builder only persists dates
+        # backed by prices (plus today), so the latest prior curve day is the
+        # reliable cutoff for summaries and chart hover values on the web.
+        today = datetime.now(MADRID_TZ).date()
+        curve_dates = [
+            parsed
+            for point in points or []
+            for parsed in [parse_equity_curve_date_value(point.get("date"))]
+            if parsed and parsed < today
+        ]
+        return max(curve_dates) if curve_dates else None
 
     @lru_cache(maxsize=1)
     def latest_historical_price_date():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from email.utils import parsedate_to_datetime
 import json
 import os
 import sqlite3
@@ -478,14 +479,31 @@ def connect_web_account(config: dict[str, Any], email: str, password: str) -> di
 
 def operation_actions(operation: dict[str, Any]) -> list[str]:
     actions: list[str] = []
-    start, end = today_window()
-    opened_at = str(operation.get("opened_at") or "")
-    closed_at = str(operation.get("closed_at") or "")
-    if start <= opened_at < end:
+    opened_at = operation_datetime_in_madrid(operation.get("opened_at"))
+    closed_at = operation_datetime_in_madrid(operation.get("closed_at"))
+    today = datetime.now(MADRID_TZ).date()
+    if opened_at and opened_at.date() == today:
         actions.append("OPEN")
-    if str(operation.get("status") or "").upper() == "CLOSED" and start <= closed_at < end:
+    if str(operation.get("status") or "").upper() == "CLOSED" and closed_at and closed_at.date() == today:
         actions.append("CLOSE")
     return actions
+
+
+def operation_datetime_in_madrid(value: Any) -> datetime | None:
+    text_value = str(value or "").strip()
+    if not text_value:
+        return None
+    parsed: datetime | None = None
+    try:
+        parsed = datetime.fromisoformat(text_value.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            parsed = parsedate_to_datetime(text_value)
+        except (TypeError, ValueError):
+            return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=MADRID_TZ)
+    return parsed.astimezone(MADRID_TZ)
 
 
 def broker_side_for(direction: str, action: str) -> str:

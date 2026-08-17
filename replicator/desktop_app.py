@@ -94,9 +94,43 @@ def install() -> None:
     INSTALL_DIR.mkdir(parents=True, exist_ok=True)
     source = Path(sys.executable).resolve()
     if source != INSTALLED_EXE.resolve():
-        shutil.copy2(source, INSTALLED_EXE)
+        stop_installed_service()
+        last_error: OSError | None = None
+        for _attempt in range(20):
+            try:
+                shutil.copy2(source, INSTALLED_EXE)
+                last_error = None
+                break
+            except PermissionError as error:
+                last_error = error
+                time.sleep(0.25)
+        if last_error is not None:
+            raise last_error
     register_protocol(INSTALLED_EXE)
     subprocess.Popen([str(INSTALLED_EXE), "replicator://open"], cwd=INSTALL_DIR)
+
+
+def stop_installed_service() -> None:
+    if not PID_PATH.exists():
+        return
+    try:
+        process_id = int(PID_PATH.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return
+    subprocess.run(
+        ["taskkill.exe", "/PID", str(process_id), "/T", "/F"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        check=False,
+    )
+    for _attempt in range(20):
+        try:
+            os.kill(process_id, 0)
+        except OSError:
+            break
+        time.sleep(0.1)
 
 
 def start_service() -> None:

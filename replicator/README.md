@@ -12,7 +12,18 @@ Primera version:
 - Modo `alpaca_paper`: envia ordenes market a Alpaca paper.
 - Guarda lo ya replicado en `replicator_state.db` para no repetir.
 
-Arranque:
+Instalacion del launcher local (solo una vez):
+
+```text
+instalar_launcher.bat
+```
+
+Despues, el boton `Abrir Replicator` de la web usa `replicator://open`. El launcher
+comprueba el servicio local, lo inicia en segundo plano si hace falta, espera a que
+responda y abre la interfaz. El registro es por usuario y no requiere permisos de
+administrador.
+
+Arranque manual alternativo:
 
 ```powershell
 cd C:\Users\Equ_Cli\Documents\Codex\proyectos\trading-strategies-flask-publicacion\replicator

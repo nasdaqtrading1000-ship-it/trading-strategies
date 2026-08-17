@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Code Markets Replicator{% endblock %}
+
+{% block content %}
+<section class="container py-4">
+  <div class="strategy-card">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+      <div>
+        <p class="eyebrow mb-1">Code Markets Replicator</p>
+        <h1 class="h4 fw-bold mb-1">Panel Replicator</h1>
+        <p class="text-secondary mb-0">
+          Replica operaciones de las estrategias seleccionadas en Alpaca Paper desde la app local.
+        </p>
+      </div>
+      <a class="btn btn-outline-info fw-semibold" href="{{ url_for('account') }}">Mi cuenta</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="border border-info-subtle rounded-2 p-3 h-100">
+          <span class="text-secondary small d-block mb-1">Plan</span>
+          <strong class="text-success">Premium activo</strong>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="border border-info-subtle rounded-2 p-3 h-100">
+          <span class="text-secondary small d-block mb-1">Broker</span>
+          <strong>Alpaca Paper</strong>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="border border-info-subtle rounded-2 p-3 h-100">
+          <span class="text-secondary small d-block mb-1">App local</span>
+          <strong>{{ replicator_local_url }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap mb-4">
+      <a id="replicator-launch-button" class="btn btn-success fw-semibold" href="replicator://open"
+         data-installer-url="{{ replicator_installer_url }}">
+        Abrir Replicator
+      </a>
+      <a class="btn btn-outline-light fw-semibold" href="{{ url_for('index') }}">
+        Volver a estrategias
+      </a>
+    </div>
+
+    <div class="border border-secondary-subtle rounded-2 p-3">
+      <p class="text-secondary small mb-2">Estado operativo</p>
+      <ul class="mb-0 small">
+        <li>El launcher comprueba si la app esta activa; si no, la arranca y espera antes de abrirla.</li>
+        <li>Code Markets valida tu cuenta Premium antes de dar acceso al replicador.</li>
+        <li>Si el navegador no reconoce <code>replicator://</code>, instala una vez el launcher local.</li>
+        <li>La misma integracion servira para la futura aplicacion instalable.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const button = document.getElementById("replicator-launch-button");
+    if (!button) return;
+    button.addEventListener("click", (event) => {
+      if (localStorage.getItem("codeMarketsReplicatorInstalled") === "1") return;
+      event.preventDefault();
+      localStorage.setItem("codeMarketsReplicatorInstalled", "1");
+      window.location.href = button.dataset.installerUrl;
+    });
+  })();
+</script>
+{% endblock %}

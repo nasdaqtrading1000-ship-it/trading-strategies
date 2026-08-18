@@ -1300,6 +1300,7 @@ PAGE = """
         no tienes que copiar tokens de clientes. Estado: {% if config.web_access_token %}<span class="ok">cuenta conectada</span>{% else %}cuenta sin conectar{% endif %}.
       </p>
       <p class="muted">Auto ON funciona 24/7 mientras este proceso local siga abierto. Fuera de mercado escanea sin replicar.</p>
+      <p class="muted">La pantalla se actualiza automaticamente cada 30 minutos. Si estas editando la configuracion, el refresco se pospone para no perder cambios.</p>
       {% if config.last_connect_error %}
         <div class="warn">Ultimo error de conexion web: {{ config.last_connect_error }}</div>
       {% endif %}
@@ -1425,6 +1426,15 @@ PAGE = """
     document.getElementById("toggle-auto").addEventListener("click", () => {
       toggleAuto();
     });
+    const settingsForm = document.querySelector('form[action="{{ url_for("settings") }}"]');
+    let settingsDirty = false;
+    settingsForm?.addEventListener("input", () => { settingsDirty = true; });
+    settingsForm?.addEventListener("submit", () => { settingsDirty = false; });
+    window.setInterval(() => {
+      if (!settingsDirty && document.visibilityState === "visible") {
+        window.location.reload();
+      }
+    }, 1800 * 1000);
     paintAuto(auto);
   </script>
 </body>

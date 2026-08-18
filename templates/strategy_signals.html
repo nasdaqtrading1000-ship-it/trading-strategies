@@ -9,7 +9,7 @@
       <div>
         <p class="eyebrow mb-2">Avisos actuales</p>
         <h1 class="h2 mb-2">{{ strategy.name }}</h1>
-        <p class="text-secondary mb-0">{{ signals|length }} avisos activos &middot; Riesgo {{ strategy.risk_level }}</p>
+        <p class="text-secondary mb-0">{{ signals|length }} avisos actuales &middot; Riesgo {{ strategy.risk_level }}</p>
       </div>
       <div class="d-flex gap-2 align-items-start">
         <a class="btn btn-outline-info" href="{{ url_for('strategy_equity_curve', strategy_id=strategy.id) }}" target="_blank" rel="noopener">Grafica</a>
@@ -48,6 +48,7 @@
                     <span class="signal-row-main">
                       <span class="signal-symbol-cell">
                         <span class="signal-symbol">{{ group.display_symbol or group.symbol }}</span>
+                        <span class="badge {{ signal.action_badge_class or 'text-bg-warning' }}">{{ signal.action_label or "PENDIENTE" }}</span>
                         {% if grouped_mode %}
                           <span class="signal-count-chip">{{ group.group_count_label }}</span>
                         {% endif %}
@@ -103,6 +104,7 @@
               <div>
                 <p class="eyebrow mb-2">Diagnostico de aviso</p>
                 <h2 class="h3 mb-2">{{ selected_group.display_symbol if selected_group else selected_signal.display_symbol or selected_signal.symbol }}</h2>
+                <span class="badge {{ selected_signal.action_badge_class or 'text-bg-warning' }}">{{ selected_signal.action_label or "PENDIENTE" }}</span>
                 <p class="text-secondary mb-0">{{ strategy.name }} &middot; Fecha datos {{ selected_signal.notice_datetime }}</p>
               </div>
               {% if selected_group and selected_group.direction %}

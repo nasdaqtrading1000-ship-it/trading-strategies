@@ -7827,6 +7827,9 @@ self.addEventListener("fetch", () => {});
             operation = signal.get("open_operation") or operations_by_signal.get(signal_lookup_key)
             if operation:
                 signal["open_operation"] = operation
+                operation_status = str(operation.get("status") or "").upper()
+                signal["action_label"] = "CLOSE" if operation_status == "CLOSED" else "OPEN"
+                signal["action_badge_class"] = "text-bg-danger" if operation_status == "CLOSED" else "text-bg-success"
                 signal["operation_summary"] = {
                     "status_label": operation["status_label"],
                     "profit_pct_display": operation["profit_pct_display"],
@@ -7834,6 +7837,8 @@ self.addEventListener("fetch", () => {});
                 }
                 signal["is_new"] = signal.get("is_today_signal", False)
             else:
+                signal["action_label"] = "PENDIENTE"
+                signal["action_badge_class"] = "text-bg-warning"
                 signal["operation_summary"] = {
                     "status_label": "Pendiente",
                     "profit_pct_display": "Pendiente",
@@ -8732,11 +8737,14 @@ self.addEventListener("fetch", () => {});
                            profit_pct, close_reason, updated_at
                     FROM simulated_operations
                     WHERE txt_name = :txt_name
-                      AND status = 'OPEN'
-                    ORDER BY signal_date DESC, opened_at DESC, symbol ASC
+                      AND (
+                        status = 'OPEN'
+                        OR (status = 'CLOSED' AND DATE(closed_at) = :today)
+                      )
+                    ORDER BY COALESCE(closed_at, opened_at) DESC, signal_date DESC, symbol ASC
                     """
                 ),
-                {"txt_name": txt_name},
+                {"txt_name": txt_name, "today": datetime.now(MADRID_TZ).date().isoformat()},
             ).mappings().fetchall()
             return [dict(row) for row in rows]
         except Exception:

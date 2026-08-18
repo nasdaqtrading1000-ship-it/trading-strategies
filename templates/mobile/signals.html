@@ -17,6 +17,7 @@
         <div class="mobile-signal-head">
           <div>
             <strong>{{ group.symbol }}</strong>
+            <span>{{ group.first_signal.action_label or "PENDIENTE" }}</span>
             <span>{{ group.direction or group.latest_signal.direction or group.latest_signal.side or "-" }}</span>
             {% if group.count > 1 %}
               <span>{{ group.count }} operaciones</span>
@@ -38,6 +39,7 @@
         <div class="mobile-signal-head">
           <div>
             <strong>{{ signal.symbol }}</strong>
+            <span>{{ signal.action_label or "PENDIENTE" }}</span>
             <span>{{ signal.direction or "-" }}</span>
           </div>
           <span>{{ signal.signal_date_display or signal.created_display or "Sin fecha" }}</span>

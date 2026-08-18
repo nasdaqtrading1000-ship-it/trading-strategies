@@ -5523,7 +5523,8 @@ def create_app():
             replicator_local_url=replicator_local_url(),
             replicator_installer_url=os.environ.get(
                 "REPLICATOR_INSTALLER_URL",
-                url_for("static", filename="downloads/CodeMarketsReplicatorSetup.exe"),
+                "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"
+                "releases/latest/download/CodeMarketsReplicatorSetup.exe",
             ).strip(),
         )
 

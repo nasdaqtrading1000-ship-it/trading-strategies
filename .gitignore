@@ -26,6 +26,7 @@ replicator/*.log
 static/downloads/*.exe
 replicator/build/
 replicator/dist/
+replicator/work/
 replicator/*.spec
 /work/
 instance/

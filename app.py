@@ -3450,9 +3450,9 @@ def create_app():
         rows = g.db.execute(
             text(
                 """
-                SELECT id, name, signals_txt_name, COALESCE(web_visible, is_active, 1) AS visible
+                SELECT id, name, signals_txt_name, replicator_available AS visible
                 FROM strategies
-                WHERE COALESCE(web_visible, is_active, 1) = 1
+                WHERE COALESCE(replicator_available, 0) = 1
                   AND COALESCE(signals_txt_name, '') <> ''
                 ORDER BY name
                 """
@@ -3469,6 +3469,21 @@ def create_app():
             for value in payload.get("selected_txt_names", [])
             if str(value).strip()
         ][:50]
+        if not selected:
+            return jsonify({"ok": True, "operations": [], "selected_count": 0})
+        allowed_rows = g.db.execute(
+            text(
+                """
+                SELECT signals_txt_name
+                FROM strategies
+                WHERE COALESCE(replicator_available, 0) = 1
+                  AND signals_txt_name IN :selected
+                """
+            ).bindparams(bindparam("selected", expanding=True)),
+            {"selected": selected},
+        ).mappings().fetchall()
+        allowed = {str(row["signals_txt_name"]) for row in allowed_rows}
+        selected = [txt_name for txt_name in selected if txt_name in allowed]
         if not selected:
             return jsonify({"ok": True, "operations": [], "selected_count": 0})
         start, end = madrid_day_window(payload.get("days", 1))
@@ -5593,6 +5608,32 @@ def create_app():
             page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
         )
 
+    @app.route("/mobile/replicator")
+    def mobile_replicator():
+        user = current_user()
+        if user is None:
+            flash("Inicia sesion para acceder al mando de Replicator.", "warning")
+            return redirect(url_for("user_login"))
+        if not member_has_replicator_access(user):
+            flash("Code Markets Replicator requiere cuenta Premium activa.", "warning")
+            return redirect(url_for("payment_page", product="code_markets_premium", plan="monthly"))
+        rows = g.db.execute(
+            text(
+                """
+                SELECT id, name, signals_txt_name, risk_level, signal_frequency
+                FROM strategies
+                WHERE COALESCE(replicator_available, 0) = 1
+                  AND COALESCE(signals_txt_name, '') <> ''
+                ORDER BY name
+                """
+            )
+        ).mappings().fetchall()
+        return render_template(
+            "mobile/replicator.html",
+            replicator_strategies=[dict(row) for row in rows],
+            page_refreshed_at=datetime.now(MADRID_TZ).strftime("%H:%M:%S %d/%m/%y"),
+        )
+
     @app.route("/mobile/mensajes")
     def mobile_messages():
         user = current_user()
@@ -5646,14 +5687,23 @@ def create_app():
     def mobile_manifest():
         return jsonify(
             {
-                "name": "Code Markets",
-                "short_name": "Code Markets",
-                "start_url": url_for("mobile_index"),
+                "name": "Code Markets Control",
+                "short_name": "CM Control",
+                "id": url_for("mobile_replicator"),
+                "start_url": url_for("mobile_replicator"),
                 "scope": "/mobile",
                 "display": "standalone",
                 "background_color": "#012456",
                 "theme_color": "#012456",
-                "description": "Vista movil de modelos de mercado y avisos automaticos.",
+                "description": "Mando movil de Code Markets. No ejecuta ordenes en el dispositivo.",
+                "icons": [
+                    {
+                        "src": url_for("static", filename="favicon.svg"),
+                        "sizes": "any",
+                        "type": "image/svg+xml",
+                        "purpose": "any maskable",
+                    }
+                ],
             }
         )
 
@@ -6692,6 +6742,7 @@ self.addEventListener("fetch", () => {});
         include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
         public_visible = 1 if request.form.get("public_visible") == "on" else 0
         web_visible = 1 if request.form.get("web_visible") == "on" else 0
+        replicator_available = 1 if request.form.get("replicator_available") == "on" else 0
         run_locally = 1 if request.form.get("run_locally") == "on" else 0
 
         errors = []
@@ -6729,6 +6780,7 @@ self.addEventListener("fetch", () => {});
                     include_in_totalizer = :include_in_totalizer,
                     public_visible = :public_visible,
                     web_visible = :web_visible,
+                    replicator_available = :replicator_available,
                     run_locally = :run_locally
                 WHERE id = :id
                 """
@@ -6746,6 +6798,7 @@ self.addEventListener("fetch", () => {});
                 "include_in_totalizer": include_in_totalizer,
                 "public_visible": public_visible,
                 "web_visible": web_visible,
+                "replicator_available": replicator_available,
                 "run_locally": run_locally,
                 "id": strategy_id,
             },
@@ -6812,6 +6865,7 @@ self.addEventListener("fetch", () => {});
                         include_in_totalizer = :include_in_totalizer,
                         public_visible = :public_visible,
                         web_visible = :web_visible,
+                        replicator_available = :replicator_available,
                         run_locally = :run_locally
                     WHERE id = :id
                     """
@@ -6837,6 +6891,7 @@ self.addEventListener("fetch", () => {});
             "include_in_totalizer": 1 if request.form.get(prefix + "include_in_totalizer") == "on" else 0,
             "public_visible": 1 if request.form.get(prefix + "public_visible") == "on" else 0,
             "web_visible": 1 if request.form.get(prefix + "web_visible") == "on" else 0,
+            "replicator_available": 1 if request.form.get(prefix + "replicator_available") == "on" else 0,
             "run_locally": 1 if request.form.get(prefix + "run_locally") == "on" else 0,
         }
 
@@ -6978,6 +7033,7 @@ self.addEventListener("fetch", () => {});
         include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
         public_visible = 1 if request.form.get("public_visible") == "on" else 0
         web_visible = 1 if request.form.get("web_visible") == "on" else 0
+        replicator_available = 1 if request.form.get("replicator_available") == "on" else 0
         is_active = 1 if request.form.get("is_active") == "on" else 0
 
         errors = []
@@ -7021,6 +7077,7 @@ self.addEventListener("fetch", () => {});
             "include_in_totalizer": include_in_totalizer,
             "public_visible": public_visible,
             "web_visible": web_visible,
+            "replicator_available": replicator_available,
             "is_active": is_active,
         }
 
@@ -7058,6 +7115,7 @@ self.addEventListener("fetch", () => {});
                     include_in_totalizer = :include_in_totalizer,
                     public_visible = :public_visible,
                     web_visible = :web_visible,
+                    replicator_available = :replicator_available,
                     is_active = :is_active
                 WHERE id = :id
                 """,
@@ -7080,6 +7138,7 @@ self.addEventListener("fetch", () => {});
                     "include_in_totalizer": include_in_totalizer,
                     "public_visible": public_visible,
                     "web_visible": web_visible,
+                    "replicator_available": replicator_available,
                     "is_active": is_active,
                     "id": strategy_id,
                 },
@@ -7093,11 +7152,11 @@ self.addEventListener("fetch", () => {});
                 (name, description, risk_level, signal_frequency,
                  historical_return, telegram_url, telegram_chat_id, has_telegram, signals_txt_name,
                  python_file, auto_execute, schedule_start_time, schedule_end_time,
-                 schedule_interval_minutes, include_in_totalizer, public_visible, web_visible, is_active)
+                 schedule_interval_minutes, include_in_totalizer, public_visible, web_visible, replicator_available, is_active)
                 VALUES (:name, :description, :risk_level, :signal_frequency,
                         :historical_return, :telegram_url, :telegram_chat_id, :has_telegram, :signals_txt_name,
                         :python_file, :auto_execute, :schedule_start_time, :schedule_end_time,
-                        :schedule_interval_minutes, :include_in_totalizer, :public_visible, :web_visible, :is_active)
+                        :schedule_interval_minutes, :include_in_totalizer, :public_visible, :web_visible, :replicator_available, :is_active)
                 """,
                 ),
                 {
@@ -7118,6 +7177,7 @@ self.addEventListener("fetch", () => {});
                     "include_in_totalizer": include_in_totalizer,
                     "public_visible": public_visible,
                     "web_visible": web_visible,
+                    "replicator_available": replicator_available,
                     "is_active": is_active,
                 },
             )
@@ -10052,6 +10112,7 @@ def init_db():
                     include_in_totalizer INTEGER NOT NULL DEFAULT 0,
                     public_visible INTEGER NOT NULL DEFAULT 0,
                     web_visible INTEGER NOT NULL DEFAULT 1,
+                    replicator_available INTEGER NOT NULL DEFAULT 0,
                     run_locally INTEGER NOT NULL DEFAULT 1,
                     closed_operations_count INTEGER NOT NULL DEFAULT 0,
                     daily_operations_count INTEGER NOT NULL DEFAULT 0,
@@ -10127,6 +10188,10 @@ def init_db():
         add_strategy_column(connection, "web_visible", "INTEGER NOT NULL DEFAULT 1")
         if not web_visible_existed:
             connection.execute(text("UPDATE strategies SET web_visible = COALESCE(is_active, 1)"))
+        replicator_available_existed = strategy_column_exists(connection, "replicator_available")
+        add_strategy_column(connection, "replicator_available", "INTEGER NOT NULL DEFAULT 0")
+        if not replicator_available_existed:
+            connection.execute(text("UPDATE strategies SET replicator_available = COALESCE(web_visible, is_active, 1)"))
         add_strategy_column(connection, "run_locally", "INTEGER NOT NULL DEFAULT 1")
         add_strategy_column(connection, "closed_operations_count", "INTEGER NOT NULL DEFAULT 0")
         add_strategy_column(connection, "daily_operations_count", "INTEGER NOT NULL DEFAULT 0")

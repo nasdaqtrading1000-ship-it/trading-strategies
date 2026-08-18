@@ -1,0 +1,70 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}Mando Replicator | Code Markets{% endblock %}
+
+{% block content %}
+<section class="mobile-hero">
+  <p class="mobile-eyebrow">mando movil</p>
+  <h1>Code Markets Replicator</h1>
+  <p>Consulta la configuracion disponible desde el movil.</p>
+  <div class="mobile-refresh">Actualizado {{ page_refreshed_at }}</div>
+</section>
+
+<section class="mobile-panel replicator-safety-notice" role="status">
+  <strong>Esta app no ejecuta ordenes</strong>
+  <p>La aplicacion movil es solo un mando de consulta y control. No contiene el motor de trading y no envia operaciones desde este dispositivo.</p>
+</section>
+
+<section class="mobile-metrics">
+  <div>
+    <span>Motor</span>
+    <strong>PC local</strong>
+  </div>
+  <div>
+    <span>Movil</span>
+    <strong>Solo mando</strong>
+  </div>
+  <div>
+    <span>Estrategias</span>
+    <strong>{{ replicator_strategies|length }}</strong>
+  </div>
+</section>
+
+<section class="mobile-panel">
+  <div class="mobile-section-head">
+    <div>
+      <p class="mobile-eyebrow">estado actual</p>
+      <h2>Motor no enlazado</h2>
+    </div>
+  </div>
+  <p>Hasta que incorporemos el servidor central, el motor se ejecuta exclusivamente en Replicator para Windows. Cerrar esta app movil no afecta al motor del PC.</p>
+  <div class="replicator-disabled-controls" aria-disabled="true">
+    <button type="button" disabled>Auto no disponible desde movil</button>
+    <small>Este control se habilitara cuando exista el servidor seguro.</small>
+  </div>
+</section>
+
+<section class="mobile-panel">
+  <div class="mobile-section-head">
+    <div>
+      <p class="mobile-eyebrow">admin</p>
+      <h2>Disponibles para replicar</h2>
+    </div>
+  </div>
+  {% if replicator_strategies %}
+    <div class="replicator-mobile-list">
+      {% for strategy in replicator_strategies %}
+        <article>
+          <div>
+            <strong>{{ strategy.name }}</strong>
+            <span>{{ strategy.signals_txt_name }}</span>
+          </div>
+          <em>{{ strategy.risk_level }}</em>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="mobile-empty">Admin no ha habilitado estrategias para Replicator.</p>
+  {% endif %}
+</section>
+{% endblock %}

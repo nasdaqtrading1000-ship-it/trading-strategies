@@ -107,7 +107,17 @@ def install() -> None:
         if last_error is not None:
             raise last_error
     register_protocol(INSTALLED_EXE)
-    subprocess.Popen([str(INSTALLED_EXE), "replicator://open"], cwd=INSTALL_DIR)
+    subprocess.Popen(
+        [str(INSTALLED_EXE), "replicator://open"],
+        cwd=INSTALL_DIR,
+        env=clean_frozen_environment(),
+    )
+
+
+def clean_frozen_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return environment
 
 
 def stop_installed_service() -> None:
@@ -128,7 +138,7 @@ def stop_installed_service() -> None:
     for _attempt in range(20):
         try:
             os.kill(process_id, 0)
-        except OSError:
+        except (OSError, SystemError):
             break
         time.sleep(0.1)
 
@@ -138,11 +148,40 @@ def start_service() -> None:
     subprocess.Popen(
         [str(INSTALLED_EXE), "--serve"],
         cwd=INSTALL_DIR,
+        env=clean_frozen_environment(),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         creationflags=flags,
     )
+
+
+def desktop_browser() -> Path | None:
+    candidates = [
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+        Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
+    ]
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
+def open_desktop_window() -> None:
+    edge = desktop_browser()
+    if edge:
+        subprocess.Popen(
+            [
+                str(edge),
+                f"--app={LOCAL_URL}",
+                "--new-window",
+                "--window-size=1280,900",
+                "--disable-features=msEdgeSidebarV2",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return
+    webbrowser.open(LOCAL_URL)
 
 
 def open_replicator() -> int:
@@ -153,7 +192,7 @@ def open_replicator() -> int:
             time.sleep(0.25)
     if not is_running():
         return 1
-    webbrowser.open(LOCAL_URL)
+    open_desktop_window()
     return 0
 
 

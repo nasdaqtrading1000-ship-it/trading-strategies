@@ -88,6 +88,13 @@
       </div>
       <div class="col-12">
         <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="replicator_available" name="replicator_available" {% if strategy and strategy.replicator_available %}checked{% endif %}>
+          <label class="form-check-label" for="replicator_available">Disponible en Replicator</label>
+        </div>
+        <div class="form-text">Control independiente: decide si los usuarios pueden seleccionar esta estrategia en Replicator.</div>
+      </div>
+      <div class="col-12">
+        <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" role="switch" id="include_in_totalizer" name="include_in_totalizer" {% if strategy and strategy.include_in_totalizer %}checked{% endif %}>
           <label class="form-check-label" for="include_in_totalizer">Incluir estrategia en totalizador</label>
         </div>

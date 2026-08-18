@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from config_env import load_local_env
@@ -470,52 +470,50 @@ def sync_file(path):
     if not lines:
         return 0, 0
 
-    inserted = 0
     lines_by_date = {}
     for line in lines:
         signal_date = signal_date_from_line(line)
         if signal_date:
             lines_by_date.setdefault(signal_date, set()).add(line)
 
-    with engine.begin() as connection:
-        for signal_date, current_lines in lines_by_date.items():
-            existing_rows = connection.execute(
-                text(
-                    """
-                    SELECT id, line
-                    FROM strategy_signals
-                    WHERE txt_name = :txt_name
-                      AND signal_date = :signal_date
-                    """
-                ),
-                {"txt_name": path.name, "signal_date": signal_date},
-            ).mappings().fetchall()
-            for row in existing_rows:
-                if row["line"] not in current_lines:
-                    connection.execute(
-                        text("DELETE FROM strategy_signals WHERE id = :id"),
-                        {"id": row["id"]},
-                    )
+    if not lines_by_date:
+        return len(lines), 0
 
-        for line in lines:
-            signal_date = signal_date_from_line(line)
-            if not signal_date:
-                continue
-            exists = connection.execute(
-                text(
-                    """
-                    SELECT 1
-                    FROM strategy_signals
-                    WHERE txt_name = :txt_name
-                      AND signal_date = :signal_date
-                      AND line = :line
-                    LIMIT 1
-                    """
+    current_keys = {
+        (signal_date, line)
+        for signal_date, current_lines in lines_by_date.items()
+        for line in current_lines
+    }
+    with engine.begin() as connection:
+        existing_rows = connection.execute(
+            text(
+                """
+                SELECT id, signal_date, line
+                FROM strategy_signals
+                WHERE txt_name = :txt_name
+                  AND signal_date IN :signal_dates
+                """
+            ).bindparams(bindparam("signal_dates", expanding=True)),
+            {"txt_name": path.name, "signal_dates": sorted(lines_by_date)},
+        ).mappings().fetchall()
+        existing_keys = set()
+        delete_ids = []
+        for row in existing_rows:
+            key = (str(row["signal_date"]), row["line"])
+            if key not in current_keys or key in existing_keys:
+                delete_ids.append(row["id"])
+            else:
+                existing_keys.add(key)
+        if delete_ids:
+            connection.execute(
+                text("DELETE FROM strategy_signals WHERE id IN :ids").bindparams(
+                    bindparam("ids", expanding=True)
                 ),
-                {"txt_name": path.name, "signal_date": signal_date, "line": line},
-            ).fetchone()
-            if exists:
-                continue
+                {"ids": delete_ids},
+            )
+        new_keys = sorted(current_keys - existing_keys)
+        if new_keys:
+            created_at = datetime.now(UTC).replace(tzinfo=None)
             connection.execute(
                 text(
                     """
@@ -523,15 +521,17 @@ def sync_file(path):
                     VALUES (:txt_name, :signal_date, :line, :created_at)
                     """
                 ),
-                {
+                [
+                    {
                     "txt_name": path.name,
                     "signal_date": signal_date,
                     "line": line,
-                    "created_at": datetime.now(UTC).replace(tzinfo=None),
-                },
+                        "created_at": created_at,
+                    }
+                    for signal_date, line in new_keys
+                ],
             )
-            inserted += 1
-    return len(lines), inserted
+    return len(lines), len(new_keys)
 
 
 def sync_strategy_status():

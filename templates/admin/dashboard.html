@@ -351,9 +351,11 @@
                     <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="web_visible_{{ strategy.id }}" name="web_visible" {% if strategy_web_visible %}checked{% endif %}>
                     <label class="form-check-label small" for="web_visible_{{ strategy.id }}">Visible web</label>
                   </div>
+                  {# La ejecucion local se selecciona exclusivamente desde Panel config. #}
+                  <input form="strategy-row-form-{{ strategy.id }}" type="hidden" name="run_locally" value="{% if strategy.run_locally %}on{% endif %}">
                   <div class="form-check form-switch">
-                    <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="run_locally_{{ strategy.id }}" name="run_locally" {% if strategy.run_locally %}checked{% endif %}>
-                    <label class="form-check-label small" for="run_locally_{{ strategy.id }}">Corre local</label>
+                    <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="replicator_available_{{ strategy.id }}" name="replicator_available" {% if strategy.replicator_available %}checked{% endif %}>
+                    <label class="form-check-label small" for="replicator_available_{{ strategy.id }}">Disponible Replicator</label>
                   </div>
                   <div class="form-check form-switch">
                     <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="include_in_totalizer_{{ strategy.id }}" name="include_in_totalizer" {% if strategy.include_in_totalizer %}checked{% endif %}>

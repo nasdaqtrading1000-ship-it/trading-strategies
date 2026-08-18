@@ -44,6 +44,7 @@ DEFAULT_CONFIG = {
     "capital_profile": "normal",
     "capital_per_operation": 1000.0,
     "mode": "paper",
+    "order_generation": "initial",
     "last_connect_error": "",
     "poll_seconds": 60,
     "selected_txt_names": [],
@@ -65,6 +66,7 @@ CAPITAL_PROFILE_LABELS = {
 
 app = Flask(__name__)
 SCAN_LOCK = threading.Lock()
+AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 
 
@@ -110,10 +112,11 @@ class PaperBroker:
 
 
 class AlpacaPaperBroker:
-    def __init__(self, api_key: str, secret_key: str, base_url: str) -> None:
+    def __init__(self, api_key: str, secret_key: str, base_url: str, order_generation: str = "") -> None:
         self.api_key = api_key.strip()
         self.secret_key = secret_key.strip()
         self.base_url = base_url.strip().rstrip("/") or "https://paper-api.alpaca.markets"
+        self.order_generation = order_generation.strip()
         if not self.api_key or not self.secret_key:
             raise ValueError("Faltan claves de Alpaca paper.")
 
@@ -132,7 +135,7 @@ class AlpacaPaperBroker:
             raise ValueError("Operacion sin simbolo.")
         if qty <= 0:
             raise ValueError(f"No se pudo calcular cantidad para {symbol}.")
-        client_order_id = alpaca_client_order_id(replication_id(operation, action))
+        client_order_id = alpaca_client_order_id(replication_id(operation, action), self.order_generation)
         payload = {
             "symbol": symbol,
             "qty": format_qty(qty),
@@ -251,6 +254,7 @@ def set_auto_enabled(enabled: bool) -> dict[str, Any]:
     config = load_config()
     config["auto_enabled"] = bool(enabled)
     save_config(config)
+    AUTO_WAKE_EVENT.set()
     return config
 
 
@@ -518,8 +522,9 @@ def alpaca_side_for(direction: str, action: str) -> str:
     return "buy" if direction == "LONG" else "sell"
 
 
-def alpaca_client_order_id(rep_id: str) -> str:
-    safe = "".join(char if char.isalnum() else "-" for char in rep_id)
+def alpaca_client_order_id(rep_id: str, generation: str = "") -> str:
+    value = f"{generation}|{rep_id}" if generation else rep_id
+    safe = "".join(char if char.isalnum() else "-" for char in value)
     return f"CM-{safe}"[:128]
 
 
@@ -802,9 +807,14 @@ def scan_once() -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
     skipped_details: list[dict[str, Any]] = []
     skipped = 0
+    action_items = [
+        (operation, action)
+        for operation in operations
+        for action in operation_actions(operation)
+    ]
+    action_items.sort(key=lambda item: 0 if item[1] == "OPEN" else 1)
     with state_connection() as conn:
-        for operation in operations:
-            for action in operation_actions(operation):
+        for operation, action in action_items:
                 rep_id = replication_id(operation, action)
                 if already_replicated(conn, rep_id):
                     skipped += 1
@@ -812,64 +822,18 @@ def scan_once() -> dict[str, Any]:
                 operation_key = str(operation.get("operation_key") or "")
                 position = open_position_row(conn, operation_key)
                 has_position = position is not None
-                close_from_alpaca_position = False
                 if action == "CLOSE" and not has_position:
-                    if mode == "alpaca_paper" and isinstance(broker, AlpacaPaperBroker):
-                        try:
-                            alpaca_position = broker.position(str(operation.get("symbol") or ""))
-                        except Exception as error:
-                            errors.append(
-                                {
-                                    "replication_id": rep_id,
-                                    "strategy_name": operation.get("strategy_name"),
-                                    "symbol": operation.get("symbol"),
-                                    "action": action,
-                                    "broker_status": "ERROR",
-                                    "message": f"No se pudo comprobar posicion Alpaca: {error}",
-                                }
-                            )
-                            continue
-                        if not alpaca_position:
-                            skipped += 1
-                            skipped_details.append(
-                                {
-                                    "replication_id": rep_id,
-                                    "strategy_name": operation.get("strategy_name"),
-                                    "symbol": operation.get("symbol"),
-                                    "action": action,
-                                    "message": "CLOSE omitido: no hay posicion local ni posicion abierta en Alpaca.",
-                                }
-                            )
-                            continue
-                        if not alpaca_position_matches_close(operation, alpaca_position):
-                            skipped += 1
-                            skipped_details.append(
-                                {
-                                    "replication_id": rep_id,
-                                    "strategy_name": operation.get("strategy_name"),
-                                    "symbol": operation.get("symbol"),
-                                    "action": action,
-                                    "message": (
-                                        "CLOSE omitido: Alpaca tiene posicion "
-                                        f"{alpaca_position.get('side') or 'desconocida'} y Code Markets quiere cerrar "
-                                        f"{operation.get('direction') or 'LONG'}."
-                                    ),
-                                }
-                            )
-                            continue
-                        close_from_alpaca_position = True
-                    else:
-                        skipped += 1
-                        skipped_details.append(
-                            {
-                                "replication_id": rep_id,
-                                "strategy_name": operation.get("strategy_name"),
-                                "symbol": operation.get("symbol"),
-                                "action": action,
-                                "message": "CLOSE registrado en Code Markets; no hay posicion local del replicador que cerrar.",
-                            }
-                        )
-                        continue
+                    skipped += 1
+                    skipped_details.append(
+                        {
+                            "replication_id": rep_id,
+                            "strategy_name": operation.get("strategy_name"),
+                            "symbol": operation.get("symbol"),
+                            "action": action,
+                            "message": "CLOSE de hoy omitido: el replicador no tiene esa posicion abierta.",
+                        }
+                    )
+                    continue
                 if action == "OPEN" and has_position:
                     skipped += 1
                     skipped_details.append(
@@ -886,15 +850,12 @@ def scan_once() -> dict[str, Any]:
                 if action == "CLOSE" and position is not None:
                     qty_override = float(position["shares"] or 0)
                 try:
-                    if close_from_alpaca_position and isinstance(broker, AlpacaPaperBroker):
-                        result = broker.close_position(operation)
-                    else:
-                        result = broker.place_order(
-                            operation,
-                            action,
-                            float(config.get("capital_per_operation") or 0),
-                            qty_override,
-                        )
+                    result = broker.place_order(
+                        operation,
+                        action,
+                        float(config.get("capital_per_operation") or 0),
+                        qty_override,
+                    )
                 except Exception as error:
                     errors.append(
                         {
@@ -953,6 +914,7 @@ def broker_for_config(config: dict[str, Any], mode: str):
             str(config.get("alpaca_api_key") or ""),
             str(config.get("alpaca_secret_key") or ""),
             str(config.get("alpaca_base_url") or "https://paper-api.alpaca.markets"),
+            str(config.get("order_generation") or ""),
         )
     return PaperBroker()
 
@@ -1208,7 +1170,11 @@ def clear_today_replications() -> int:
             (start, end),
         )
         conn.commit()
-        return int(cursor.rowcount or 0)
+        deleted = int(cursor.rowcount or 0)
+    config = load_config()
+    config["order_generation"] = datetime.now(MADRID_TZ).strftime("%Y%m%d%H%M%S%f")
+    save_config(config)
+    return deleted
 
 
 PAGE = """
@@ -1821,11 +1787,6 @@ def api_auto():
         "message": "Auto ON 24/7 activado." if config.get("auto_enabled") else "Auto OFF.",
         "updated_at": datetime.now(MADRID_TZ).isoformat(sep=" ", timespec="seconds"),
     }
-    if config.get("auto_enabled"):
-        try:
-            result["scan"] = safe_scan_once()
-        except Exception as error:
-            result["scan"] = {"ok": False, "error": str(error)}
     return jsonify(result)
 
 
@@ -1844,6 +1805,7 @@ def api_clear_today():
 
 def auto_worker() -> None:
     while True:
+        seconds = 60
         try:
             config = load_config()
             seconds = max(10, int(float(config.get("poll_seconds") or 60)))
@@ -1859,8 +1821,8 @@ def auto_worker() -> None:
                     ensure_ascii=True,
                 )
             )
-            seconds = 60
-        time.sleep(seconds)
+        AUTO_WAKE_EVENT.wait(seconds)
+        AUTO_WAKE_EVENT.clear()
 
 
 def start_auto_worker() -> None:

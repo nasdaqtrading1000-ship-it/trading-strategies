@@ -550,6 +550,62 @@ details summary::-webkit-details-marker {
   color: #ff8a8a;
 }
 
+.replicator-safety-notice {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.75);
+}
+
+.replicator-safety-notice strong {
+  color: var(--mobile-yellow);
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.45rem;
+  text-transform: uppercase;
+}
+
+.replicator-safety-notice p,
+.replicator-disabled-controls small {
+  color: var(--mobile-muted);
+  margin: 0;
+}
+
+.replicator-disabled-controls {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.replicator-disabled-controls button {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid var(--mobile-line);
+  color: var(--mobile-muted);
+  padding: 0.7rem;
+}
+
+.replicator-mobile-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.replicator-mobile-list article {
+  align-items: center;
+  border: 1px solid var(--mobile-line);
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.replicator-mobile-list article div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.replicator-mobile-list span,
+.replicator-mobile-list em {
+  color: var(--mobile-muted);
+  font-size: 0.7rem;
+}
+
 @media (min-width: 720px) {
   .mobile-shell {
     margin: 0 auto;

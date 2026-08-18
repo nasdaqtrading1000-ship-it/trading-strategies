@@ -37,7 +37,6 @@ BRIA,BrilliA Inc,Sin clasificar,AMEX,0,0,1,1
 BRN,"Barnwell Industries, Inc.",Sin clasificar,AMEX,0,0,1,1
 BTG,B2Gold Corp.,Sin clasificar,AMEX,0,0,1,1
 BUDA,"Buda Juice, Inc.",Sin clasificar,AMEX,0,0,1,1
-BURU,"Nuburu, Inc.",Sin clasificar,AMEX,0,0,1,1
 CANF,"Can-Fite BioPharma Ltd. American Depositary Shares, each representing two (2) Ordinary Shares",Sin clasificar,AMEX,0,0,1,1
 CATX,"Perspective Therapeutics, Inc.",Sin clasificar,AMEX,0,0,1,1
 CCEL,Cryo-Cell International Inc.,Sin clasificar,AMEX,0,0,1,1
@@ -52,7 +51,6 @@ CLDI,"Calidi Biotherapeutics, Inc.",Sin clasificar,AMEX,0,0,1,1
 CLM,"Cornerstone Strategic Investment Fund, Inc.",Sin clasificar,AMEX,0,0,1,1
 CMCL,Caledonia Mining Corporation Plc,Sin clasificar,AMEX,0,0,1,1
 CMT,"Core Molding Technologies, Inc.",Sin clasificar,AMEX,0,0,1,1
-CNL,Collective Mining Ltd.,Sin clasificar,AMEX,0,0,1,1
 COE,"51Talk Online Education Group American Depositary Shares, each representing sixty (60) Class A Ordinary Shares",Sin clasificar,AMEX,0,0,1,1
 COHN,Cohen & Company Inc,Sin clasificar,AMEX,0,0,1,1
 COPR,Idaho Copper Corporation,Sin clasificar,AMEX,0,0,1,1
@@ -109,11 +107,8 @@ GLU,The Gabelli Utility & Income Trust,Sin clasificar,AMEX,0,0,1,1
 GLV,Clough Global Dividend and Income Fund,Sin clasificar,AMEX,0,0,1,1
 GMTL,"Guardian Metal Resources PLC American Depositary Shares, each representing five (5) ordinary shares",Sin clasificar,AMEX,0,0,1,1
 GNS,Genius Group Limited,Sin clasificar,AMEX,0,0,1,1
-GORO,Gold Resource Corporation,Sin clasificar,AMEX,0,0,1,1
+GORO,Goldgroup Mining Inc.,Sin clasificar,AMEX,0,0,1,1
 GPUS,"Hyperscale Data, Inc.",Sin clasificar,AMEX,0,0,1,1
-GRAF,Graf Global Corp.,Sin clasificar,AMEX,0,0,1,1
-GRAF.U,"Graf Global Corp. Units, each consisting of one Class A ordinary share and one-half of one redeemable warrant",Sin clasificar,AMEX,0,0,1,1
-GRAF.WS,"Graf Global Corp. Warrants, each whole warrant exercisable for one Class A ordinary share at an exercise price of $11.50 per share",Sin clasificar,AMEX,0,0,1,1
 GRF,"Eagle Capital Growth Fund, Inc.",Sin clasificar,AMEX,0,0,1,1
 GRO,Brazil Potash Corp.,Sin clasificar,AMEX,0,0,1,1
 GROY,Gold Royalty Corp.,Sin clasificar,AMEX,0,0,1,1
@@ -130,6 +125,7 @@ IDR,"Idaho Strategic Resources, Inc.",Sin clasificar,AMEX,0,0,1,1
 IE,Ivanhoe Electric Inc.,Sin clasificar,AMEX,0,0,1,1
 IGC,"IGC Pharma, Inc.",Sin clasificar,AMEX,0,0,1,1
 IHT,InnSuites Hospitality Trust,Sin clasificar,AMEX,0,0,1,1
+IMC,IMC Rare Earths Ltd,Sin clasificar,AMEX,0,0,1,1
 IMO,Imperial Oil Limited,Sin clasificar,AMEX,0,0,1,1
 INDO,Indonesia Energy Corporation Limited,Sin clasificar,AMEX,0,0,1,1
 INFU,"InfuSystem Holdings, Inc.",Sin clasificar,AMEX,0,0,1,1
@@ -198,7 +194,6 @@ OBE,Obsidian Energy Ltd.,Sin clasificar,AMEX,0,0,1,1
 OGEN,Oragenics Inc.,Sin clasificar,AMEX,0,0,1,1
 OPHC,"OptimumBank Holdings, Inc.",Sin clasificar,AMEX,0,0,1,1
 OPTT,"Ocean Power Technologies, Inc.",Sin clasificar,AMEX,0,0,1,1
-ORLA,Orla Mining Ltd.,Sin clasificar,AMEX,0,0,1,1
 OSTX,OS Therapies Incorporated,Sin clasificar,AMEX,0,0,1,1
 OZ,"Belpointe PREP, LLC Class A Units",Sin clasificar,AMEX,0,0,1,1
 PAPL,Pineapple Financial Inc.,Sin clasificar,AMEX,0,0,1,1
@@ -241,6 +236,7 @@ SLND,"Southland Holdings, Inc.",Sin clasificar,AMEX,0,0,1,1
 SLND.WS,"Southland Holdings, Inc. Redeemable Warrants, each whole warrant exercisable for shares of common stock at an exercise price of $11.50 per share",Sin clasificar,AMEX,0,0,1,1
 SLSR,Solaris Resources Inc.,Sin clasificar,AMEX,0,0,1,1
 SMJF,SMJ International Holdings Inc.,Sin clasificar,AMEX,0,0,1,1
+SNSC,SunScout Holding Limited,Sin clasificar,AMEX,0,0,1,1
 SOAR,"Volato Group, Inc.",Sin clasificar,AMEX,0,0,1,1
 SRXH,SRX Global Inc,Sin clasificar,AMEX,0,0,1,1
 STRW,"Strawberry Fields REIT, Inc.",Sin clasificar,AMEX,0,0,1,1
@@ -255,10 +251,14 @@ TII,Titan Mining Corporation,Sin clasificar,AMEX,0,0,1,1
 TMDE,TMD Energy Limited,Sin clasificar,AMEX,0,0,1,1
 TMP,Tompkins Financial Corporation,Sin clasificar,AMEX,0,0,1,1
 TMQ,Trilogy Metals Inc,Sin clasificar,AMEX,0,0,1,1
+TONT,Graf Global Corp.,Sin clasificar,AMEX,0,0,1,1
+TONT.U,"Graf Global Corp. Units, each consisting of one Class A ordinary share and one-half of one redeemable warrant",Sin clasificar,AMEX,0,0,1,1
+TONT.WS,"Graf Global Corp. Warrants, each whole warrant exercisable for one Class A ordinary share at an exercise price of $11.50 per share",Sin clasificar,AMEX,0,0,1,1
 TOON,"Kartoon Studios, Inc.",Sin clasificar,AMEX,0,0,1,1
 TOPP,Toppoint Holdings Inc.,Sin clasificar,AMEX,0,0,1,1
 TOPS,TOP Ships Inc.,Sin clasificar,AMEX,0,0,1,1
 TOVX,"Theriva Biologics, Inc.",Sin clasificar,AMEX,0,0,1,1
+TP,Ticketplus Ltd.,Sin clasificar,AMEX,0,0,1,1
 TPET,Trio Petroleum Corp.,Sin clasificar,AMEX,0,0,1,1
 TRT,Trio-Tech International,Sin clasificar,AMEX,0,0,1,1
 TRX,TRX Gold Corporation,Sin clasificar,AMEX,0,0,1,1
@@ -333,6 +333,7 @@ AD,"Array Digital Infrastructure, Inc.",Sin clasificar,NYSE,0,0,1,1
 ADC,Agree Realty Corporation,Sin clasificar,NYSE,0,0,1,1
 ADC.PRA,"Agree Realty Corporation Depositary Shares, each representing 1/1,000th of a 4.250% Series A Cumulative Redeemable Preferred Stock",Sin clasificar,NYSE,0,0,1,1
 ADCT,ADC Therapeutics SA,Sin clasificar,NYSE,0,0,1,1
+ADIG,ADI Global Distribution Inc.,Sin clasificar,NYSE,0,0,1,1
 ADM,Archer Daniels Midland Company,Sin clasificar,NYSE,0,0,1,1
 ADNT,Adient plc Ordinary Shares,Sin clasificar,NYSE,0,0,1,1
 ADT,ADT Inc.,Sin clasificar,NYSE,0,0,1,1
@@ -470,7 +471,6 @@ APG,APi Group Corporation,Sin clasificar,NYSE,0,0,1,1
 APH,Amphenol Corporation,Sin clasificar,NYSE,0,0,1,1
 APLE,"Apple Hospitality REIT, Inc.",Sin clasificar,NYSE,0,0,1,1
 APO,"Apollo Global Management, Inc.",Sin clasificar,NYSE,0,0,1,1
-APO.PRA,"Apollo Global Management, Inc. 6.75% Series A Mandatory Convertible Preferred Stock",Sin clasificar,NYSE,0,0,1,1
 APOS,"Apollo Global Management, Inc. 7.625% Fixed-Rate Resettable Junior Subordinated Notes due 2053",Sin clasificar,NYSE,0,0,1,1
 APTV,Aptiv PLC,Sin clasificar,NYSE,0,0,1,1
 AQN,Algonquin Power & Utilities Corp,Sin clasificar,NYSE,0,0,1,1
@@ -527,12 +527,10 @@ AUB.PRA,"Atlantic Union Bankshares Corporation Depositary Shares, Each Represent
 AUNA,Auna S.A.,Sin clasificar,NYSE,0,0,1,1
 AVA,Avista Corporation,Sin clasificar,NYSE,0,0,1,1
 AVAL,GRUPO AVAL ACCIONES Y VALORES S.A.,Sin clasificar,NYSE,0,0,1,1
-AVB,"AvalonBay Communities, Inc.",Sin clasificar,NYSE,0,0,1,1
 AVBC,"Avidia Bancorp, Inc.",Sin clasificar,NYSE,0,0,1,1
 AVD,American Vanguard Corporation,Sin clasificar,NYSE,0,0,1,1
 AVEX,AEVEX Corp.,Sin clasificar,NYSE,0,0,1,1
 AVK,Advent Convertible and Income Fund,Sin clasificar,NYSE,0,0,1,1
-AVNS,"Avanos Medical, Inc.",Sin clasificar,NYSE,0,0,1,1
 AVNT,Avient Corporation,Sin clasificar,NYSE,0,0,1,1
 AVTR,"Avantor, Inc.",Sin clasificar,NYSE,0,0,1,1
 AVY,Avery Dennison Corp.,Sin clasificar,NYSE,0,0,1,1
@@ -542,8 +540,6 @@ AWK,"American Water Works Company, Inc",Sin clasificar,NYSE,0,0,1,1
 AWP,abrdn Global Premier Properties Fund,Sin clasificar,NYSE,0,0,1,1
 AWR,American States Water Company,Sin clasificar,NYSE,0,0,1,1
 AX,"Axos Financial, Inc. Common Stock",Sin clasificar,NYSE,0,0,1,1
-AXIA,AXIA Energia American Depositary Shares (Each representing one Common Share),Sin clasificar,NYSE,0,0,1,1
-AXIA.PRC,"AXIA Energia American Depositary Shares, each representing one Preferred Class C Share",Sin clasificar,NYSE,0,0,1,1
 AXP,American Express Company,Sin clasificar,NYSE,0,0,1,1
 AXR,AMREP Corporation,Sin clasificar,NYSE,0,0,1,1
 AXS,Axis Capital Holders Limited,Sin clasificar,NYSE,0,0,1,1
@@ -583,8 +579,6 @@ BB,BlackBerry Limited,Sin clasificar,NYSE,0,0,1,1
 BBAI,"BigBear.ai Holdings, Inc.",Sin clasificar,NYSE,0,0,1,1
 BBAI.WS,"BigBear.ai Holdings, Inc. Redeemable warrants, each full warrant exercisable for one share of common stock at an exercise price of $11.50 per share",Sin clasificar,NYSE,0,0,1,1
 BBAR,Banco BBVA Argentina S.A.,Sin clasificar,NYSE,0,0,1,1
-BBBY,"Bed Bath & Beyond, Inc.",Sin clasificar,NYSE,0,0,1,1
-BBBY.WS,"Bed Bath & Beyond, Inc. Warrants to Purchase Common Stock",Sin clasificar,NYSE,0,0,1,1
 BBD,Banco Bradesco S.A. American Depositary Shares (Each representing one Preferred Shares),Sin clasificar,NYSE,0,0,1,1
 BBDC,"Barings BDC, Inc.",Sin clasificar,NYSE,0,0,1,1
 BBDO,"Banco Bradesco S.A. American Depositary Shares (Each representing one  Common Share, no par value)",Sin clasificar,NYSE,0,0,1,1
@@ -620,7 +614,7 @@ BEBE,TGE Value Creative Solutions Corp,Sin clasificar,NYSE,0,0,1,1
 BEBE.U,"TGE Value Creative Solutions Corp Units, each consisting of one Class A ordinary share and one-half of one redeemable warrant",Sin clasificar,NYSE,0,0,1,1
 BEBE.WS,"TGE Value Creative Solutions Corp Redeemable warrants, each whole warrant exercisable for one Class A ordinary share at an exercise price of $11.50 per share",Sin clasificar,NYSE,0,0,1,1
 BEKE,KE Holdings Inc. American Depositary Shares (each representing three Class A Ordinary Shares),Sin clasificar,NYSE,0,0,1,1
-BEN,"Franklin Resources, Inc.",Sin clasificar,NYSE,0,0,1,1
+BEN,"Franklin Templeton, Inc.",Sin clasificar,NYSE,0,0,1,1
 BEP,Brookfield Renewable Partners L.P.,Sin clasificar,NYSE,0,0,1,1
 BEP.PRA,"Brookfield Renewable Partners L.P. 5.25% Class A Preferred Limited Partnership Units, Series 17",Sin clasificar,NYSE,0,0,1,1
 BEPC,Brookfield Renewable Corporation Class A Exchangeable Subordinate Voting Shares,Sin clasificar,NYSE,0,0,1,1
@@ -681,7 +675,6 @@ BKH,Black Hills Corporation,Sin clasificar,NYSE,0,0,1,1
 BKKT,"Bakkt, Inc.",Sin clasificar,NYSE,0,0,1,1
 BKKT.WS,"Bakkt, Inc. Warrants to purchase Class A Common Stock Each Warrant entitles to purchase 1/25th of a share of Class A common stock at an exercise price of $287.50 for one share of Class A Common Stock",Sin clasificar,NYSE,0,0,1,1
 BKSY,BlackSky Technology Inc.,Sin clasificar,NYSE,0,0,1,1
-BKSY.WS,"BlackSky Technology Inc. Redeemable Warrants, each whole Warrant exercisable for one-eighth (1/8th) of a share of Class A Common Stock at an exercise price of $92.00 per whole share",Sin clasificar,NYSE,0,0,1,1
 BKT,BlackRock Income Trust Inc.,Sin clasificar,NYSE,0,0,1,1
 BKU,"Bankunited, Inc.",Sin clasificar,NYSE,0,0,1,1
 BKV,BKV Corporation,Sin clasificar,NYSE,0,0,1,1
@@ -775,7 +768,6 @@ BWIV.U,"Blue Water Acquisition Corp. IV Units, each consisting of one Class A or
 BWIV.WS,Blue Water Acquisition Corp. IV Warrants entitling the holder to purchase one Class A ordinary share at a price of $11.50 per share,Sin clasificar,NYSE,0,0,1,1
 BWLP,BW LPG Limited,Sin clasificar,NYSE,0,0,1,1
 BWMX,"Betterware de Mexico, S.A.P.I. de C.V.",Sin clasificar,NYSE,0,0,1,1
-BWNB,"Babcock & Wilcox Enterprises, Inc. 6.50% Senior Notes due 2026",Sin clasificar,NYSE,0,0,1,1
 BWXT,"BWX Technologies, Inc.",Sin clasificar,NYSE,0,0,1,1
 BX,Blackstone Inc.,Sin clasificar,NYSE,0,0,1,1
 BXC,BlueLinx Holdings Inc.,Sin clasificar,NYSE,0,0,1,1
@@ -792,7 +784,6 @@ C.PRR,"Citigroup Inc. Depositary Shares, Each Representing a 1/1,000th Interest 
 CAAP,Corporacion America Airports S.A.,Sin clasificar,NYSE,0,0,1,1
 CABO,"Cable One, Inc.",Sin clasificar,NYSE,0,0,1,1
 CACI,CACI INTERNATIONAL CLA,Sin clasificar,NYSE,0,0,1,1
-CAE,CAE INC,Sin clasificar,NYSE,0,0,1,1
 CAF,"MORGAN STANLEY CHINA A SHARE FUND, INC",Sin clasificar,NYSE,0,0,1,1
 CAG,"Conagra Brands, Inc.",Sin clasificar,NYSE,0,0,1,1
 CAH,"Cardinal Health, Inc.",Sin clasificar,NYSE,0,0,1,1
@@ -1121,6 +1112,7 @@ DTW,DTE Energy Company 2017 Series E 5.25% Junior Subordinated Debentures due 20
 DUK,Duke Energy Corporation,Sin clasificar,NYSE,0,0,1,1
 DUK.PRA,"Duke Energy Corporation Depositary Shares, each representing a 1/1,000th interest in a share of 5.75% Series A Cumulative Redeemable Perpetual Preferred Stock",Sin clasificar,NYSE,0,0,1,1
 DUKB,Duke Energy Corporation 5.625% Junior Subordinated Debentures due 2078,Sin clasificar,NYSE,0,0,1,1
+DUKU,Duke Energy Corporation Corporate Units,Sin clasificar,NYSE,0,0,1,1
 DV,"DoubleVerify Holdings, Inc.",Sin clasificar,NYSE,0,0,1,1
 DVA,DaVita Inc.,Sin clasificar,NYSE,0,0,1,1
 DVN,Devon Energy Corporation,Sin clasificar,NYSE,0,0,1,1
@@ -1221,7 +1213,6 @@ EQH,"Equitable Holdings, Inc.",Sin clasificar,NYSE,0,0,1,1
 EQH.PRA,"Equitable Holdings, Inc. Depositary Shares, each representing a 1/1000th interest in a share of Fixed Rate Noncumulative Perpetual Preferred Stock, Series A",Sin clasificar,NYSE,0,0,1,1
 EQH.PRC,"Equitable Holdings, Inc. Depositary Shares, each representing a 1/1, 000th interest in a share of Fixed Rate Noncumulative Perpetual Preferred Stock, Series C",Sin clasificar,NYSE,0,0,1,1
 EQNR,"Equinor ASA American Depositary Shares (Each Representing One Ordinary Share, nominal value NOK 2.50 per share)",Sin clasificar,NYSE,0,0,1,1
-EQR,Equity Residential,Sin clasificar,NYSE,0,0,1,1
 EQS,"Equus Total Return, Inc.",Sin clasificar,NYSE,0,0,1,1
 EQT,EQT CORP,Sin clasificar,NYSE,0,0,1,1
 ERO,Ero Copper Corp.,Sin clasificar,NYSE,0,0,1,1
@@ -1293,7 +1284,6 @@ FCPT,"Four Corners Property Trust, Inc.",Sin clasificar,NYSE,0,0,1,1
 FCRS,FutureCrest Acquisition Corp.,Sin clasificar,NYSE,0,0,1,1
 FCRS.U,"FutureCrest Acquisition Corp. Units, each consisting of one Class A ordinary share and one-quarter of one redeemable warrant",Sin clasificar,NYSE,0,0,1,1
 FCRS.WS,"FutureCrest Acquisition Corp. Redeemable warrants, each whole warrant exercisable for one Class A ordinary share at an exercise price of $11.50",Sin clasificar,NYSE,0,0,1,1
-FCT,First Trust Senior Floating Rate Income Fund II,Sin clasificar,NYSE,0,0,1,1
 FCX,Freeport-McMoran Inc.,Sin clasificar,NYSE,0,0,1,1
 FDS,Factset Research Systems,Sin clasificar,NYSE,0,0,1,1
 FDX,FedEx Corporation,Sin clasificar,NYSE,0,0,1,1
@@ -1353,6 +1343,7 @@ FNF,"Fidelity National Financial, Inc.",Sin clasificar,NYSE,0,0,1,1
 FNV,Franco-Nevada Corporation,Sin clasificar,NYSE,0,0,1,1
 FOA,Finance of America Companies Inc.,Sin clasificar,NYSE,0,0,1,1
 FOF,Cohen & Steers Closed End Opportunity Fund,Sin clasificar,NYSE,0,0,1,1
+FOIL,"Londian Wason New Energy Tech Inc. American Depositary Shares, each representing five Ordinary Shares",Sin clasificar,NYSE,0,0,1,1
 FOR,Forestar Group Inc.,Sin clasificar,NYSE,0,0,1,1
 FOUR,"Shift4 Payments, Inc.",Sin clasificar,NYSE,0,0,1,1
 FOUR.PRA,"Shift4 Payments, Inc. 6.00% Series A Mandatory Convertible Preferred Stock",Sin clasificar,NYSE,0,0,1,1
@@ -1374,7 +1365,9 @@ FT,Franklin Universal Trust Shares of Beneficial Interest,Sin clasificar,NYSE,0,
 FTHY,First Trust High Yield Opportunities 2027 Term Fund,Sin clasificar,NYSE,0,0,1,1
 FTI,TechnipFMC plc Ordinary Share,Sin clasificar,NYSE,0,0,1,1
 FTK,"Flotek Industries, Inc.",Sin clasificar,NYSE,0,0,1,1
+FTRA,FutureCorp Space Acquisition 1,Sin clasificar,NYSE,0,0,1,1
 FTRA.U,"FutureCorp Space Acquisition 1 Units, each consisting of one Class A ordinary share and one-half of one redeemable warrant",Sin clasificar,NYSE,0,0,1,1
+FTRA.WS,"FutureCorp Space Acquisition 1 Redeemable warrants, each whole warrant exercisable for one Class A ordinary share at an exercise price of $11.50",Sin clasificar,NYSE,0,0,1,1
 FTS,Fortis Inc. Common Shares,Sin clasificar,NYSE,0,0,1,1
 FTV,Fortive Corporation,Sin clasificar,NYSE,0,0,1,1
 FTW,Presidio Production Company,Sin clasificar,NYSE,0,0,1,1
@@ -1400,6 +1393,7 @@ GBCI,Glacier Bancorp Inc,Sin clasificar,NYSE,0,0,1,1
 GBTG,"Global Business Travel Group, Inc.",Sin clasificar,NYSE,0,0,1,1
 GBX,"The Greenbrier Companies, Inc.",Sin clasificar,NYSE,0,0,1,1
 GCO,Genesco Inc.,Sin clasificar,NYSE,0,0,1,1
+GCPB,Goldman Sachs Core Plus Bond ETF,Sin clasificar,NYSE,0,0,1,1
 GCTS,"GCT Semiconductor Holding, Inc.",Sin clasificar,NYSE,0,0,1,1
 GCTS.WS,"GCT Semiconductor Holding, Inc. Warrants, each whole warrant exercisable for one share of Common Stock at an exercise price of $11.50",Sin clasificar,NYSE,0,0,1,1
 GCV,"The Gabelli Convertible and Income Securities Fund, Inc.",Sin clasificar,NYSE,0,0,1,1
@@ -1425,6 +1419,7 @@ GFF,Griffon Corp,Sin clasificar,NYSE,0,0,1,1
 GFI,Gold Fields Ltd ADR,Sin clasificar,NYSE,0,0,1,1
 GFL,GFL Environmental Inc. Subordinate Voting Shares,Sin clasificar,NYSE,0,0,1,1
 GFR,Greenfire Resources Ltd.,Sin clasificar,NYSE,0,0,1,1
+GFR.RTWI,"Greenfire Resources Ltd. Rights (expiring September 15, 2026)",Sin clasificar,NYSE,0,0,1,1
 GGB,Gerdau S.A.,Sin clasificar,NYSE,0,0,1,1
 GGG,Graco Inc,Sin clasificar,NYSE,0,0,1,1
 GGT,THE GABELLI MULTIMEDIA TRUST INC.,Sin clasificar,NYSE,0,0,1,1
@@ -1458,7 +1453,6 @@ GLOP.PRA,GasLog Partners LP 8.625% Series A Cumulative Redeemable Perpetual Fixe
 GLOP.PRB,GasLog Partners LP 8.200% Series B Cumulative Redeemable Perpetual Fixed to Floating Rate Preference Units,Sin clasificar,NYSE,0,0,1,1
 GLOP.PRC,GasLog Partners LP 8.500% Series C Cumulative Redeemable Perpetual Fixed to Floating Rate Preference Units,Sin clasificar,NYSE,0,0,1,1
 GLP,Global Partners LP,Sin clasificar,NYSE,0,0,1,1
-GLP.PRB,Global Partners LP 9.50% Series B Fixed Rate Cumulative Redeemable Perpetual Preferred Units representing limited partner interests,Sin clasificar,NYSE,0,0,1,1
 GLW,Corning Incorporated,Sin clasificar,NYSE,0,0,1,1
 GM,General Motors Company,Sin clasificar,NYSE,0,0,1,1
 GME,GameStop Corp. Class A,Sin clasificar,NYSE,0,0,1,1
@@ -1509,7 +1503,7 @@ GSBD,"Goldman Sachs BDC, Inc.",Sin clasificar,NYSE,0,0,1,1
 GSK,GSK plc American Depositary Shares (Each representing two Ordinary Shares),Sin clasificar,NYSE,0,0,1,1
 GSL,"Global Ship Lease, Inc.",Sin clasificar,NYSE,0,0,1,1
 GSL.PRB,"GLOBAL SHIP LEASE, INC. 8.75%  SER B",Sin clasificar,NYSE,0,0,1,1
-GTES,Gates Industrial Corporation plc,Sin clasificar,NYSE,0,0,1,1
+GTES,Gates Industrial Corporation Ltd.,Sin clasificar,NYSE,0,0,1,1
 GTN,"Gray Media, Inc.",Sin clasificar,NYSE,0,0,1,1
 GTN.A,"Gray Media, Inc. Class A",Sin clasificar,NYSE,0,0,1,1
 GTY,Getty Realty Corp.,Sin clasificar,NYSE,0,0,1,1
@@ -1723,10 +1717,10 @@ JKS,JINKOSOLAR HOLDINGS CO,Sin clasificar,NYSE,0,0,1,1
 JLL,"Jones Lang LaSalle, Inc.",Sin clasificar,NYSE,0,0,1,1
 JLS,Nuveen Mortgage and Income Fund,Sin clasificar,NYSE,0,0,1,1
 JMIA,Jumia Technologies AG,Sin clasificar,NYSE,0,0,1,1
+JMKE,Jersey Mike's Subs Inc.,Sin clasificar,NYSE,0,0,1,1
 JMM,"NUVEEN MULTI-MARKET INCOME FUND, INC",Sin clasificar,NYSE,0,0,1,1
 JNJ,Johnson & Johnson,Salud,NYSE,147.52,790000000,1.5,1.7
 JOBY,"Joby Aviation, Inc.",Sin clasificar,NYSE,0,0,1,1
-JOBY.WS,"Joby Aviation, Inc. Redeemable Warrants, each whole warrant exercisable for one share of Common Stock at an exercise price of $11.50",Sin clasificar,NYSE,0,0,1,1
 JOE,St. Joe Company,Sin clasificar,NYSE,0,0,1,1
 JOF,JAPAN SMALLER CAPITALIZATION FUND,Sin clasificar,NYSE,0,0,1,1
 JPC,Nuveen Preferred & Income Opportunities Fund,Sin clasificar,NYSE,0,0,1,1
@@ -1791,7 +1785,6 @@ KO,Coca-Cola Company,Sin clasificar,NYSE,0,0,1,1
 KODK,EASTMAN KODAK COMPANY,Sin clasificar,NYSE,0,0,1,1
 KOF,"Coca-Cola FEMSA, S.A.B DE C.V",Sin clasificar,NYSE,0,0,1,1
 KOP,"Koppers Holdings, Inc.",Sin clasificar,NYSE,0,0,1,1
-KORE,"KORE Group Holdings, Inc.",Sin clasificar,NYSE,0,0,1,1
 KOS,Kosmos Energy Ltd.,Sin clasificar,NYSE,0,0,1,1
 KPET,KPET Ultra Paceline Corporation,Sin clasificar,NYSE,0,0,1,1
 KPET.U,"KPET Ultra Paceline Corporation Units, each consisting of one Class A Ordinary Share and one-sixth of one Warrant",Sin clasificar,NYSE,0,0,1,1
@@ -1921,8 +1914,6 @@ MDA,MDA Space Ltd.,Sin clasificar,NYSE,0,0,1,1
 MDST,Westwood Salient Enhanced Midstream Income ETF,Sin clasificar,NYSE,0,0,1,1
 MDT,Medtronic plc,Sin clasificar,NYSE,0,0,1,1
 MDU,"MDU Resources Group, Inc.",Sin clasificar,NYSE,0,0,1,1
-MDV,"Modiv Industrial, Inc.",Sin clasificar,NYSE,0,0,1,1
-MDV.PRA,"Modiv Industrial, Inc. 7.375% Series A Cumulative Redeemable Perpetual Preferred Stock",Sin clasificar,NYSE,0,0,1,1
 MEC,"Mayville Engineering Company, Inc.",Sin clasificar,NYSE,0,0,1,1
 MED,"Medifast, Inc.",Sin clasificar,NYSE,0,0,1,1
 MEGI,NYLI CBRE Global Infrastructure Megatrends Term Fund,Sin clasificar,NYSE,0,0,1,1
@@ -2038,6 +2029,7 @@ MTB,M&T Bank Corp.,Sin clasificar,NYSE,0,0,1,1
 MTB.PRH,"M&T Bank Corporation Perpetual Fixed-to-Floating Rate Non- Cumulative Preferred Stock, Series H",Sin clasificar,NYSE,0,0,1,1
 MTB.PRJ,"M&T Bank Corporation Depositary Shares each representing a 1/400th ownership interest in a share of Perpetual 7.500% Non-Cumulative Preferred Stock, Series J",Sin clasificar,NYSE,0,0,1,1
 MTB.PRK,"M&T Bank Corporation Depositary Shares each representing a 1/400th interest in a share of Perpetual 6.350% Non-Cumulative Preferred Stock, Series K",Sin clasificar,NYSE,0,0,1,1
+MTB.PRL,"M&T Bank Corporation Depositary Shares each representing a 1/400th ownership interest in a share of Perpetual 6.625% Non-Cumulative Preferred Stock, Series L",Sin clasificar,NYSE,0,0,1,1
 MTD,Mettler-Toledo International,Sin clasificar,NYSE,0,0,1,1
 MTDR,MATADOR RESOURCES COMPANY,Sin clasificar,NYSE,0,0,1,1
 MTG,MGIC Investment Corp.,Sin clasificar,NYSE,0,0,1,1
@@ -2053,6 +2045,7 @@ MTW,"The Manitowoc Company, Inc.",Sin clasificar,NYSE,0,0,1,1
 MTX,Minerals Technologies Inc,Sin clasificar,NYSE,0,0,1,1
 MTZ,"MasTec, Inc.",Sin clasificar,NYSE,0,0,1,1
 MUA,"Blackrock Muni Assets Fund, Inc.",Sin clasificar,NYSE,0,0,1,1
+MUA.RT,"BlackRock MuniAssets Fund, Inc. Rights (expiring August 20, 2026)",Sin clasificar,NYSE,0,0,1,1
 MUC,"BLACKROCK MUNIHOLDINGS CALIFORNIA QUALITY FUND, INC",Sin clasificar,NYSE,0,0,1,1
 MUFG,"Mitsubishi UFJ Financial Group, Inc.",Sin clasificar,NYSE,0,0,1,1
 MUJ,"BLACKROCK MUNIHOLDINGS NEW JERSEY QUALITY FUND, INC.",Sin clasificar,NYSE,0,0,1,1
@@ -2060,7 +2053,6 @@ MUR,Murphy Oil Corp.,Sin clasificar,NYSE,0,0,1,1
 MUSA,MURPHY USA INC.,Sin clasificar,NYSE,0,0,1,1
 MUSE,TCW Multisector Credit Income ETF,Sin clasificar,NYSE,0,0,1,1
 MUX,McEwen Inc.,Sin clasificar,NYSE,0,0,1,1
-MVO,MV Oil Trust,Sin clasificar,NYSE,0,0,1,1
 MWA,"Mueller Water Products, Inc.",Sin clasificar,NYSE,0,0,1,1
 MX,Magnachip Semiconductor Corp.,Sin clasificar,NYSE,0,0,1,1
 MXE,"The Mexico Equity and Income Fund, Inc.",Sin clasificar,NYSE,0,0,1,1
@@ -2172,9 +2164,6 @@ NRK,Nuveen New York AMT-Free Quality Municipal Income Fund,Sin clasificar,NYSE,0
 NRP,Natural Resource Partners L.P.,Sin clasificar,NYSE,0,0,1,1
 NRT,North European Oil Royalty Trust,Sin clasificar,NYSE,0,0,1,1
 NRUC,National Rural Utilities Cooperative Finance Corporation 5.500% Subordinated Notes due 2064 (Subordinated Deferrable Interest Notes),Sin clasificar,NYSE,0,0,1,1
-NSA,National Storage Affiliates Trust,Sin clasificar,NYSE,0,0,1,1
-NSA.PRA,National Storage Affiliates Trust 6.000 Percent Series A Cumulative Redeemable Preferred Shares of Beneficial Interest (Liquidation Preference $25.00 per share),Sin clasificar,NYSE,0,0,1,1
-NSA.PRB,National Storage Affiliates Trust 6.000% Series B Cumulative Redeemable Preferred Shares of Beneficial Interest,Sin clasificar,NYSE,0,0,1,1
 NSC,Norfolk Southern Corp.,Sin clasificar,NYSE,0,0,1,1
 NSP,"Insperity, Inc",Sin clasificar,NYSE,0,0,1,1
 NTB,The Bank of N.T. Butterfield & Son Limited,Sin clasificar,NYSE,0,0,1,1
@@ -2217,14 +2206,17 @@ OAK.PRB,"Brookfield Oaktree Holdings, LLC 6.550% Series B Preferred Units",Sin c
 OBDC,Blue Owl Capital Corporation,Sin clasificar,NYSE,0,0,1,1
 OBK,"Origin Bancorp, Inc.",Sin clasificar,NYSE,0,0,1,1
 OC,Owens Corning,Sin clasificar,NYSE,0,0,1,1
+OCAC,Ocean Capital Acquisition Corporation,Sin clasificar,NYSE,0,0,1,1
+OCAC.RT,"Ocean Capital Acquisition Corporation Rights, each entitling the holder to receive one ordinary share",Sin clasificar,NYSE,0,0,1,1
 OCAC.U,"Ocean Capital Acquisition Corporation Units, each consisting of one Class A Ordinary Share, one redeemable Warrant and one Right",Sin clasificar,NYSE,0,0,1,1
+OCAC.WS,"Ocean Capital Acquisition Corporation Warrants, each exercisable for one ordinary share",Sin clasificar,NYSE,0,0,1,1
 ODC,Oil-Dri Corporation of America,Sin clasificar,NYSE,0,0,1,1
-ODV,Osisko Development Corp.,Sin clasificar,NYSE,0,0,1,1
 OEC,Orion S.A.,Sin clasificar,NYSE,0,0,1,1
 OFG,OFG BANCORP,Sin clasificar,NYSE,0,0,1,1
 OFRM,"Once Upon a Farm, PBC",Sin clasificar,NYSE,0,0,1,1
 OGC,OceanaGold Corporation,Sin clasificar,NYSE,0,0,1,1
 OGE,OGE Energy Corp.,Sin clasificar,NYSE,0,0,1,1
+OGG,Osisko Gold Group Inc.,Sin clasificar,NYSE,0,0,1,1
 OGN,Organon & Co.,Sin clasificar,NYSE,0,0,1,1
 OGS,"ONE GAS, INC.",Sin clasificar,NYSE,0,0,1,1
 OHI,Omega Healthcare Investors Inc.,Sin clasificar,NYSE,0,0,1,1
@@ -2246,7 +2238,6 @@ ONTO,Onto Innovation Inc.,Sin clasificar,NYSE,0,0,1,1
 OOMA,"Ooma, Inc. Common Stock",Sin clasificar,NYSE,0,0,1,1
 OPAD,Offerpad Solutions Inc.,Sin clasificar,NYSE,0,0,1,1
 OPFI,OppFi Inc.,Sin clasificar,NYSE,0,0,1,1
-OPFI.WS,"OppFi Inc. Warrants, each whole warrant exercisable for one share of Class A common stock at an exercise price of $11.50 per share",Sin clasificar,NYSE,0,0,1,1
 OPLN,"OPENLANE, Inc",Sin clasificar,NYSE,0,0,1,1
 OPP,"RiverNorth/DoubleLine Strategic Opportunity Fund, Inc.",Sin clasificar,NYSE,0,0,1,1
 OPP.PRA,"RiverNorth/DoubleLine Strategic Opportunity Fund, Inc. 4.375% Series A Cumulative Preferred Stock",Sin clasificar,NYSE,0,0,1,1
@@ -2381,6 +2372,7 @@ PMT.PRC,PennyMac Mortgage Investment Trust 6.75% Series C Cumulative Redeemable 
 PMTU,PennyMac Mortgage Investment Trust 8.50% Senior Notes due 2028,Sin clasificar,NYSE,0,0,1,1
 PMTV,PennyMac Mortgage Investment Trust 9.00% Senior Notes due 2030,Sin clasificar,NYSE,0,0,1,1
 PMTW,PennyMac Mortgage Investment Trust 9.00% Senior Notes due 2030,Sin clasificar,NYSE,0,0,1,1
+PNAQ.U,"Pinnacle Acquisition Corporation Units, each consisting of one Class A ordinary share and one right",Sin clasificar,NYSE,0,0,1,1
 PNC,PNC Financial Services Group,Sin clasificar,NYSE,0,0,1,1
 PNFP,"Pinnacle Financial Partners, Inc.",Sin clasificar,NYSE,0,0,1,1
 PNFP.PRA,"Pinnacle Financial Partners, Inc. Fixed-to-Floating Rate Non-Cumulative Perpetual Preferred Stock, Series A",Sin clasificar,NYSE,0,0,1,1
@@ -2431,6 +2423,8 @@ PSA.PRP,"Public Storage Depositary Shares Each Representing 1/1,000 of a 4.000% 
 PSA.PRQ,"Public Storage Depositary Shares Each Representing 1/1,000 of a 3.950% Cumulative Preferred Share of Beneficial Interest, Series Q",Sin clasificar,NYSE,0,0,1,1
 PSA.PRR,"Public Storage Depositary Shares Each Representing 1/1,000 of a 4.00% Cumulative Preferred Share of Beneficial Interest, Series R",Sin clasificar,NYSE,0,0,1,1
 PSA.PRS,"Public Storage Depositary Shares Each Representing 1/1,000 of a 4.100% Cumulative Preferred Share of Beneficial Interest, Series S",Sin clasificar,NYSE,0,0,1,1
+PSA.PRT,"Public Storage 6.000% Cumulative Preferred Shares of Beneficial Interest, Series T",Sin clasificar,NYSE,0,0,1,1
+PSA.PRU,"Public Storage 6.000% Cumulative Preferred Shares of Beneficial Interest, Series U",Sin clasificar,NYSE,0,0,1,1
 PSBD,Palmer Square Capital BDC Inc.,Sin clasificar,NYSE,0,0,1,1
 PSEC.PRA,Prospect Capital Corporation 5.35% Series A Fixed Rate Cumulative Perpetual Preferred Stock,Sin clasificar,NYSE,0,0,1,1
 PSF,COHEN & STEERS SELECT PREFERRED AND INCOME FUND,Sin clasificar,NYSE,0,0,1,1
@@ -2452,7 +2446,6 @@ PWR,"Quanta Services, Inc.",Sin clasificar,NYSE,0,0,1,1
 PXED,"Phoenix Education Partners, Inc.",Sin clasificar,NYSE,0,0,1,1
 PYT,Merrill Lynch Depositor PPLUS  Floating Rate Call TR Cert. Ser GSC-2(Goldman Sachs),Sin clasificar,NYSE,0,0,1,1
 Q,"Qnity Electronics, Inc.",Sin clasificar,NYSE,0,0,1,1
-QBTS,D-Wave Quantum Inc.,Sin clasificar,NYSE,0,0,1,1
 QGEN,QIAGEN N.V.,Sin clasificar,NYSE,0,0,1,1
 QLEP,Quantum Leap Acquisition Corp,Sin clasificar,NYSE,0,0,1,1
 QLEP.WS,"Quantum Leap Acquisition Corp Warrants, each whole warrant exercisable for one Class A Ordinary Share at an exercise price of $11.50 per share",Sin clasificar,NYSE,0,0,1,1
@@ -2488,6 +2481,7 @@ RDDT,"Reddit, Inc.",Sin clasificar,NYSE,0,0,1,1
 RDN,Radian Group Inc.,Sin clasificar,NYSE,0,0,1,1
 RDW,Redwire Corporation,Sin clasificar,NYSE,0,0,1,1
 RDY,Dr. Reddy's Laboratories Limited American Depositary Shares,Sin clasificar,NYSE,0,0,1,1
+REF,Reformation Inc.,Sin clasificar,NYSE,0,0,1,1
 RELX,RELX PLC,Sin clasificar,NYSE,0,0,1,1
 RERE,ATRenew Inc. American Depositary Shares (every three of which representing two Class A ordinary shares),Sin clasificar,NYSE,0,0,1,1
 RES,"RPC, Inc.",Sin clasificar,NYSE,0,0,1,1
@@ -2563,6 +2557,7 @@ RSKD,Riskified Ltd.,Sin clasificar,NYSE,0,0,1,1
 RTO,Rentokil Initial plc American Depositary Shares (each representing five (5) Ordinary Shares),Sin clasificar,NYSE,0,0,1,1
 RTX,RTX Corporation,Sin clasificar,NYSE,0,0,1,1
 RVI,Robinhood Ventures Fund I,Sin clasificar,NYSE,0,0,1,1
+RVII,Robinhood Ventures Fund II,Sin clasificar,NYSE,0,0,1,1
 RVLV,"Revolve Group, Inc.",Sin clasificar,NYSE,0,0,1,1
 RVT,"Royce Small-Cap Trust, Inc.",Sin clasificar,NYSE,0,0,1,1
 RVTY,"Revvity, Inc.",Sin clasificar,NYSE,0,0,1,1
@@ -2641,7 +2636,6 @@ SECZ,Securitize Corp.,Sin clasificar,NYSE,0,0,1,1
 SEG,Seaport Entertainment Group Inc.,Sin clasificar,NYSE,0,0,1,1
 SEI,"Solaris Energy Infrastructure, Inc.",Sin clasificar,NYSE,0,0,1,1
 SES,SES AI Corporation,Sin clasificar,NYSE,0,0,1,1
-SES.WS,"SES AI Corporation Warrants, each whole warrant exercisable for one share of Class A Common Stock at an exercise price of $11.50 per share",Sin clasificar,NYSE,0,0,1,1
 SF,Stifel Financial Corp.,Sin clasificar,NYSE,0,0,1,1
 SF.PRB,"Stifel Financial Corp. Depositary Shares, Each Representing 1/1,000th Interest in a Share of 6.25% Non-Cumulative Preferred Stock, Series B",Sin clasificar,NYSE,0,0,1,1
 SF.PRC,"Stifel Financial Corp. Depositary Shares, Each Representing 1/1, 000th Interest in a Share of 6.125% Non Cumulative Preferred Stock, Series C",Sin clasificar,NYSE,0,0,1,1
@@ -2854,7 +2848,7 @@ TFPM,Triple Flag Precious Metals Corp.,Sin clasificar,NYSE,0,0,1,1
 TFX,Teleflex Incorporated,Sin clasificar,NYSE,0,0,1,1
 TG,Tredegar Corporation,Sin clasificar,NYSE,0,0,1,1
 TGE,The Generation Essentials Group,Sin clasificar,NYSE,0,0,1,1
-TGLS,Tecnoglass Inc.,Sin clasificar,NYSE,0,0,1,1
+TGLS,Tecnoglass Holdings Inc.,Sin clasificar,NYSE,0,0,1,1
 TGS,Transportadora de Gas del Sur S.A. ADS,Sin clasificar,NYSE,0,0,1,1
 TGT,Target Corporation,Sin clasificar,NYSE,0,0,1,1
 THC,Tenet Healthcare Corporation New,Sin clasificar,NYSE,0,0,1,1
@@ -2877,7 +2871,6 @@ TLK,PT Telekomunikasi Indonesia,Sin clasificar,NYSE,0,0,1,1
 TLYS,Tilly's Inc.,Sin clasificar,NYSE,0,0,1,1
 TM,Toyota Motor Corporation American Depositary Shares (Each representing ten Ordinary Shares),Sin clasificar,NYSE,0,0,1,1
 TME,"Tencent Music Entertainment Group American Depositary Shares, each representing two Class A Ordinary Shares",Sin clasificar,NYSE,0,0,1,1
-TMHC,Taylor Morrison Home Corporation Common Stock,Sin clasificar,NYSE,0,0,1,1
 TMO,"Thermo Fisher Scientific, Inc.",Sin clasificar,NYSE,0,0,1,1
 TNC,TENNANT COMPANY,Sin clasificar,NYSE,0,0,1,1
 TNET,"TRINET GROUP, INC.",Sin clasificar,NYSE,0,0,1,1
@@ -2902,9 +2895,12 @@ TRAK,"ReposiTrak, Inc.",Sin clasificar,NYSE,0,0,1,1
 TRC,Tejon Ranch Co.,Sin clasificar,NYSE,0,0,1,1
 TREX,"Trex Company, Inc.",Sin clasificar,NYSE,0,0,1,1
 TRGP,Targa Resources Corp.,Sin clasificar,NYSE,0,0,1,1
+TRIN,Trinity Capital Inc.,Sin clasificar,NYSE,0,0,1,1
 TRLV,Trulieve Cannabis Corp.,Sin clasificar,NYSE,0,0,1,1
 TRN,"Trinity Industries, Inc.",Sin clasificar,NYSE,0,0,1,1
+TRNI,Trinity Capital Inc. 7.875% Notes Due 2029,Sin clasificar,NYSE,0,0,1,1
 TRNO,Terreno Realty Corporation,Sin clasificar,NYSE,0,0,1,1
+TRNZ,Trinity Capital Inc. 7.875% Notes due 2029,Sin clasificar,NYSE,0,0,1,1
 TROX,TRONOX LIMITED CL A ORDINARY SHARES,Sin clasificar,NYSE,0,0,1,1
 TRP,TC Energy Corporation,Sin clasificar,NYSE,0,0,1,1
 TRTN.PRA,Triton International Limited 8.50% Series A Cumulative Redeemable Perpetual Preference Shares,Sin clasificar,NYSE,0,0,1,1
@@ -3031,7 +3027,9 @@ VGNT,Versigent PLC,Sin clasificar,NYSE,0,0,1,1
 VHI,"Valhi, Inc.",Sin clasificar,NYSE,0,0,1,1
 VIA,"Via Transportation, Inc.",Sin clasificar,NYSE,0,0,1,1
 VICI,VICI Properties Inc. Common Stock,Sin clasificar,NYSE,0,0,1,1
+VII,Viking Acquisition Corp. II,Sin clasificar,NYSE,0,0,1,1
 VII.U,"Viking Acquisition Corp. II Units, each consisting of one Class A ordinary share and one-third of one Warrant",Sin clasificar,NYSE,0,0,1,1
+VII.WS,"Viking Acquisition Corp. II Redeemable warrants, each full warrant exercisable for one Class A ordinary share at an exercise price of $11.50 per share",Sin clasificar,NYSE,0,0,1,1
 VIK,Viking Holdings Ltd,Sin clasificar,NYSE,0,0,1,1
 VIPS,Vipshop Holdings Limited,Sin clasificar,NYSE,0,0,1,1
 VIRT,"Virtu Financial, Inc. Class A",Sin clasificar,NYSE,0,0,1,1
@@ -3039,7 +3037,6 @@ VIST,Vista Energy S.A.B. de C.V.,Sin clasificar,NYSE,0,0,1,1
 VIV,"Telefonica Brasil, S.A. American Depositary Shares (each representing two (2) Common Shares)",Sin clasificar,NYSE,0,0,1,1
 VKQ,Invesco Municipal Trust,Sin clasificar,NYSE,0,0,1,1
 VLN,Valens Semiconductor Ltd.,Sin clasificar,NYSE,0,0,1,1
-VLN.WS,"Valens Semiconductor Ltd. Warrants, each warrant to purchase one-half of one Ordinary Share",Sin clasificar,NYSE,0,0,1,1
 VLO,Valero Energy Corporation,Sin clasificar,NYSE,0,0,1,1
 VLRS,"CONTROLADORA VUELA COMPAniA DE AVIACIoN, S.A.B. DE C.V.",Sin clasificar,NYSE,0,0,1,1
 VLT,Invesco  High Income Trust II,Sin clasificar,NYSE,0,0,1,1
@@ -3047,6 +3044,7 @@ VLTO,Veralto Corporation,Sin clasificar,NYSE,0,0,1,1
 VMC,Vulcan Materials Company(Holding Company),Sin clasificar,NYSE,0,0,1,1
 VMI,"Valmont Industries, Inc.",Sin clasificar,NYSE,0,0,1,1
 VMO,Invesco Municipal Opportunity Trust,Sin clasificar,NYSE,0,0,1,1
+VMRK,Vivmark Residential,Sin clasificar,NYSE,0,0,1,1
 VNO,Vornado Realty Trust,Sin clasificar,NYSE,0,0,1,1
 VNO.PRL,"VORNADO REALTY TRUST 5.40% Series L Cumulative Redeemable Preferred Shares of Beneficial Interest, liquidation preference $25.00 per share",Sin clasificar,NYSE,0,0,1,1
 VNO.PRM,"Vornado Realty Trust 5.25% Series M Cumulative Redeemable Preferred Shares of Beneficial Interest, liquidation preference $25.00 per share, no par value per share",Sin clasificar,NYSE,0,0,1,1
@@ -3191,7 +3189,7 @@ YETI,"YETI Holdings, Inc. Common Stock",Sin clasificar,NYSE,0,0,1,1
 YEXT,"Yext, Inc.",Sin clasificar,NYSE,0,0,1,1
 YMM,Full Truck Alliance Co. Ltd. American Depositary Shares (each representing 20 Class A Ordinary Shares),Sin clasificar,NYSE,0,0,1,1
 YOU,"Clear Secure, Inc.",Sin clasificar,NYSE,0,0,1,1
-YPF,YPF Sociedad Anonima,Sin clasificar,NYSE,0,0,1,1
+YPF,YPF Sociedad Anonima American Depositary Shares (Each representing ten (10) Class D shares of Capital Stock),Sin clasificar,NYSE,0,0,1,1
 YRD,Yiren Digital Ltd.,Sin clasificar,NYSE,0,0,1,1
 YSG,"Yatsen Holding Limited American Depositary Shares, each representing twenty (20) Class A Ordinary Shares",Sin clasificar,NYSE,0,0,1,1
 YSS,York Space Systems Inc.,Sin clasificar,NYSE,0,0,1,1
@@ -3238,6 +3236,7 @@ AAPG,Ascentage Pharma Group International American Depository Shares,Sin clasifi
 AAPL,Apple Inc. Common Stock,Tecnologia,Nasdaq,196.45,7200000000,4.1,4.3
 AAPU,Direxion Shares ETF Trust Direxion Daily AAPL Bull 2X ETF,Sin clasificar,Nasdaq,0,0,1,1
 AARD,"Aardvark Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+AAUB,EA Series Trust Alpha Architect US Equity 4 ETF,Sin clasificar,Nasdaq,0,0,1,1
 AAUS,EA Series Trust Alpha Architect US Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
 AAVM,EA Series Trust Alpha Architect Global Factor Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
 AAXJ,iShares MSCI All Country Asia ex Japan ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -3250,7 +3249,6 @@ ABIG,EA Series Trust Argent Large Cap ETF,Sin clasificar,Nasdaq,0,0,1,1
 ABLV,Able View Global Inc. Class B Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 ABLVW,Able View Global Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 ABNB,"Airbnb, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-ABNG,Themes ETF Trust Leverage Shares 2x Long ABNB Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 ABOS,"Acumen Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ABSI,Absci Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ABTC,American Bitcoin Corp. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -3286,8 +3284,11 @@ ACNT,Ascent Industries Co. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ACOG,Alpha Cognition Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ACON,"Aclarion, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ACONW,"Aclarion, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
+ACQQ,ProShares Trust ProShares Nasdaq-100 Autocallable Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 ACRS,"Aclaris Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+ACRT,ProShares Trust ProShares Russell 2000 Autocallable Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 ACRV,"Acrivon Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+ACSP,ProShares Trust ProShares S&P 500 Autocallable Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 ACT,"Enact Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ACTG,Acacia Research Corporation (Acacia Tech) Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ACTU,"Actuate Therapeutics, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3302,6 +3303,7 @@ ADAM,"Adamas Trust, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ADAMG,"Adamas Trust, Inc. 9.125% Senior Notes Due 2030",Sin clasificar,Nasdaq,0,0,1,1
 ADAMH,"Adamas Trust, Inc. 9.875% Senior Notes Due 2030",Sin clasificar,Nasdaq,0,0,1,1
 ADAMI,"Adamas Trust, Inc. 9.125% Senior Notes Due 2029",Sin clasificar,Nasdaq,0,0,1,1
+ADAMK,"Adamas Trust, Inc. 9.600% Senior Notes Due 2031",Sin clasificar,Nasdaq,0,0,1,1
 ADAML,"Adamas Trust, Inc. 6.875% Series F Fixed-to-Floating Rate Cumulative Redeemable Preferred Stock, $0.01 par value per share",Sin clasificar,Nasdaq,0,0,1,1
 ADAMM,"Adamas Trust, Inc. 7.875% Series E Fixed-to-Floating Rate Cumulative Redeemable Preferred Stock",Sin clasificar,Nasdaq,0,0,1,1
 ADAMN,"Adamas Trust, Inc. 8.00% Series D Fixed-to-Floating Rate Cumulative Redeemable Preferred Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3346,7 +3348,6 @@ AESPU,Aeon Acquisition I Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 AESPW,Aeon Acquisition I Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 AEVA,"Aeva Technologies, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AEYE,"AudioEye, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-AFBI,"Affinity Bancshares, Inc. Common Stock (MD)",Sin clasificar,Nasdaq,0,0,1,1
 AFCG,Advanced Flower Capital Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 AFJK,"Aimei Health Technology Co., Ltd Ordinary Share",Sin clasificar,Nasdaq,0,0,1,1
 AFJKR,"Aimei Health Technology Co., Ltd Right",Sin clasificar,Nasdaq,0,0,1,1
@@ -3376,7 +3377,7 @@ AGNCZ,"AGNC Investment Corp. Depositary Shares Each Representing a 1/1,000th Int
 AGNG,Global X Funds Global X Aging Population ETF,Sin clasificar,Nasdaq,0,0,1,1
 AGNT,"AGNT, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AGPU,Axe Compute Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-AGRZ,Agroz Inc. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+AGRZ,Agroz Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 AGYS,"Agilysys, Inc. Common Stock (DE)",Sin clasificar,Nasdaq,0,0,1,1
 AGZD,WisdomTree Trust WisdomTree Interest Rate Hedged U.S. Aggregate Bond Fund,Sin clasificar,Nasdaq,0,0,1,1
 AHCO,AdaptHealth Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -3399,6 +3400,7 @@ AIIR,Air Global PLC Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 AIMD,"Ainos, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AIMDW,"Ainos, Inc. Warrants",Sin clasificar,Nasdaq,0,0,1,1
 AIMS,Series Portfolios Trust Acuitas Small Cap Active ETF,Sin clasificar,Nasdaq,0,0,1,1
+AINF,ETF Series Solutions Defiance Inference AI Chip ETF,Sin clasificar,Nasdaq,0,0,1,1
 AIOS,AIOS Tech Inc. Class A Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 AIOT,"PowerFleet, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AIP,"Arteris, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3426,7 +3428,6 @@ AKTX,Akari Therapeutics plc ADS,Sin clasificar,Nasdaq,0,0,1,1
 ALAB,"Astera Labs, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ALAR,Alarum Technologies Ltd. American Depositary Share,Sin clasificar,Nasdaq,0,0,1,1
 ALBG,Themes ETF Trust Leverage Shares 2X Long ALB Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
-ALBT,Avalon GloboCare Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ALCO,"Alico, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ALDF,Aldel Financial II Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 ALDFU,Aldel Financial II Inc. Units,Sin clasificar,Nasdaq,0,0,1,1
@@ -3502,7 +3503,6 @@ AMLX,"Amylyx Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AMOD,"Alpha Modus Holdings, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AMODW,"Alpha Modus Holdings, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 AMPG,"Amplitech Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-AMPGR,"Amplitech Group, Inc. Series A Right",Sin clasificar,Nasdaq,0,0,1,1
 AMPGZ,"Amplitech Group, Inc. Series B Right",Sin clasificar,Nasdaq,0,0,1,1
 AMPH,"Amphastar Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AMPL,"Amplitude, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3528,6 +3528,7 @@ ANGHW,Anghami Inc. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 ANGI,Angi Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ANGL,VanEck Fallen Angel High Yield Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 ANGO,"AngioDynamics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+ANGU,SEI Exchange Traded Funds SEI Ang Research Enhanced U.S. Large Cap ETF,Sin clasificar,Nasdaq,0,0,1,1
 ANIK,Anika Therapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ANIP,"ANI Pharmaceuticals, Inc.",Sin clasificar,Nasdaq,0,0,1,1
 ANIX,"Anixa Biosciences, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3536,9 +3537,6 @@ ANNA,"AleAnna, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ANNAW,"AleAnna, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 ANNX,"Annexon, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ANPA,Rich Sparkle Holdings Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-ANSC,Agriculture & Natural Solutions Acquisition Corporation Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-ANSCU,Agriculture & Natural Solutions Acquisition Corporation Unit,Sin clasificar,Nasdaq,0,0,1,1
-ANSCW,Agriculture & Natural Solutions Acquisition Corporation Warrant,Sin clasificar,Nasdaq,0,0,1,1
 ANTA,Antalpha Platform Holding Company Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 ANTX,"AN2 Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ANV,GraniteShares ETF Trust GraniteShares Autocallable NVDA ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -3558,10 +3556,10 @@ API,"Agora, Inc. American Depositary Shares",Sin clasificar,Nasdaq,0,0,1,1
 APLD,Applied Digital Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 APLM,Apollomics Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 APLMW,Apollomics Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
-APM,Aptorum Group Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 APMC,AmperCap Acquisition Company Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 APMCR,AmperCap Acquisition Company Right,Sin clasificar,Nasdaq,0,0,1,1
 APMCU,AmperCap Acquisition Company Unit,Sin clasificar,Nasdaq,0,0,1,1
+APMD,"Apnimed, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 APOG,"Apogee Enterprises, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 APP,Applovin Corporation Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 APPF,"AppFolio, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3681,6 +3679,7 @@ ATPC,Agape ATP Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ATRA,"Atara Biotherapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ATRC,"AtriCure, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ATRO,Astronics Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+ATTO,"Attovia Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ATYR,"aTyr Pharma, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AUBN,"Auburn National Bancorporation, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AUC,ATIF Holdings Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -3728,7 +3727,6 @@ AXIN,Axiom Intelligence Acquisition Corp 1 Class A Ordinary Shares,Sin clasifica
 AXINR,Axiom Intelligence Acquisition Corp 1 Right,Sin clasificar,Nasdaq,0,0,1,1
 AXINU,Axiom Intelligence Acquisition Corp 1 Units,Sin clasificar,Nasdaq,0,0,1,1
 AXON,"Axon Enterprise, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-AXPG,Themes ETF Trust Leverage Shares 2x Long AXP Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 AXSM,"Axsome Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 AXTI,AXT Inc Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 AYA,Aya Gold & Silver Inc. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -3762,6 +3760,7 @@ BASV,The Advisors' Inner Circle Fund III Brown Advisory Sustainable Value ETF,Si
 BATRA,"Atlanta Braves Holdings, Inc. Series A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BATRK,"Atlanta Braves Holdings, Inc. Series C Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BBB,CYBER HORNET Trust CYBER HORNET S&P 500 and Bitcoin 75/25 Strategy ETF,Sin clasificar,Nasdaq,0,0,1,1
+BBBYW,"Neighborhood Intelligence, Inc. Warrants",Sin clasificar,Nasdaq,0,0,1,1
 BBCP,"Concrete Pumping Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BBCQ,Bleichroeder Acquisition Corp. II Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BBCQU,Bleichroeder Acquisition Corp. II Units,Sin clasificar,Nasdaq,0,0,1,1
@@ -3783,7 +3782,9 @@ BCARU,D. Boral ARC Acquisition I Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 BCARW,D. Boral ARC Acquisition I Corp. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 BCAX,Bicara Therapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BCBP,"BCB Bancorp, Inc. (NJ) Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+BCCQ,Bleichroeder Acquisition Corp. III Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BCCQU,Bleichroeder Acquisition Corp. III Units,Sin clasificar,Nasdaq,0,0,1,1
+BCCQW,Bleichroeder Acquisition Corp. III Warrant,Sin clasificar,Nasdaq,0,0,1,1
 BCDA,"BioCardia, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BCFN,Baron ETF Trust Baron Financials ETF,Sin clasificar,Nasdaq,0,0,1,1
 BCG,"Binah Capital Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3823,7 +3824,6 @@ BEEZ,EA Series Trust Honeytree U.S. Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
 BEG,Themes ETF Trust Leverage Shares 2x Long BE Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 BELFA,Bel Fuse Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BELFB,Bel Fuse Inc. Class B Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-BELT,BlackRock ETF Trust iShares U.S. Select Equity Active ETF,Sin clasificar,Nasdaq,0,0,1,1
 BENF,Beneficient Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BENFW,Beneficient Warrant,Sin clasificar,Nasdaq,0,0,1,1
 BESO,ETF Opportunities Trust GSR Crypto Core3 ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -3850,6 +3850,7 @@ BGM,BGM Group Ltd. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BGMS,"Bio Green Med Solution, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BGRN,iShares Trust iShares USD Green Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 BGRO,BlackRock ETF Trust iShares Large Cap Growth Active ETF,Sin clasificar,Nasdaq,0,0,1,1
+BGUS,Baillie Gifford ETF Trust Baillie Gifford U.S. Equity Growth ETF,Sin clasificar,Nasdaq,0,0,1,1
 BHAV,BHAV Acquisition Corp Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BHAVR,BHAV Acquisition Corp Rights,Sin clasificar,Nasdaq,0,0,1,1
 BHAVU,BHAV Acquisition Corp Units,Sin clasificar,Nasdaq,0,0,1,1
@@ -3865,12 +3866,16 @@ BHST,BioHarvest Sciences Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BIAF,"bioAffinity Technologies, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BIAFW,"bioAffinity Technologies, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 BIB,ProShares Trust ProShares Ultra Nasdaq Biotechnology,Sin clasificar,Nasdaq,0,0,1,1
+BID,Tribeca Strategic Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BIDG,Themes ETF Trust Leverage Shares 2X Long BIDU Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 BIDU,"Baidu, Inc. ADS",Sin clasificar,Nasdaq,0,0,1,1
+BIDWR,Tribeca Strategic Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
 BIDWU,Tribeca Strategic Acquisition Corp. Unit,Sin clasificar,Nasdaq,0,0,1,1
 BIIB,Biogen Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BILI,Bilibili Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BIOA,"BioAge Labs, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+BIOT,Instinct Bio Technical Company Holdings Inc. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+BIOTW,Instinct Bio Technical Company Holdings Inc. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 BIOX,Bioceres Crop Solutions Corp. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BIOY,GraniteShares ETF Trust GraniteShares YieldBOOST Biotech ETF,Sin clasificar,Nasdaq,0,0,1,1
 BIRD,"Smartbird, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -3911,6 +3916,7 @@ BLRKU,Bluerock Acquisition Corp. Unit,Sin clasificar,Nasdaq,0,0,1,1
 BLRKW,Bluerock Acquisition Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 BLRX,BioLineRx Ltd. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BLSG,Themes ETF Trust Leverage Shares 2X Long BLSH Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
+BLSM,"BlossomHill Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BLTE,"Belite Bio, Inc American Depositary Shares",Sin clasificar,Nasdaq,0,0,1,1
 BLUW,Blue Water Acquisition Corp. III Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BLUWU,Blue Water Acquisition Corp. III Unit.,Sin clasificar,Nasdaq,0,0,1,1
@@ -3942,11 +3948,8 @@ BNDX,Vanguard Charlotte Funds Vanguard Total International Bond ETF,Sin clasific
 BNGO,"Bionano Genomics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BNKK,"Bonk, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BNR,Burning Rock Biotech Limited American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
-BNRG,Brenmiller Energy Ltd Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BNTC,Benitec Biopharma Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BNTX,BioNTech SE American Depositary Share,Sin clasificar,Nasdaq,0,0,1,1
-BNZI,"Banzai International, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-BNZIW,"Banzai International, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 BODI,"The Beachbody Company, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BOEG,Themes ETF Trust Leverage Shares 2X Long BA Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 BOEU,Direxion Shares ETF Trust Direxion Daily BA Bull 2X ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -3994,14 +3997,17 @@ BRLS,Borealis Foods Inc. Class A Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 BRLSW,Borealis Foods Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 BRLT,"Brilliant Earth Group, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BRNS,Barinthus Biotherapeutics plc American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
+BRNX,BrenX Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BRNY,EA Series Trust Burney U.S. Factor Rotation ETF,Sin clasificar,Nasdaq,0,0,1,1
 BRR,"ProCap Financial, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BRRR,Coinshares Bitcoin ETF Common Shares of Beneficial Interest,Sin clasificar,Nasdaq,0,0,1,1
 BRRWW,"ProCap Financial, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
+BRTMU,B&R Technology Merger Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 BRTR,BlackRock ETF Trust II iShares Total Return Active ETF,Sin clasificar,Nasdaq,0,0,1,1
 BRTX,"BioRestorative Therapies, Inc. Common Stock (NV)",Sin clasificar,Nasdaq,0,0,1,1
 BRUN,Boost Run Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BRUNW,Boost Run Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
+BRVE,"Braveheart Bio, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BRZE,"Braze, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BSAA,BEST SPAC I Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 BSAAR,BEST SPAC I Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
@@ -4018,6 +4024,7 @@ BSCW,Invesco Exchange-Traded Self-Indexed Fund Trust Invesco BulletShares 2032 C
 BSCX,Invesco Exchange-Traded Self-Indexed Fund Trust Invesco BulletShares 2033 Corporate Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 BSCY,Invesco Exchange-Traded Self-Indexed Fund Trust Invesco BulletShares 2034 Corporate Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 BSCZ,Invesco Exchange-Traded Self-Indexed Fund Trust Invesco BulletShares 2035 Corporate Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
+BSEM,"BioStem Technologies, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BSET,"Bassett Furniture Industries, Incorporated Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BSGR,Invesco Exchange-Traded Self-Indexed Fund Trust Invesco BulletShares 2027 Treasury Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 BSGT,Invesco Exchange-Traded Self-Indexed Fund Trust Invesco BulletShares 2029 Treasury Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -4087,6 +4094,7 @@ BWEN,"Broadwind, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BWFG,"Bankwell Financial Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BWIN,"The Baldwin Insurance Group, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 BWMN,Bowman Consulting Group Ltd. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+BXBL,"BOXABL, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
 BYAH,"Park Ha Biological Technology Co., Ltd. Class A Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
 BYFC,Broadway Financial Corporation Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 BYND,"Beyond Meat, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -4104,6 +4112,7 @@ CABR,"Caring Brands, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CAC,Camden National Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CACC,Credit Acceptance Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CADL,"Candel Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+CAE,CAE Inc. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 CAES,"Cantor Equity Partners VII, Inc. Class A Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
 CAFG,Pacer Funds Trust Pacer US Small Cap Cash Cows Growth Leaders ETF,Sin clasificar,Nasdaq,0,0,1,1
 CAI,"Caris Life Sciences, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -4140,6 +4149,7 @@ CASS,"Cass Information Systems, Inc Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CAST,"FreeCast, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CASY,"Casey's General Stores, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CATH,Global X Funds Global X S&P 500 Catholic Values ETF,Sin clasificar,Nasdaq,0,0,1,1
+CATLU,Catalyst Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 CATY,Cathay General Bancorp Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CBAT,CBAK Energy Technology Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CBC,"Central Bancompany, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -4160,7 +4170,9 @@ CCB,Coastal Financial Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CCBG,Capital City Bank Group Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CCC,CCC Intelligent Solutions Holdings Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CCCC,"C4 Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+CCCT,Columbus Circle Capital Corp III Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CCCTU,Columbus Circle Capital Corp III Units,Sin clasificar,Nasdaq,0,0,1,1
+CCCTW,Columbus Circle Capital Corp III Warrants,Sin clasificar,Nasdaq,0,0,1,1
 CCD,Calamos Dynamic Convertible & Income Fund Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CCEC,Capital Clean Energy Carriers Corp. Common Share,Sin clasificar,Nasdaq,0,0,1,1
 CCEP,Coca-Cola Europacific Partners plc Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -4171,15 +4183,11 @@ CCHH,CCH Holdings Ltd Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CCII,Cohen Circle Acquisition Corp. II Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CCIIU,Cohen Circle Acquisition Corp. II Unit,Sin clasificar,Nasdaq,0,0,1,1
 CCIIW,Cohen Circle Acquisition Corp. II Warrant,Sin clasificar,Nasdaq,0,0,1,1
-CCIX,Churchill Capital Corp IX Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-CCIXU,Churchill Capital Corp IX Unit,Sin clasificar,Nasdaq,0,0,1,1
-CCIXW,Churchill Capital Corp IX Warrant,Sin clasificar,Nasdaq,0,0,1,1
 CCLD,"CareCloud, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CCNE,CNB Financial Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CCNEP,"CNB Financial Corporation Depositary Shares, each representing a 1/40th ownership interest in a share of 7.125% Series A Fixed-Rate Non-Cumulative Perpetual Preferred Stock",Sin clasificar,Nasdaq,0,0,1,1
 CCNR,Financial Investors Trust ALPS/CoreCommodity Natural Resources ETF,Sin clasificar,Nasdaq,0,0,1,1
 CCOI,"Cogent Communications Holdings, Inc.",Sin clasificar,Nasdaq,0,0,1,1
-CCRN,"Cross Country Healthcare, Inc. Common Stock $0.0001 Par Value",Sin clasificar,Nasdaq,0,0,1,1
 CCSB,Tidal Trust II Carbon Collective Short Duration Green Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 CCSI,"Consensus Cloud Solutions, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CCSO,Tidal ETF Trust II Carbon Collective Climate Solutions U.S. Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -4212,7 +4220,6 @@ CEG,Constellation Energy Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CELC,Celcuity Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CELH,"Celsius Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CELU,Celularity Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-CELUW,Celularity Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 CELZ,"Creative Medical Technology Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CENN,Cenntro Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CENT,Central Garden & Pet Company Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -4238,13 +4245,16 @@ CG,The Carlyle Group Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CGABL,The Carlyle Group Inc. 4.625% Subordinated Notes due 2061,Sin clasificar,Nasdaq,0,0,1,1
 CGBD,"Carlyle Secured Lending, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CGC,Canopy Growth Corporation Common Shares,Sin clasificar,Nasdaq,0,0,1,1
+CGCF,Cartesian Growth Corporation IV Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CGCFU,Cartesian Growth Corporation IV Unit,Sin clasificar,Nasdaq,0,0,1,1
+CGCFW,Cartesian Growth Corporation IV Warrants,Sin clasificar,Nasdaq,0,0,1,1
 CGEM,"Cullinan Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CGEN,Compugen Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CGNT,Cognyte Software Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CGNX,Cognex Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CGO,Calamos Global Total Return Fund Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CGON,"CG Oncology, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
+CGPT,Tidal Trust IV VegaShares AI Inference ETF,Sin clasificar,Nasdaq,0,0,1,1
 CGTL,Creative Global Technology Holdings Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CGTX,"Cognition Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CHA,Chagee Holdings Limited American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -4259,6 +4269,7 @@ CHEC,Chenghe Acquisition III Co. Class A Ordinary Share,Sin clasificar,Nasdaq,0,
 CHECU,Chenghe Acquisition III Co. Units,Sin clasificar,Nasdaq,0,0,1,1
 CHECW,Chenghe Acquisition III Co. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 CHEF,"The Chefs' Warehouse, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+CHGA,Change Agents Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CHGX,EA Series Trust Stance Sustainable Beta ETF,Sin clasificar,Nasdaq,0,0,1,1
 CHI,Calamos Convertible Opportunities and Income Fund Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CHKP,Check Point Software Technologies Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -4288,6 +4299,7 @@ CIBR,First Trust Exchange-Traded Fund II First Trust NASDAQ Cybersecurity ETF,Si
 CIFG,Themes ETF Trust Leverage Shares 2X Long CIFR Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 CIFR,Cipher Digital Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CIGI,Colliers International Group Inc. Subordinate Voting Shares,Sin clasificar,Nasdaq,0,0,1,1
+CIGL,Concorde International Group Ltd Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CIIT,"Tianci International, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CINF,Cincinnati Financial Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CING,Cingulate Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -4329,7 +4341,6 @@ CMCO,Columbus McKinnon Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CMCSA,Comcast Corporation Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CMCT,Creative Media & Community Trust Corporation Common stock,Sin clasificar,Nasdaq,0,0,1,1
 CME,CME Group Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-CMGG,Themes ETF Trust Leverage Shares 2X Long CMG Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 CMII,Columbus Circle Capital Corp II Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CMIIU,Columbus Circle Capital Corp II Unit,Sin clasificar,Nasdaq,0,0,1,1
 CMIIW,Columbus Circle Capital Corp II Warrant,Sin clasificar,Nasdaq,0,0,1,1
@@ -4341,16 +4352,17 @@ CMPX,"Compass Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CMRC,"Commerce.com, Inc. Series 1 Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CMTL,Comtech Telecommunications Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CMTV,Community Bancorp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-CNCG,Themes ETF Trust Leverage Shares 2X Long CNC Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 CNCK,Coincheck Group N.V. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CNCKW,Coincheck Group N.V. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 CNDT,Conduent Incorporated Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CNET,ZW Data Action Technologies Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CNEY,CN Energy Group Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+CNL,Collective Mining Ltd. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 CNOB,"ConnectOne Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CNOBP,"ConnectOne Bancorp, Inc. Depositary Shares, each representing a 1/40th interest in a share of 5.25% Fixed-Rate Reset Non-Cumulative Perpetual Preferred Stock, Series A",Sin clasificar,Nasdaq,0,0,1,1
 CNQQ,Rayliant Funds Trust Rayliant-ChinaAMC Transformative China Tech ETF,Sin clasificar,Nasdaq,0,0,1,1
 CNSP,"CNS Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+CNSY,"Cerenome, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CNTB,Connect Biopharma Holdings Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CNTN,"Canton Strategic Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CNTX,Context Therapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -4383,6 +4395,7 @@ CONI,GraniteShares ETF Trust GraniteShares 2x Short COIN Daily ETF,Sin clasifica
 CONL,GraniteShares ETF Trust GraniteShares 2x Long COIN Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 CONX,Direxion Shares ETF Trust Direxion Daily COIN Bull 2X ETF,Sin clasificar,Nasdaq,0,0,1,1
 COO,"The Cooper Companies, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+COOL,"Tidal Trust IV VegaShares AI Thermal, Cooling & Power Management ETF",Sin clasificar,Nasdaq,0,0,1,1
 COOT,Australian Oilseeds Holdings Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 COOTW,Australian Oilseeds Holdings Limited Warrant,Sin clasificar,Nasdaq,0,0,1,1
 COPJ,Sprott Funds Trust Sprott Junior Copper Miners ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -4410,6 +4423,7 @@ CPOP,"Pop Culture Group Co., Ltd Class A Ordinary Shares",Sin clasificar,Nasdaq,
 CPRT,"Copart, Inc. (DE) Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CPSH,CPS Technologies Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CPSS,"Consumer Portfolio Services, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+CPTL,Global X Funds Global X Morningstar Capital Allocation Leaders ETF,Sin clasificar,Nasdaq,0,0,1,1
 CPZ,Calamos Long/Short Equity & Dynamic Income Trust Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CRAC,Crown Reserve Acquisition Corp. I Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CRACR,Crown Reserve Acquisition Corp. I Rights,Sin clasificar,Nasdaq,0,0,1,1
@@ -4430,7 +4444,6 @@ CRDF,"Cardiff Oncology, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CRDL,Cardiol Therapeutics Inc. Class A Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 CRDO,Credo Technology Group Holding Ltd Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CRE,Cre8 Enterprise Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-CREG,Smart Powerr Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CRESY,Cresud S.A.C.I.F. y A. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CREX,"Creative Realities, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CRGO,Freightos Limited Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -4445,11 +4458,12 @@ CRMU,Themes ETF Trust Leverage Shares 2x Long CRML Daily ETF,Sin clasificar,Nasd
 CRNC,Cerence Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CRNT,Ceragon Networks Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CRNX,"Crinetics Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+CROB,ETF Series Solutions Defiance China Robotics ETF,Sin clasificar,Nasdaq,0,0,1,1
 CRON,Cronos Group Inc. Common Share,Sin clasificar,Nasdaq,0,0,1,1
 CROX,"Crocs, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CRSP,CRISPR Therapeutics AG Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 CRSR,"Corsair Gaming, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-CRTO,Criteo S.A. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
+CRTO,Criteo S.A. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CRUS,"Cirrus Logic, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CRVL,CorVel Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CRVO,CervoMed Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -4502,6 +4516,7 @@ CUPR,Cuprina Holdings (Cayman) Limited Class A Ordinary Shares,Sin clasificar,Na
 CURI,CuriosityStream Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CURR,Currenc Group Inc. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CURX,Curanex Pharmaceuticals Inc Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+CUVL,Clinuvel Pharmaceuticals Limited American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 CV,"CapsoVision, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CVBF,CVB Financial Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CVCO,"Cavco Industries, Inc. Common Stock When Issued",Sin clasificar,Nasdaq,0,0,1,1
@@ -4530,7 +4545,6 @@ CYN,Cyngn Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CYPH,Cypherpunk Technologies Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CYRX,"CryoPort, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CYTK,"Cytokinetics, Incorporated Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-CZAR,Themes ETF Trust Themes Natural Monopoly ETF,Sin clasificar,Nasdaq,0,0,1,1
 CZFS,"Citizens Financial Services, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 CZNC,Citizens & Northern Corp Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 CZR,"Caesars Entertainment, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -4606,6 +4620,7 @@ DJTWW,Trump Media & Technology Group Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,
 DKI,DarkIris Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 DKNG,DraftKings Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 DKNX,Tidal Trust II Defiance Daily Target 2X Long DKNG ETF,Sin clasificar,Nasdaq,0,0,1,1
+DLCU,Dimensional Investment Group Inc. U.S. Large Company Portfolio: ETF Class Shares,Sin clasificar,Nasdaq,0,0,1,1
 DLHC,DLH Holdings Corp.,Sin clasificar,Nasdaq,0,0,1,1
 DLLL,GraniteShares ETF Trust GraniteShares 2x Long DELL Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 DLO,DLocal Limited Class A Common Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -4621,14 +4636,13 @@ DMII,Drugs Made In America Acquisition II Corp. Ordinary Shares,Sin clasificar,N
 DMIIR,Drugs Made In America Acquisition II Corp. Right,Sin clasificar,Nasdaq,0,0,1,1
 DMIIU,Drugs Made In America Acquisition II Corp. Unit,Sin clasificar,Nasdaq,0,0,1,1
 DMLP,"Dorchester Minerals, L.P. Common Units Representing Limited Partnership Interests",Sin clasificar,Nasdaq,0,0,1,1
-DMRA,"Damora Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+DMRA,"Damora Therapeutics, Inc. Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
 DMRC,Digimarc Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 DMXF,iShares Trust iShares ESG Advanced MSCI EAFE ETF,Sin clasificar,Nasdaq,0,0,1,1
 DNLI,Denali Therapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 DNMX,Dynamix Corporation III Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 DNMXU,Dynamix Corporation III Unit,Sin clasificar,Nasdaq,0,0,1,1
 DNMXW,Dynamix Corporation III Warrants,Sin clasificar,Nasdaq,0,0,1,1
-DNNG,Themes ETF Trust Leverage Shares 2x Long DNN Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 DNTH,"Dianthus Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 DNUT,"Krispy Kreme, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 DOCU,"DocuSign, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -4650,7 +4664,6 @@ DRH,Diamondrock Hospitality Company Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 DRIO,DarioHealth Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 DRIV,Global X Funds Global X Autonomous & Electric Vehicles ETF,Sin clasificar,Nasdaq,0,0,1,1
 DRMA,"Dermata Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-DRMAW,"Dermata Therapeutics, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 DRNZ,REX ETF Trust REX Drone ETF,Sin clasificar,Nasdaq,0,0,1,1
 DRS,"Leonardo DRS, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 DRTS,Alpha Tau Medical Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -4727,7 +4740,6 @@ DYOR,Insight Digital Partners II Class A Ordinary Shares,Sin clasificar,Nasdaq,0
 DYORU,Insight Digital Partners II Units,Sin clasificar,Nasdaq,0,0,1,1
 DYORW,Insight Digital Partners II Warrants,Sin clasificar,Nasdaq,0,0,1,1
 DYTA,"The RBB Fund, Inc. SGI Dynamic Tactical ETF",Sin clasificar,Nasdaq,0,0,1,1
-EA,Electronic Arts Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 EART,Global X Funds Global X Rare Earth & Critical Materials ETF,Sin clasificar,Nasdaq,0,0,1,1
 EASY,Two Roads Shared Trust Liberty One Defensive Dividend Growth ETF,Sin clasificar,Nasdaq,0,0,1,1
 EBAY,eBay Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -4785,9 +4797,9 @@ ELFY,ALPS ETF Trust ALPS Electrification Infrastructure ETF,Sin clasificar,Nasda
 ELIL,Direxion Shares ETF Trust Direxion Daily LLY Bull 2X ETF,Sin clasificar,Nasdaq,0,0,1,1
 ELMT,The Elmet Group Co. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ELOG,Eastern International Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+ELOL,Themes ETF Trust Leverage Shares 100% TSLA AND 100% SPCX Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 ELOX,"Eloxx Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ELPW,Elong Power Holding Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-ELSE,"Electro-Sensors, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ELTK,Eltek Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 ELTX,"Elicio Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ELUT,Elutia Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -4806,7 +4818,6 @@ EMIS,Emmis Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1
 EMISR,Emmis Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
 EML,Eastern Company (The) Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 EMPD,Empery Digital Inc. Common stock,Sin clasificar,Nasdaq,0,0,1,1
-EMPG,Empro Group Inc. Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
 EMSC,EA Series Trust Sophus Capital Emerging Market Small Cap ETF,Sin clasificar,Nasdaq,0,0,1,1
 EMXC,"iShares, Inc. iShares MSCI Emerging Markets ex China ETF",Sin clasificar,Nasdaq,0,0,1,1
 EMXF,iShares Trust iShares ESG Advanced MSCI EM ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -4831,7 +4842,6 @@ ENVX,Enovix Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ENZL,iShares Trust iShares MSCI New Zealand ETF,Sin clasificar,Nasdaq,0,0,1,1
 EOLS,"Evolus, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 EOSE,"Eos Energy Enterprises, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-EOSER,"Eos Energy Enterprises, Inc. Right",Sin clasificar,Nasdaq,0,0,1,1
 EPOW,E-Power Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 EPRX,Eupraxia Pharmaceuticals Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 EPSM,Epsium Enterprise Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -4839,6 +4849,7 @@ EPSN,Epsilon Energy Ltd. Common Share,Sin clasificar,Nasdaq,0,0,1,1
 EQ,"Equillium, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 EQIX,"Equinix, Inc. Common Stock REIT",Sin clasificar,Nasdaq,0,0,1,1
 EQPT,EquipmentShare.com Inc Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+EQQQ,ProShares Trust ProShares Ultra QQQ Equal Weight,Sin clasificar,Nasdaq,0,0,1,1
 EQRR,ProShares Trust ProShares Equities for Rising Rates ETF,Sin clasificar,Nasdaq,0,0,1,1
 ERAS,"Erasca, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ERET,iShares Trust iShares Environmentally Aware Real Estate ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -4889,6 +4900,9 @@ EVPF,Morgan Stanley ETF Trust Eaton Vance Preferred Securities and Income ETF,Si
 EVRG,"Evergy, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 EVSD,Morgan Stanley ETF Trust Eaton Vance Short Duration Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 EVYM,Morgan Stanley ETF Trust Eaton Vance High Income Municipal ETF,Sin clasificar,Nasdaq,0,0,1,1
+EWAV,East West Ave Acquisition Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+EWAVR,East West Ave Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
+EWAVU,East West Ave Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 EWBC,"East West Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 EWJV,iShares Trust iShares MSCI Japan Value ETF,Sin clasificar,Nasdaq,0,0,1,1
 EWTX,"Edgewise Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -4969,7 +4983,9 @@ FDIF,Fidelity Covington Trust Fidelity Disruptors ETF,Sin clasificar,Nasdaq,0,0,
 FDIG,Fidelity Covington Trust Fidelity Crypto Industry and Digital Payments ETF,Sin clasificar,Nasdaq,0,0,1,1
 FDIQ,Invesco Exchange-Traded Fund Trust II Invesco Bloomberg Financial Data Providers ETF,Sin clasificar,Nasdaq,0,0,1,1
 FDIV,EA Series Trust MarketDesk Focused U.S. Dividend ETF,Sin clasificar,Nasdaq,0,0,1,1
+FDMM,Freedom Metals Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 FDMMU,Freedom Metals Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
+FDMMW,Freedom Metals Acquisition Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 FDMT,"4D Molecular Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FDNI,First Trust Exchange-Traded Fund II First Trust Dow Jones International Internet ETF,Sin clasificar,Nasdaq,0,0,1,1
 FDRS,Corgi ETF Trust I Founder-Led ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -4998,7 +5014,6 @@ FERAU,Fifth Era Acquisition Corp I Units,Sin clasificar,Nasdaq,0,0,1,1
 FEUZ,First Trust Exchange-Traded AlphDEX Fund II First Trust Eurozone AlphaDEX ETF,Sin clasificar,Nasdaq,0,0,1,1
 FEX,First Trust Large Cap Core AlphaDEX Fund,Sin clasificar,Nasdaq,0,0,1,1
 FFAI,Faraday Future Intelligent Electric Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-FFAIW,Faraday Future Intelligent Electric Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 FFBC,First Financial Bancorp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 FFIN,"First Financial Bankshares, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FFIV,"F5, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -5012,9 +5027,6 @@ FGIIW,FG Imperii Acquisition Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 FGIWW,FGI Industries Ltd. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 FGL,Founder Group Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 FGM,First Trust Germany AlphaDex Fund,Sin clasificar,Nasdaq,0,0,1,1
-FGMC,FG Merger II Corp. Common stock,Sin clasificar,Nasdaq,0,0,1,1
-FGMCR,FG Merger II Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
-FGMCU,FG Merger II Corp. Unit,Sin clasificar,Nasdaq,0,0,1,1
 FGNX,FG Nexus Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 FGNXP,FG Nexus Inc. 8.00% Cumulative Preferred Stock,Sin clasificar,Nasdaq,0,0,1,1
 FGSI,First Trust Exchange-Traded Fund IV FT Vest Growth Strength & Target Income ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -5042,6 +5054,7 @@ FIVN,"Five9, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FIXD,First Trust Exchange-Traded Fund VIII First Trust Smith Opportunistic Fixed Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 FIYY,GraniteShares ETF Trust GraniteShares YieldBOOST 20Y Treasuries ETF,Sin clasificar,Nasdaq,0,0,1,1
 FIZZ,National Beverage Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+FJDIU,ARC Group Securities Acquisition I Units,Sin clasificar,Nasdaq,0,0,1,1
 FJP,First Trust Japan AlphaDEX Fund,Sin clasificar,Nasdaq,0,0,1,1
 FKU,First Trust United Kingdom AlphaDex Fund,Sin clasificar,Nasdaq,0,0,1,1
 FKWL,Franklin Wireless Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -5114,6 +5127,7 @@ FRME,First Merchants Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 FRMEP,First Merchants Corporation Depository Shares,Sin clasificar,Nasdaq,0,0,1,1
 FRMI,Fermi Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 FRMM,"Forum Markets, Incorporated Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+FRNM,"Freenome, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
 FROG,JFrog Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 FRPH,"FRP Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FRPT,"Freshpet, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -5149,6 +5163,7 @@ FTDR,"frontdoor, inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FTDS,First Trust Dividend Strength ETF,Sin clasificar,Nasdaq,0,0,1,1
 FTEK,"Fuel Tech, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FTFT,Future FinTech Group Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+FTG,Capitol Series Trust FullerThaler Behavioral Growth ETF,Sin clasificar,Nasdaq,0,0,1,1
 FTGC,First Trust Exchange-Traded Fund VII First Trust Global Tactical Commodity Strategy Fund,Sin clasificar,Nasdaq,0,0,1,1
 FTGS,First Trust Exchange-Traded Fund First Trust Growth Strength ETF,Sin clasificar,Nasdaq,0,0,1,1
 FTH,"Faeth Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -5162,7 +5177,6 @@ FTNT,"Fortinet, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FTQI,First Trust Exchange-Traded Fund VI First Trust Nasdaq BuyWrite Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 FTRE,Fortrea Holdings Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 FTRI,First Trust Exchange-Traded Fund II First Trust Indxx Global Natural Resources Income ETF,Sin clasificar,Nasdaq,0,0,1,1
-FTRK,FAST TRACK GROUP Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
 FTSL,First Trust Exchange-Traded Fund IV First Trust Senior Loan Fund ETF,Sin clasificar,Nasdaq,0,0,1,1
 FTSM,First Trust Exchange-Traded Fund IV First Trust Enhanced Short Maturity ETF,Sin clasificar,Nasdaq,0,0,1,1
 FTXG,First Trust Exchange-Traded Fund VI First Trust Nasdaq Food & Beverage ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -5190,7 +5204,10 @@ FVCB,"FVCBankcorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FVN,Future Vision II Acquisition Corporation Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
 FVNNR,Future Vision II Acquisition Corporation Right,Sin clasificar,Nasdaq,0,0,1,1
 FVNNU,Future Vision II Acquisition Corporation Units,Sin clasificar,Nasdaq,0,0,1,1
+FWAC,Futurewave Acquisition Corporation Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+FWACR,Futurewave Acquisition Corporation Rights,Sin clasificar,Nasdaq,0,0,1,1
 FWACU,Futurewave Acquisition Corporation Units,Sin clasificar,Nasdaq,0,0,1,1
+FWACW,Futurewave Acquisition Corporation Warrants,Sin clasificar,Nasdaq,0,0,1,1
 FWDI,"Forward Industries, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 FWONA,Liberty Media Corporation Series A Liberty Formula One Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 FWONK,Liberty Media Corporation Series C Liberty Formula One Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -5211,7 +5228,6 @@ GAING,Gladstone Investment Corporation 7.125% Notes due 2031,Sin clasificar,Nasd
 GAINI,Gladstone Investment Corporation 7.875% Notes due 2030,Sin clasificar,Nasdaq,0,0,1,1
 GAINZ,Gladstone Investment Corporation 4.875% Notes due 2028,Sin clasificar,Nasdaq,0,0,1,1
 GALT,Galectin Therapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-GAMB,Gambling.com Group Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 GAME,"GameSquare Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GANX,"Gain Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GARY,The Advisors Inner Circle Fund II Mango Growth ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -5275,7 +5291,9 @@ GGROW,Gogoro Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 GGRP,"The Glimpse Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GH,"Guardant Health, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GHRS,GH Research PLC Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+GHXI,"Gores Holdings XI, Inc. Class A Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
 GHXIU,"Gores Holdings XI, Inc. Units",Sin clasificar,Nasdaq,0,0,1,1
+GHXIW,"Gores Holdings XI, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 GIBO,GIBO Holdings Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 GIBOW,GIBO Holdings Limited Warrants,Sin clasificar,Nasdaq,0,0,1,1
 GIEQ,Goldman Sachs ETF Trust Goldman Sachs Data Enhanced International Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -5368,8 +5386,7 @@ GRAL,"GRAIL, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GRAN,Grande Group Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 GRCE,"Grace Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GRDX,GridAI Technologies Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-GREE,Greenidge Generation Holdings Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-GREEL,Greenidge Generation Holdings Inc. 8.50% Senior Notes due 2026,Sin clasificar,Nasdaq,0,0,1,1
+GREEL,Vulcan Infrastructure and Power Inc. 8.50% Senior Notes due 2026,Sin clasificar,Nasdaq,0,0,1,1
 GRFS,"Grifols, S.A. American Depositary Shares",Sin clasificar,Nasdaq,0,0,1,1
 GRI,"GRI Bio, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GRID,First Trust NASDAQ Clean Edge Smart Grid Infrastructure Index Fund,Sin clasificar,Nasdaq,0,0,1,1
@@ -5381,6 +5398,7 @@ GROW,"U.S. Global Investors, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,
 GRPN,"Groupon, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GRRR,Gorilla Technology Group Inc. Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
 GRRRW,Gorilla Technology Group Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
+GRSD,Grandstand Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 GRVY,"GRAVITY Co., Ltd. American Depository Shares",Sin clasificar,Nasdaq,0,0,1,1
 GRW,TCW ETF Trust TCW Durable Growth ETF,Sin clasificar,Nasdaq,0,0,1,1
 GRWG,GrowGeneration Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -5426,13 +5444,13 @@ GUACW,Berto Acquisition Corp. II Warrants,Sin clasificar,Nasdaq,0,0,1,1
 GURE,"Gulf Resources, Inc. (NV) Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GUSE,Goldman Sachs ETF Trust Goldman Sachs Enhanced U.S. Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
 GUTS,"Fractyl Health, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-GV,Visionary Holdings Inc. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 GVH,Globavend Holdings Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 GVLE,Goldman Sachs ETF Trust Goldman Sachs Value Opportunities ETF,Sin clasificar,Nasdaq,0,0,1,1
 GWAV,"Greenwave Technology Solutions, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GWRS,"Global Water Resources, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GXAI,Gaxos.ai Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 GXDW,Global X Funds Global X Dorsey Wright Thematic ETF,Sin clasificar,Nasdaq,0,0,1,1
+GYGY,"Game Your Game, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GYRE,"Gyre Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 GYRO,"Gyrodyne, LLC Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 HACQ,HCM IV Acquisition Corp. Class A Ordinary Share,Sin clasificar,Nasdaq,0,0,1,1
@@ -5514,6 +5532,7 @@ HLIT,Harmonic Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 HLMN,Hillman Solutions Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 HLNE,Hamilton Lane Incorporated Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 HLP,Hongli Group Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+HLTH,Tema ETF Trust Tema Healthcare AI ETF,Sin clasificar,Nasdaq,0,0,1,1
 HLXC,Helix Acquisition Corp. III Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 HMH,HMH Holding Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 HMR,Heidmar Maritime Holdings Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -5588,13 +5607,14 @@ HVIIU,Hennessy Capital Investment Corp. VII Unit,Sin clasificar,Nasdaq,0,0,1,1
 HVMC,Highview Merger Corp. Class A Ordinary Share,Sin clasificar,Nasdaq,0,0,1,1
 HVMCU,Highview Merger Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 HVMCW,Highview Merger Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
-HWAY,Themes ETF Trust Themes US Infrastructure ETF,Sin clasificar,Nasdaq,0,0,1,1
 HWBK,"Hawthorn Bancshares, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 HWC,Hancock Whitney Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 HWCPZ,Hancock Whitney Corporation 6.25% Subordinated Notes due 2060,Sin clasificar,Nasdaq,0,0,1,1
 HWH,HWH International Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+HWIV,Hotchkis & Wiley Funds Hotchkis & Wiley International Value Fund,Sin clasificar,Nasdaq,0,0,1,1
 HWKN,"Hawkins, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-HWSM,Hotchkis & Wiley SMID Cap Diversified Value Fund,Sin clasificar,Nasdaq,0,0,1,1
+HWO,Hotchkis & Wiley Funds Hotchkis & Wiley Opportunities Fund,Sin clasificar,Nasdaq,0,0,1,1
+HWSM,Hotchkis & Wiley Funds SMID Cap Diversified Value Fund,Sin clasificar,Nasdaq,0,0,1,1
 HXHX,Haoxin Holdings Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 HYBI,NEOS ETF Trust NEOS Enhanced Income Credit Select ETF,Sin clasificar,Nasdaq,0,0,1,1
 HYDR,Global X Funds Global X Hydrogen ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -5609,6 +5629,7 @@ HYPG,Grayscale Hyperliquid Staking ETF,Sin clasificar,Nasdaq,0,0,1,1
 HYPR,"Hyperfine, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 HYXF,iShares Trust iShares ESG Advanced High Yield Corporate Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 HYZD,WisdomTree Trust WisdomTree Interest Rate Hedged High Yield Bond Fund,Sin clasificar,Nasdaq,0,0,1,1
+IA,"Innovative Solutions and Support, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 IACO,Idea Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 IACOU,Idea Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 IACOW,Idea Acquisition Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
@@ -5776,6 +5797,7 @@ INV,"Innventure, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 INVA,"Innoviva, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 INVE,"Identiv, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 INVZ,Innoviz Technologies Ltd. Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
+IOND,Ionic Digital Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 IONL,GraniteShares ETF Trust GraniteShares 2x Long IONQ Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 IONR,ioneer Ltd American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 IONS,"Ionis Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -5786,9 +5808,6 @@ IOTR,iOThree Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 IOVA,"Iovance Biotherapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 IOYY,GraniteShares ETF Trust GraniteShares YieldBOOST IONQ ETF,Sin clasificar,Nasdaq,0,0,1,1
 IPAR,"Interparfums, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-IPCX,Inflection Point Acquisition Corp. III Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-IPCXR,Inflection Point Acquisition Corp. III Rights,Sin clasificar,Nasdaq,0,0,1,1
-IPCXU,Inflection Point Acquisition Corp. III Units,Sin clasificar,Nasdaq,0,0,1,1
 IPDN,"Professional Diversity Network, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 IPEX,Inflection Point Acquisition Corp. V Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 IPEXR,Inflection Point Acquisition Corp. V Rights,Sin clasificar,Nasdaq,0,0,1,1
@@ -5802,7 +5821,9 @@ IPKW,Invesco Exchange-Traded Fund Trust II Invesco International BuyBack Achieve
 IPM,Intelligent Protection Management Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 IPSC,"Century Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 IPST,"IP Strategy Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+IPVV,"InterPrivate Investment Partners V, Inc. Class A Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
 IPVVU,"InterPrivate Investment Partners V, Inc. Units",Sin clasificar,Nasdaq,0,0,1,1
+IPVVW,"InterPrivate Investment Partners V, Inc. Warrants",Sin clasificar,Nasdaq,0,0,1,1
 IPW,iPower Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 IPWR,Ideal Power Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 IPX,IperionX Limited American Depositary Share,Sin clasificar,Nasdaq,0,0,1,1
@@ -5827,11 +5848,12 @@ IRWD,"Ironwood Pharmaceuticals, Inc. Class A Common Stock",Sin clasificar,Nasdaq
 ISBA,Isabella Bank Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ISHG,iShares Trust iShares 1-3 Year International Treasury Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 ISHP,First Trust Exchange-Traded Fund VI First Trust S-Network E-Commerce ETF,Sin clasificar,Nasdaq,0,0,1,1
+ISNR,Snow Rothschild Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 ISNRU,Snow Rothschild Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
+ISNRW,Snow Rothschild Acquisition Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 ISPC,iSpecimen Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ISPR,Ispire Technology Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ISRG,"Intuitive Surgical, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-ISSC,"Innovative Solutions and Support, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ISTB,iShares Core 1-5 Year USD Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 ISTM,iShares U.S. ETF Trust iShares Strategic Metals ETF,Sin clasificar,Nasdaq,0,0,1,1
 ISTR,Investar Holding Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -5860,7 +5882,10 @@ IVVD,"Invivyd, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 IXHL,Incannex Healthcare Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 IXUS,iShares Core MSCI Total International Stock ETF,Sin clasificar,Nasdaq,0,0,1,1
 IZEA,"IZEA Worldwide, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+JAB,JAB Acquisition Corp I Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+JABRR,JAB Acquisition Corp I Rights,Sin clasificar,Nasdaq,0,0,1,1
 JABRU,JAB Acquisition Corp I Unit,Sin clasificar,Nasdaq,0,0,1,1
+JABRW,JAB Acquisition Corp I Warrants,Sin clasificar,Nasdaq,0,0,1,1
 JACK,Jack In The Box Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 JAGX,"Jaguar Health, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 JAKK,"JAKKS Pacific, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -5892,6 +5917,7 @@ JJSF,J & J Snack Foods Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 JKHY,"Jack Henry & Associates, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 JL,J-Long Group Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 JLHL,Julong Holding Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+JLVP,J.P. Morgan Exchange-Traded Fund Trust JPMorgan U.S. Large Cap Value Plus ETF,Sin clasificar,Nasdaq,0,0,1,1
 JMID,Janus Detroit Street Trust Janus Henderson Mid Cap Growth Alpha ETF,Sin clasificar,Nasdaq,0,0,1,1
 JMSB,"John Marshall Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 JONEU,Jones Ventures INTL Acquisition1 Corp Units,Sin clasificar,Nasdaq,0,0,1,1
@@ -5995,7 +6021,6 @@ KRAQ,KRAKacquisition Corp Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 KRAQU,KRAKacquisition Corp Unit,Sin clasificar,Nasdaq,0,0,1,1
 KRAQW,KRAKacquisition Corp Warrants,Sin clasificar,Nasdaq,0,0,1,1
 KRKR,36Kr Holdings Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
-KRMA,Global X Funds Global X Conscious Companies ETF,Sin clasificar,Nasdaq,0,0,1,1
 KRMD,"KORU Medical Systems, Inc. Common Stock (DE)",Sin clasificar,Nasdaq,0,0,1,1
 KRNT,Kornit Digital Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 KRNY,Kearny Financial Corp Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6016,9 +6041,6 @@ KTWOR,K2 Capital Acquisition Corporation Rights,Sin clasificar,Nasdaq,0,0,1,1
 KTWOU,K2 Capital Acquisition Corporation Units,Sin clasificar,Nasdaq,0,0,1,1
 KURA,"Kura Oncology, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 KUST,"Kustom Entertainment, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-KVAC,Keen Vision Acquisition Corporation Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-KVACU,Keen Vision Acquisition Corporation Units,Sin clasificar,Nasdaq,0,0,1,1
-KVACW,Keen Vision Acquisition Corporation Warrant,Sin clasificar,Nasdaq,0,0,1,1
 KVHI,"KVH Industries, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 KWM,"K Wave Media, Ltd. Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
 KWMWW,"K Wave Media, Ltd. Warrant",Sin clasificar,Nasdaq,0,0,1,1
@@ -6031,7 +6053,6 @@ KYTX,"Kyverna Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 KZIA,Kazia Therapeutics Limited American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 LAB,Standard BioTools Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 LABT,Lakewood-Amedex Biotherapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-LACG,Themes ETF Trust Leverage Shares 2X Long LAC Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 LAES,SEALSQ Corp Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 LAFA,LaFayette Acquisition Corp. Ordinary Share,Sin clasificar,Nasdaq,0,0,1,1
 LAFAR,LaFayette Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
@@ -6109,7 +6130,6 @@ LHSW,Lianhe Sowell International Group Ltd Class A Ordinary Shares,Sin clasifica
 LI,Li Auto Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 LICN,Lichen International Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 LIDR,"AEye, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-LIDRW,"AEye, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 LIEN,"Chicago Atlantic BDC, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LIF,"Life360, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LIFE,Ethos Technologies Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6142,7 +6162,6 @@ LLYVK,"Liberty Live Holdings, Inc. Series C Liberty Live Group Common Stock",Sin
 LMAT,"LeMaitre Vascular, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LMB,"Limbach Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LMBS,First Trust Exchange-Traded Fund IV First Trust Low Duration Opportunities ETF,Sin clasificar,Nasdaq,0,0,1,1
-LMFA,"LM Funding America, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LMNR,Limoneira Co Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 LMNX,Tidal Trust II Defiance Daily Target 2x Long LMND ETF,Sin clasificar,Nasdaq,0,0,1,1
 LMRI,"Lumexa Imaging Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -6177,7 +6196,6 @@ LPCV,Launchpad Cadenza Acquisition Corp I Class A Ordinary Share,Sin clasificar,
 LPCVU,Launchpad Cadenza Acquisition Corp I Unit,Sin clasificar,Nasdaq,0,0,1,1
 LPCVW,Launchpad Cadenza Acquisition Corp I Warrant,Sin clasificar,Nasdaq,0,0,1,1
 LPLA,LPL Financial Holdings Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-LPRO,Open Lending Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 LPSN,"LivePerson, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LPTH,"LightPath Technologies, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LQ,Simplify Exchange Traded Funds Simplify Tax Aware Alternatives ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -6193,12 +6211,14 @@ LSAK,"Lesaka Technologies, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LSBK,"Lake Shore Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LSCC,Lattice Semiconductor Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 LSE,"Leishen Energy Holding Co., Ltd. Class A Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
-LSH,Lakeside Holding Limited Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 LSTA,"Lisata Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LSTR,"Landstar System, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LTBR,Lightbridge Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 LTCC,Canary Litecoin ETF Shares of Beneficial Interest,Sin clasificar,Nasdaq,0,0,1,1
+LTGO,"Latigo Biotherapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+LTGR,Long Table Growth Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 LTGRU,Long Table Growth Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
+LTGRW,Long Table Growth Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 LTRN,Lantern Pharma Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 LTRX,"Lantronix, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 LTRYW,Sports Entertainment Gaming Global Corporation Warrants,Sin clasificar,Nasdaq,0,0,1,1
@@ -6252,9 +6272,6 @@ MAYS,"J. W. Mays, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MAZE,"Maze Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MB,MasterBeef Group Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MBAI,Check-Cap Ltd. Ordinary Share,Sin clasificar,Nasdaq,0,0,1,1
-MBAV,M3-Brigade Acquisition V Corp. Class A Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
-MBAVU,M3-Brigade Acquisition V Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
-MBAVW,M3-Brigade Acquisition V Corp. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 MBB,iShares MBS ETF,Sin clasificar,Nasdaq,0,0,1,1
 MBBC,"Marathon Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MBIN,Merchants Bancorp Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6306,6 +6323,7 @@ MDWD,MediWound Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MDXG,"MiMedx Group, Inc Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MDXH,MDXHEALTH SA Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MEDP,"Medpace Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+MEDS,"DataMeds AI, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MEDX,Listed Funds Trust Horizon Kinetics Medical ETF,Sin clasificar,Nasdaq,0,0,1,1
 MELI,"MercadoLibre, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MEMA,Man ETF Series Trust Man Active Emerging Markets Alternative ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -6328,6 +6346,7 @@ METU,Direxion Shares ETF Trust Direxion Daily META Bull 2X ETF,Sin clasificar,Na
 MEVO,M Evo Global Acquisition Corp II Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MEVOU,M Evo Global Acquisition Corp II Units,Sin clasificar,Nasdaq,0,0,1,1
 MEVOW,M Evo Global Acquisition Corp II Warrants,Sin clasificar,Nasdaq,0,0,1,1
+MF,MindForge Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MFI,mF International Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MFIC,MidCap Financial Investment Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 MFICL,MidCap Financial Investment Corporation 8.00% Notes due 2028,Sin clasificar,Nasdaq,0,0,1,1
@@ -6399,7 +6418,6 @@ MNSBP,"MainStreet Bancshares, Inc. Depositary Shares",Sin clasificar,Nasdaq,0,0,
 MNST,Monster Beverage Corporation,Sin clasificar,Nasdaq,0,0,1,1
 MNTK,"Montauk Renewables, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MNTS,Momentus Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-MNTSW,Momentus Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 MNVT,EA Series Trust Moonvest ETF,Sin clasificar,Nasdaq,0,0,1,1
 MNY,MoneyHero Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MNYWW,MoneyHero Limited Warrants,Sin clasificar,Nasdaq,0,0,1,1
@@ -6419,6 +6437,7 @@ MOVE,"Corvex, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MPAA,"Motorcar Parts  of America, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MPB,Mid Penn Bancorp Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 MPG,Themes ETF Trust Leverage Shares 2X Long MP Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
+MPIA,Valued Advisers Trust m+ Nasdaq-100 Accelerator Autocall ETF,Sin clasificar,Nasdaq,0,0,1,1
 MPLT,"MapLight Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MPWR,"Monolithic Power Systems, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MQ,"Marqeta, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -6427,7 +6446,9 @@ MRA,GraniteShares ETF Trust GraniteShares Autocallable MARA ETF,Sin clasificar,N
 MRAL,GraniteShares ETF Trust GraniteShares 2x Long MARA Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 MRAM,"Everspin Technologies, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MRBK,Meridian Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+MRCO,Mercator Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MRCOU,Mercator Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
+MRCOW,Mercator Acquisition Corp. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 MRCY,Mercury Systems Inc Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 MRDN,Meridian Holdings Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 MREO,Mereo BioPharma Group plc American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -6452,7 +6473,7 @@ MSFL,GraniteShares ETF Trust GraniteShares 2x Long MSFT Daily ETF,Sin clasificar
 MSFT,Microsoft Corporation Common Stock,Tecnologia,Nasdaq,442.57,6800000000,3.8,4.0
 MSFU,Direxion Shares ETF Trust Direxion Daily MSFT Bull 2X ETF,Sin clasificar,Nasdaq,0,0,1,1
 MSGM,Motorsport Games Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-MSGY,Masonglory Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+MSGY,Masonglory Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 MSLE,Satellos Bioscience Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 MSR,GraniteShares ETF Trust GraniteShares Autocallable MSTR ETF,Sin clasificar,Nasdaq,0,0,1,1
 MSS,Maison Solutions Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6460,6 +6481,7 @@ MST,Tidal Trust II Defiance Leveraged Long Income MSTR ETF,Sin clasificar,Nasdaq
 MSTP,GraniteShares ETF Trust GraniteShares 2x Long MSTR Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 MSTR,Strategy Inc Common Stock Class A,Sin clasificar,Nasdaq,0,0,1,1
 MSTX,Tidal Trust II Defiance Daily Target 2x Long MSTR ETF,Sin clasificar,Nasdaq,0,0,1,1
+MTAKU,Market Technology Acquisition Corp Unit,Sin clasificar,Nasdaq,0,0,1,1
 MTC,"MMTec, Inc. Common Shares",Sin clasificar,Nasdaq,0,0,1,1
 MTCH,"Match Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MTEK,Maris-Tech Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -6484,7 +6506,6 @@ MVBF,MVB Financial Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 MVIS,"MicroVision, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MVLL,GraniteShares ETF Trust GraniteShares 2x Long MRVL Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 MVST,"Microvast Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-MVSTW,"Microvast Holdings, Inc. Warrants",Sin clasificar,Nasdaq,0,0,1,1
 MWC,"Micware Co., Ltd. American Depositary Shares",Sin clasificar,Nasdaq,0,0,1,1
 MWH,"SOLV Energy, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MWYN,"Marwynn Holdings, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -6516,7 +6537,6 @@ MYMK,SSGA Active Trust State Street My2031 Municipal Bond ETF,Sin clasificar,Nas
 MYPS,"PLAYSTUDIOS, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MYRG,"MYR Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MYSE,"Myseum.AI, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-MYSEW,"Myseum.AI, Inc. Series A Warrant",Sin clasificar,Nasdaq,0,0,1,1
 MYSZ,"My Size, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 MYX,Maywood Acquisition Corp. 2 Class A Ordinary Share,Sin clasificar,Nasdaq,0,0,1,1
 MYXXR,Maywood Acquisition Corp. 2 Rights,Sin clasificar,Nasdaq,0,0,1,1
@@ -6556,9 +6576,14 @@ NCEL,NewcelX Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 NCEW,New Century Logistics (BVI) Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 NCI,Neo-Concept International Group Holdings Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 NCIQ,Hashdex Nasdaq CME Crypto Index ETF Shares of Beneficial Interest,Sin clasificar,Nasdaq,0,0,1,1
+NCLD,Roundhill ETF Trust Roundhill Neocloud ETF,Sin clasificar,Nasdaq,0,0,1,1
 NCMI,"National CineMedia, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NCNA,NuCana plc American Depositary Share,Sin clasificar,Nasdaq,0,0,1,1
 NCNO,"nCino, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+NCO,Southern Cross Acquisition I Corp. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+NCOOR,Southern Cross Acquisition I Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
+NCOOU,Southern Cross Acquisition I Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
+NCOOW,Southern Cross Acquisition I Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 NCPB,NuShares ETF Trust Nuveen Core Plus Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 NCPL,Netcapital Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NCPLW,Netcapital Inc. Warrants,Sin clasificar,Nasdaq,0,0,1,1
@@ -6596,7 +6621,6 @@ NEXN,Nexxen International Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 NEXR,Nexera Technologies Ltd Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 NEXRW,Nexera Technologies Ltd Warrant,Sin clasificar,Nasdaq,0,0,1,1
 NEXT,NextDecade Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-NFBK,"Northfield Bancorp, Inc. Common Stock (Delaware)",Sin clasificar,Nasdaq,0,0,1,1
 NFE,New Fortress Energy Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NFLX,"Netflix, Inc. Common Stock",Comunicacion,Nasdaq,650.84,1300000000,2.7,2.9
 NFRX,The 2023 ETF Series Trust Harrison Street Infrastructure Active ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -6618,6 +6642,7 @@ NHPBP,"National Healthcare Properties, Inc. 7.125% Series B Cumulative Redeemabl
 NHTC,Natural Health Trends Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NICE,NICE Ltd American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 NICM,Nicola Mining Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
+NIKI,"Niki BioSolutions, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NIKL,Sprott Funds Trust Sprott Nickel Miners ETF,Sin clasificar,Nasdaq,0,0,1,1
 NIOBW,NioCorp Developments Ltd. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 NIOG,Themes ETF Trust Leverage Shares 2X Long NIO Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -6670,6 +6695,7 @@ NRIX,"Nurix Therapeutics, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
 NRSN,NeuroSense Therapeutics Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 NRSNW,NeuroSense Therapeutics Ltd. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 NRXP,"NRX Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+NSAIU,NorthStrive Acquisition Corp I. Units,Sin clasificar,Nasdaq,0,0,1,1
 NSI,Northern Lights Fund Trust IV National Security Emerging Markets Index ETF,Sin clasificar,Nasdaq,0,0,1,1
 NSIT,"Insight Enterprises, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NSLR,Neostellar Capital Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6706,8 +6732,8 @@ NUCLW,Eagle Nuclear Energy Corp. Warrants,Sin clasificar,Nasdaq,0,0,1,1
 NUG,Themes ETF Trust Leverage Shares 2X Long NU Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 NUGY,GraniteShares ETF Trust GraniteShares YieldBOOST Gold Miners ETF,Sin clasificar,Nasdaq,0,0,1,1
 NUIF,NuShares ETF Trust Nuveen US Infrastructure ETF,Sin clasificar,Nasdaq,0,0,1,1
+NUR,Nuran Wireless Inc. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 NUSB,NuShares ETF Trust Nuveen Ultra Short Income ETF,Sin clasificar,Nasdaq,0,0,1,1
-NUTR,Nusatrip Incorporated Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NUTX,Nutex Health Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NUWE,"Nuwellis, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NVAX,"Novavax, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -6727,7 +6753,6 @@ NVNIW,Nvni Group Limited Warrants,Sin clasificar,Nasdaq,0,0,1,1
 NVNO,enVVeno Medical Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NVPS,Exchange Listed Funds Trust PurePlay Nvidia Ecosystem Picks & Shovels Index ETF,Sin clasificar,Nasdaq,0,0,1,1
 NVTS,Navitas Semiconductor Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-NVVE,Nuvve Holding Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NVX,NOVONIX Limited American Depository Shares,Sin clasificar,Nasdaq,0,0,1,1
 NVYY,GraniteShares ETF Trust GraniteShares YieldBOOST NVDA ETF,Sin clasificar,Nasdaq,0,0,1,1
 NWBI,"Northwest Bancshares, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -6741,6 +6766,7 @@ NWSA,News Corporation Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NWTG,"Newton Golf Company, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NXGL,"NexGel, Inc Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NXGLW,"NexGel, Inc Warrant",Sin clasificar,Nasdaq,0,0,1,1
+NXH,"Neighborhood Intelligence, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NXL,"Nexalin Technology, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 NXPI,NXP Semiconductors N.V. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 NXPL,NextPlat Corp Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6766,6 +6792,7 @@ OBIL,"The RBB Fund, Inc. US Treasury 12 Month Bill ETF",Sin clasificar,Nasdaq,0,
 OBIO,"Orchestra BioMed Holdings, Inc. Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
 OBT,"Orange County Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 OBTC,Osprey Bitcoin Trust Common Units of Beneficial Interest,Sin clasificar,Nasdaq,0,0,1,1
+OBX,"Obsidian Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 OCC,Optical Cable Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 OCCI,"OFS Credit Company, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 OCCIM,"OFS Credit Company, Inc. 7.875% Series F Term Preferred Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -6773,6 +6800,7 @@ OCCIN,"OFS Credit Company, Inc. 5.25% Series E Term Preferred Stock Due 2026",Si
 OCFC,OceanFirst Financial Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 OCG,Oriental Culture Holding LTD Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 OCGN,"Ocugen, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+OCLTU,OceanLight Acquisition Corporation Units,Sin clasificar,Nasdaq,0,0,1,1
 OCS,Oculis Holding AG Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
 OCSAW,Oculis Holding AG Warrants,Sin clasificar,Nasdaq,0,0,1,1
 OCSL,Oaktree Specialty Lending Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6783,7 +6811,6 @@ ODDS,Pacer Funds Pacer BlueStar Digital Entertainment ETF,Sin clasificar,Nasdaq,
 ODFL,"Old Dominion Freight Line, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ODTE,VegaShares ETF Trust VegaShares SPX NDX RTY Premium Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 ODTX,"Odyssey Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-ODVWZ,Osisko Development Corp. Warrant expiring 5/27/2027,Sin clasificar,Nasdaq,0,0,1,1
 ODYS,Odysight.ai Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 OESX,"Orion Energy Systems, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 OFAL,OFA Group Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -6792,6 +6819,7 @@ OFLX,"Omega Flex, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 OFS,OFS Capital Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 OFSSH,OFS Capital Corporation 4.95% Notes due 2028,Sin clasificar,Nasdaq,0,0,1,1
 OFSSO,OFS Capital Corporation 7.50% Notes due 2028,Sin clasificar,Nasdaq,0,0,1,1
+OGGWZ,Osisko Gold Group Inc. Warrant expiring 5/27/2027,Sin clasificar,Nasdaq,0,0,1,1
 OGI,Organigram Global Inc. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 OHAC,Oceanhawk Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 OHACR,Oceanhawk Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
@@ -6869,13 +6897,11 @@ ORIQU,Origin Investment Corp I Units,Sin clasificar,Nasdaq,0,0,1,1
 ORIQW,Origin Investment Corp I Warrant.,Sin clasificar,Nasdaq,0,0,1,1
 ORKA,"Oruka Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ORKT,Orangekloud Technology Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-ORLG,Themes ETF Trust Leverage Shares 2X Long ORLY Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 ORLY,"O'Reilly Automotive, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 ORMP,Oramed Pharmaceuticals Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 ORR,EA Series Trust Militia Long/Short Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
 ORRF,"Orrstown Financial Services, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 OSBC,"Old Second Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-OSCG,Themes ETF Trust Leverage Shares 2X Long OSCR Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 OSCX,Tidal Trust II Defiance Daily Target 2x Long OSCR ETF,Sin clasificar,Nasdaq,0,0,1,1
 OSIS,"OSI Systems, Inc. Common Stock (DE)",Sin clasificar,Nasdaq,0,0,1,1
 OSPN,OneSpan Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -6940,6 +6966,8 @@ PAMT,PAMT CORP Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 PANG,Themes ETF Trust Leverage Shares 2X Long PANW Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 PANL,Pangaea Logistics Solutions Ltd. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 PANW,"Palo Alto Networks, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+PARA,"Banzai International, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+PARAW,"Banzai International, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 PARK,"Park Dental Partners, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PASG,"Passage Bio, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PASW,"Ping An Biomedical Co., Ltd. Class A Ordinary Shares",Sin clasificar,Nasdaq,0,0,1,1
@@ -6952,6 +6980,7 @@ PAYO,Payoneer Global Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 PAYP,PayPay Corporation American Depository Shares,Sin clasificar,Nasdaq,0,0,1,1
 PAYS,"Paysign, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PAYX,"Paychex, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+PBAM,"Private Bancorp of America, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PBEU,Tidal Trust IV Portfolio Building Block European Banks Index ETF,Sin clasificar,Nasdaq,0,0,1,1
 PBFS,"Pioneer Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PBHC,"Pathfinder Bancorp, Inc. Common Stock (MD)",Sin clasificar,Nasdaq,0,0,1,1
@@ -6976,7 +7005,6 @@ PCMM,BondBloxx ETF Trust BondBloxx Private Credit CLO ETF,Sin clasificar,Nasdaq,
 PCPI,PIMCO ETF Trust PIMCO Inflation PLUS Active Exchange-Traded Fund,Sin clasificar,Nasdaq,0,0,1,1
 PCRX,"Pacira BioSciences, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PCSA,"Processa Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-PCSC,Perceptive Capital Solutions Corp Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 PCT,"PureCycle Technologies, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
 PCTTU,"PureCycle Technologies, Inc. Unit",Sin clasificar,Nasdaq,0,0,1,1
 PCTTW,"PureCycle Technologies, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
@@ -7040,6 +7068,7 @@ PHAT,"Phathom Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PHIO,Phio Pharmaceuticals Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 PHO,Invesco Exchange-Traded Fund Trust Invesco Water Resources ETF,Sin clasificar,Nasdaq,0,0,1,1
 PHOE,Phoenix Asia Holdings Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+PHOS,First Phosphate Corp. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 PHUN,"Phunware, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PHVS,Pharvaris N.V. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 PI,"Impinj, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -7060,6 +7089,9 @@ PLBC,Plumas Bancorp,Sin clasificar,Nasdaq,0,0,1,1
 PLBL,Polibeli Group Ltd Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 PLBY,"Playboy, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PLCE,"Children's Place, Inc. (The) Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+PLCI,Pelican Acquisition II Corporation Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+PLCIR,Pelican Acquisition II Corporation Right,Sin clasificar,Nasdaq,0,0,1,1
+PLCIU,Pelican Acquisition II Corporation Unit,Sin clasificar,Nasdaq,0,0,1,1
 PLMK,Plum Acquisition Corp. IV Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 PLMKU,Plum Acquisition Corp. IV Unit,Sin clasificar,Nasdaq,0,0,1,1
 PLMKW,Plum Acquisition Corp. IV Warrants,Sin clasificar,Nasdaq,0,0,1,1
@@ -7183,7 +7215,6 @@ PSNL,"Personalis, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PSNY,Polestar Automotive Holding UK PLC Class A ADS,Sin clasificar,Nasdaq,0,0,1,1
 PSNYW,Polestar Automotive Holding UK PLC Class C-1 ADS (ADW),Sin clasificar,Nasdaq,0,0,1,1
 PSTR,Northern Lights Fund Trust II PeakShares Sector Rotation ETF,Sin clasificar,Nasdaq,0,0,1,1
-PSTV,"PLUS THERAPEUTICS, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PSWD,DBX ETF Trust Xtrackers Cybersecurity Select Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
 PTAC,Patriot Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 PTACU,Patriot Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
@@ -7212,6 +7243,7 @@ PUR,Tidal Trust II Defiance Daily Target 2X Long PURR ETF,Sin clasificar,Nasdaq,
 PURR,Hyperliquid Strategies Inc Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 PUSA,Aureus Greenway Holdings Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 PVLA,"Palvella Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+PWCM,"PowerCompute, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 PWP,Perella Weinberg Partners Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 PWRD,TCW Transform Systems ETF,Sin clasificar,Nasdaq,0,0,1,1
 PWRL,Powerlaw Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -7233,6 +7265,7 @@ QALT,SEI Exchange Traded Funds SEI DBi Multi-Strategy Alternative ETF,Sin clasif
 QAT,iShares Trust iShares MSCI Qatar ETF,Sin clasificar,Nasdaq,0,0,1,1
 QB,ProShares Trust ProShares Nasdaq-100 Dynamic Buffer ETF,Sin clasificar,Nasdaq,0,0,1,1
 QBIG,Invesco Actively Managed Exchange-Traded Fund Trus Invesco Top QQQ ETF,Sin clasificar,Nasdaq,0,0,1,1
+QBTS,D-Wave Quantum Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 QBTZ,Tidal Trust II Defiance Daily Target 2x Short QBTS ETF,Sin clasificar,Nasdaq,0,0,1,1
 QBUF,Innovator ETFs Trust Innovator Nasdaq-100 10 Buffer ETF Quarterly,Sin clasificar,Nasdaq,0,0,1,1
 QBY,GraniteShares ETF Trust GraniteShares YieldBoost QBTS ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -7262,6 +7295,7 @@ QMLS,"QumulusAI, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 QMOM,EA Series Trust Alpha Architect U.S. Quantitative Momentum ETF,Sin clasificar,Nasdaq,0,0,1,1
 QNCX,"Quince Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 QNDX,SPDR Series Trust State Street SPDR Portfolio Nasdaq 100 ETF,Sin clasificar,Nasdaq,0,0,1,1
+QNME,"Quanome Technologies, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 QNRX,"Quoin Pharmaceuticals, Ltd. American Depositary Shares",Sin clasificar,Nasdaq,0,0,1,1
 QNST,"QuinStreet, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 QNT,Quantinuum Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -7318,6 +7352,7 @@ QUMSR,Quantumsphere Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
 QUMSU,Quantumsphere Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 QURE,uniQure N.V. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 QVAL,EA Series Trust Alpha Architect U.S. Quantitative Value ETF,Sin clasificar,Nasdaq,0,0,1,1
+QVCG,"QVC Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 QVOL,Series Portfolios Trust Infrastructure Capital Nasdaq Option Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 QXL,Quantum X Labs Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 QXQ,"The RBB Fund, Inc. SGI Enhanced Nasdaq-100 ETF",Sin clasificar,Nasdaq,0,0,1,1
@@ -7349,6 +7384,7 @@ RBKB,"Rhinebeck Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 RBNE,Robin Energy Ltd. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 RCAT,"Red Cat Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 RCAX,Tidal Trust II Defiance Daily Target 2x Long RCAT ETF,Sin clasificar,Nasdaq,0,0,1,1
+RCBC,River City Bank Common stock,Sin clasificar,Nasdaq,0,0,1,1
 RCEL,"Avita Medical, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 RCGE,EA Series Trust RockCreek Global Equality ETF,Sin clasificar,Nasdaq,0,0,1,1
 RCKT,"Rocket Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -7501,7 +7537,6 @@ RRGB,"Red Robin Gourmet Burgers, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,
 RRR,"Red Rock Resorts, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 RSSS,"Research Solutions, Inc Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 RSVR,"Reservoir Media, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-RSVRW,"Reservoir Media, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 RTAC,Renatus Tactical Acquisition Corp I Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 RTACU,Renatus Tactical Acquisition Corp I Unit,Sin clasificar,Nasdaq,0,0,1,1
 RTACW,Renatus Tactical Acquisition Corp I Warrant,Sin clasificar,Nasdaq,0,0,1,1
@@ -7571,7 +7606,6 @@ SBFMW,Sunshine Biopharma Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 SBGI,"Sinclair, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SBLK,Star Bulk Carriers Corp. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 SBRA,"Sabra Health Care REIT, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-SBU,Themes ETF Trust Leverage Shares 2X Long SBUX Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 SBUX,Starbucks Corporation Common Stock,Consumo,Nasdaq,83.41,620000000,1.9,1.8
 SCA,GraniteShares ETF Trust GraniteShares Autocallable SMCI ETF,Sin clasificar,Nasdaq,0,0,1,1
 SCAG,Scage Future American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -7591,6 +7625,7 @@ SCPQ,Social Commerce Partners Corporation Class A Ordinary Shares,Sin clasificar
 SCPQU,Social Commerce Partners Corporation Unit,Sin clasificar,Nasdaq,0,0,1,1
 SCPQW,Social Commerce Partners Corporation Warrant,Sin clasificar,Nasdaq,0,0,1,1
 SCSC,"ScanSource, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+SCTX,Scribe Therapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 SCWO,374Water Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 SCYX,"SCYNEXIS, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SCZ,iShares MSCI EAFE Small-Cap ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -7647,7 +7682,6 @@ SGLY,Singularity Future Technology Ltd. Common Stock,Sin clasificar,Nasdaq,0,0,1
 SGML,Sigma Lithium Corporation Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 SGMT,Sagimet Biosciences Inc. Series A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 SGP,"SpyGlass Pharma, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-SGRP,"SPAR Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SGRY,"Surgery Partners, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SGVA,"The RBB Fund, Inc. F/m Accumulator Ultrashort Treasury Fund",Sin clasificar,Nasdaq,0,0,1,1
 SHAZ,"SharonAI Holdings, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -7694,7 +7728,7 @@ SKDD,GraniteShares ETF Trust GraniteShares 2x Short SK Hynix Daily ETF,Sin clasi
 SKHY,SK hynix Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 SKIN,SkinHealth Systems Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 SKK,SKK Holdings Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-SKOR,FlexShares Trust FlexShares Credit-Scored US Corporate Bond Index Fund,Sin clasificar,Nasdaq,0,0,1,1
+SKOR,FlexShares Trust Northern Trust Credit-Scored US Corporate Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 SKRE,ETF Opportunities Trust Tuttle Capital Daily 2X Inverse Regional Banks ETF,Sin clasificar,Nasdaq,0,0,1,1
 SKUU,GraniteShares ETF Trust GraniteShares 2x Long SK Hynix Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 SKWD,"Skyward Specialty Insurance Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -7702,7 +7736,6 @@ SKYA,"SkyAI, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SKYAW,"SkyAI, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 SKYE,"Skye Bioscience, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SKYQ,Sky Quarry Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-SKYT,"SkyWater Technology, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SKYU,ProShares Trust ProShares Ultra Nasdaq Cloud Computing ETF,Sin clasificar,Nasdaq,0,0,1,1
 SKYW,"SkyWest, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SKYX,SKYX Platforms Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -7851,7 +7884,6 @@ SRRK,Scholar Rock Holding Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 SRTA,"Strata Critical Medical, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SRTS,"Sensus Healthcare, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 SRZN,"Surrozen, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-SRZNW,"Surrozen, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 SSAC,SPACSphere Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 SSACR,SPACSphere Acquisition Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
 SSACU,SPACSphere Acquisition Corp. Unit,Sin clasificar,Nasdaq,0,0,1,1
@@ -7882,6 +7914,8 @@ STKE,Sol Strategies Inc. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 STKH,Steakholder Foods Ltd. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 STKS,"The ONE Group Hospitality, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 STLD,"Steel Dynamics, Inc.",Sin clasificar,Nasdaq,0,0,1,1
+STLN,"Starling Oncology, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+STLNW,"Starling Oncology, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 STNC,Hennessy Funds Trust Hennessy Sustainable ETF,Sin clasificar,Nasdaq,0,0,1,1
 STNE,StoneCo Ltd. Class A Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 STOK,"Stoke Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -7894,7 +7928,6 @@ STRL,"Sterling Infrastructure, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 STRO,"Sutro Biopharma, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 STRR,"Star Equity Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 STRRP,"Star Equity Holdings, Inc. 10% Series A Cumulative Perpetual Preferred Stock",Sin clasificar,Nasdaq,0,0,1,1
-STRS,Stratus Properties Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 STRT,STRATTEC SECURITY CORPORATION Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 STRZ,Starz Entertainment Corp. Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 STTK,"Shattuck Labs, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -7961,7 +7994,6 @@ TACO,Berto Acquisition Corp. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 TACOU,Berto Acquisition Corp. Unit,Sin clasificar,Nasdaq,0,0,1,1
 TACOW,Berto Acquisition Corp. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 TACT,TransAct Technologies Incorporated Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-TALK,"Talkspace, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TANH,Tantech Holdings Ltd. Class A Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 TAOP,Taoping Inc. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 TAOX,Tao Synergies Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -7982,6 +8014,7 @@ TAXT,Northern Funds Northern Trust Tax-Exempt Bond ETF,Sin clasificar,Nasdaq,0,0
 TAYD,"Taylor Devices, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TBBK,The Bancorp Inc Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TBCH,Turtle Beach Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+TBCVU,"Thunder Bridge Capital Partners V, Ltd. Units",Sin clasificar,Nasdaq,0,0,1,1
 TBIL,"The RBB Fund, Inc. F/m US Treasury 3 Month Bill Fund",Sin clasificar,Nasdaq,0,0,1,1
 TBLA,Taboola.com Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 TBLD,Thornburg Income Builder Opportunities Trust Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -7992,6 +8025,7 @@ TCBI,"Texas Capital Bancshares, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TCBIO,"Texas Capital Bancshares, Inc. Depositary Shares 5.75% Fixed Rate Non-Cumulative Perpetual Preferred Stock Series B",Sin clasificar,Nasdaq,0,0,1,1
 TCBK,TriCo Bancshares Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TCBS,"Texas Community Bancshares, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+TCGX,TCGX Acquisition Corp. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 TCHI,iShares Trust iShares MSCI China Multisector Tech ETF,Sin clasificar,Nasdaq,0,0,1,1
 TCMD,"Tactile Systems Technology, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TCOM,Trip.com Group Limited American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -8039,6 +8073,9 @@ TGL,Treasure Global Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TGTX,"TG Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TH,Target Hospitality Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 THCH,TH International Limited Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
+THEO,BOA Acquisition Corp. II Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+THEOR,BOA Acquisition Corp. II Rights,Sin clasificar,Nasdaq,0,0,1,1
+THEOU,BOA Acquisition Corp. II Units,Sin clasificar,Nasdaq,0,0,1,1
 THFF,First Financial Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 THH,TryHard Holdings Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 THMZ,Lazard Active ETF Trust Lazard Equity Megatrends ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -8049,13 +8086,14 @@ THYM,"T. Rowe Price Exchange-Traded Funds, Inc. T. Rowe Price High Income Munici
 THYP,21Shares Hyperliquid ETF,Sin clasificar,Nasdaq,0,0,1,1
 TIGO,Millicom International Cellular S.A. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TIGR,UP Fintech Holding Ltd American Depositary Share representing fifteen Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+TIH,EA Series Trust The Investment House ETF,Sin clasificar,Nasdaq,0,0,1,1
 TIL,"Instil Bio, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TILC,Thrivent ETF Trust Thrivent International Large Cap ETF,Sin clasificar,Nasdaq,0,0,1,1
 TILE,"Interface, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TIPT,Tiptree Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TISC,Thrivent ETF Trust Thrivent International Small Cap ETF,Sin clasificar,Nasdaq,0,0,1,1
 TITN,Titan Machinery Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-TJGC,TJGC Group Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+TJGC,TJGC Group Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 TKLF,"Tokyo Lifestyle Co., Ltd. American Depositary Shares",Sin clasificar,Nasdaq,0,0,1,1
 TKNO,"Alpha Teknova, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TKNS,Listed Funds Trust 21Shares Active Crypto ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -8103,8 +8141,6 @@ TNONW,"Tenon Medical, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 TNXP,Tonix Pharmaceuticals Holding Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TNXT,"T. Rowe Price Exchange-Traded Funds, Inc. T. Rowe Price Innovation Leaders ETF",Sin clasificar,Nasdaq,0,0,1,1
 TNYA,"Tenaya Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-TOI,"The Oncology Institute, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-TOIIW,"The Oncology Institute, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 TOMZ,"TOMI Environmental Solutions, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TONX,TON Strategy Company Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TORO,Toro Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -8128,9 +8164,6 @@ TRGSR,TRG Latin America Acquisitions Corp. Rights,Sin clasificar,Nasdaq,0,0,1,1
 TRGSU,TRG Latin America Acquisitions Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 TRI,Thomson Reuters Corporation Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 TRIB,Trinity Biotech plc American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
-TRIN,Trinity Capital Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-TRINI,Trinity Capital Inc. 7.875% Notes Due 2029,Sin clasificar,Nasdaq,0,0,1,1
-TRINZ,Trinity Capital Inc. 7.875% Notes due 2029,Sin clasificar,Nasdaq,0,0,1,1
 TRIP,"TripAdvisor, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 TRMB,Trimble Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 TRMD,TORM plc Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -8204,8 +8237,8 @@ TVACW,Texas Ventures Acquisition III Corp Warrants,Sin clasificar,Nasdaq,0,0,1,1
 TVAI,Thayer Ventures Acquisition Corporation II Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 TVAIR,Thayer Ventures Acquisition Corporation II Rights,Sin clasificar,Nasdaq,0,0,1,1
 TVAIU,Thayer Ventures Acquisition Corporation II Unit,Sin clasificar,Nasdaq,0,0,1,1
-TVGN,Tevogen Bio Holdings Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-TVGNW,Tevogen Bio Holdings Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
+TVGN,Tevogen Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
+TVGNW,Tevogen Inc. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 TVIV,Texas Ventures Acquisition IV Corp Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 TVIVU,Texas Ventures Acquisition IV Corp Units,Sin clasificar,Nasdaq,0,0,1,1
 TVIVW,Texas Ventures Acquisition IV Corp Warrant,Sin clasificar,Nasdaq,0,0,1,1
@@ -8238,7 +8271,6 @@ UBCP,"United Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 UBND,Victory Portfolios II VictoryShares Core Plus Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 UBRL,GraniteShares ETF Trust GraniteShares 2x Long UBER Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 UBSI,"United Bankshares, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-UBXG,U-BX Technology Ltd. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 UCFI,CN Healthy Food Tech Group Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 UCFIW,CN Healthy Food Tech Group Corp. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 UCL,uCloudlink Group Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
@@ -8281,7 +8313,6 @@ UPBD,"Upbound Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 UPC,Universe Pharmaceuticals Inc. Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 UPGR,DBX ETF Trust Xtrackers US Green Infrastructure Select Equity ETF,Sin clasificar,Nasdaq,0,0,1,1
 UPLD,"Upland Software, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-UPSG,Themes ETF Trust Leverage Shares 2X Long UPS Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 UPST,"Upstart Holdings, Inc. Common stock",Sin clasificar,Nasdaq,0,0,1,1
 UPWK,Upwork Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 UPXI,"Upexi, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8308,7 +8339,6 @@ USLM,"United States Lime & Minerals, Inc. Common Stock",Sin clasificar,Nasdaq,0,
 USMC,Principal Exchange-Traded Funds Principal U.S. Mega-Cap ETF,Sin clasificar,Nasdaq,0,0,1,1
 USOI,"UBS AG ETRACS Crude Oil Shares Covered Call ETNs due April 24, 2037",Sin clasificar,Nasdaq,0,0,1,1
 USOY,Tidal Trust II Defiance Oil Enhanced Options Income ETF,Sin clasificar,Nasdaq,0,0,1,1
-USRD,Themes ETF Trust Themes US R&D Champions ETF,Sin clasificar,Nasdaq,0,0,1,1
 USSH,WisdomTree Trust WisdomTree 1-3 Year Laddered Treasury Fund,Sin clasificar,Nasdaq,0,0,1,1
 USTB,Victory Portfolios II VictoryShares Short-Term Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 USVM,Victory Portfolios II VictoryShares US Small Mid Cap Value Momentum ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -8392,6 +8422,7 @@ VICR,Vicor Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 VIGI,Vanguard Whitehall Funds Vanguard International Dividend Appreciation ETF,Sin clasificar,Nasdaq,0,0,1,1
 VINP,Vinci Compass Investments Ltd. Class A Common Shares,Sin clasificar,Nasdaq,0,0,1,1
 VIOT,"Viomi Technology Co., Ltd American Depositary Shares",Sin clasificar,Nasdaq,0,0,1,1
+VIP,Vulcan Infrastructure and Power Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 VIR,"Vir Biotechnology, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VIRC,Virco Manufacturing Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 VISN,"Vistance Networks, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8401,6 +8432,9 @@ VIVO,VivoPower PLC Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 VIVS,"VivoSim Labs, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VKTX,"Viking Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VLGEA,"Village Super Market, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+VLOS,Velos Acquisition I Corp. Class A Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
+VLOSU,Velos Acquisition I Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
+VLOSW,Velos Acquisition I Corp. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 VLY,Valley National Bancorp Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 VLYPN,"Valley National Bancorp 8.250% Fixed-Rate Reset Non-Cumulative Perpetual Preferred Stock, Series C",Sin clasificar,Nasdaq,0,0,1,1
 VLYPO,"Valley National Bancorp 5.50% Fixed-to-Floating Rate Non-Cumulative Perpetual Preferred Stock, Series B",Sin clasificar,Nasdaq,0,0,1,1
@@ -8418,6 +8452,7 @@ VNMEW,Vendome Acquisition Corporation I Warrant,Sin clasificar,Nasdaq,0,0,1,1
 VNOM,"Viper Energy, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VNQI,Vanguard International Equity Index Funds Vanguard Global ex-U.S. Real Estate ETF,Sin clasificar,Nasdaq,0,0,1,1
 VOD,Vodafone Group Plc American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
+VOGX,Vogenx Inc Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 VOLT,Tema ETF Trust Tema Electrification ETF,Sin clasificar,Nasdaq,0,0,1,1
 VONE,Vanguard Scottsdale Funds Vanguard Russell 1000 ETF,Sin clasificar,Nasdaq,0,0,1,1
 VONG,Vanguard Scottsdale Funds Vanguard Russell 1000 Growth ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -8448,14 +8483,10 @@ VSAT,"ViaSat, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VSDA,Victory Portfolios II VictoryShares Dividend Accelerator ETF,Sin clasificar,Nasdaq,0,0,1,1
 VSEC,VSE Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 VSECU,VSE Corporation Tangible Equity Units,Sin clasificar,Nasdaq,0,0,1,1
-VSEE,"VSee Health, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
-VSEEW,"VSee Health, Inc. Warrant",Sin clasificar,Nasdaq,0,0,1,1
 VSME,VS Media Holdings Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 VSMV,Victory Portfolios II VictoryShares US Multi-Factor Minimum Volatility ETF,Sin clasificar,Nasdaq,0,0,1,1
 VSNT,"Versant Media Group, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VSOL,VanEck Solana ETF Shares of Beneficial Interest,Sin clasificar,Nasdaq,0,0,1,1
-VSTA,Vasta Platform Limited Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
-VSTD,Vestand Inc. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 VSTL,Tidal Trust II Defiance Daily Target 2X Long VST ETF,Sin clasificar,Nasdaq,0,0,1,1
 VSTM,"Verastem, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VTC,Vanguard Scottsdale Funds Vanguard Total Corporate Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -8477,7 +8508,6 @@ VWOB,Vanguard Whitehall Funds Vanguard Emerging Markets Government Bond ETF,Sin 
 VXUS,Vanguard STAR Funds Vanguard Total International Stock ETF,Sin clasificar,Nasdaq,0,0,1,1
 VYGR,"Voyager Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 VYMI,Vanguard Whitehall Funds Vanguard International High Dividend Yield ETF,Sin clasificar,Nasdaq,0,0,1,1
-VYNE,VYNE Therapeutics Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 WABC,Westamerica Bancorporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 WABF,Franklin Templeton ETF Trust Western Asset Bond ETF,Sin clasificar,Nasdaq,0,0,1,1
 WAFD,"WaFd, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8488,6 +8518,7 @@ WALDW,Waldencast plc Warrant,Sin clasificar,Nasdaq,0,0,1,1
 WAMA,WisdomTree Trust WisdomTree US Adaptive Moving Average Fund,Sin clasificar,Nasdaq,0,0,1,1
 WARP,VanEck ETF Trust VanEck Space ETF,Sin clasificar,Nasdaq,0,0,1,1
 WASH,"Washington Trust Bancorp, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+WATR,Air Water Ventures Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WATT,Energous Corporation Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 WAVE,Eco Wave Power Global AB (publ) American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WAY,Waystar Holding Corp. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
@@ -8517,9 +8548,7 @@ WFCF,"Where Food Comes From, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 WFF,WF Holding Limited Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WFRD,Weatherford International plc Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WGMI,CoinShares ETF Trust CoinShares Bitcoin Mining ETF,Sin clasificar,Nasdaq,0,0,1,1
-WGRX,"Wellgistics Health, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 WGS,GeneDx Holdings Corp. Class A Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-WGSWW,GeneDx Holdings Corp. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 WHF,"WhiteHorse Finance, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 WHFCL,"WhiteHorse Finance, Inc. 7.875% Notes due 2028",Sin clasificar,Nasdaq,0,0,1,1
 WHLR,"Wheeler Real Estate Investment Trust, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8536,7 +8565,9 @@ WIX,Wix.com Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WKEY,WISeKey International Holding Ltd American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WKHS,"Workhorse Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 WKSP,"Worksport, Ltd. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+WLCO,Wilco 63 Corporation Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WLCOU,Wilco 63 Corporation Units,Sin clasificar,Nasdaq,0,0,1,1
+WLCOW,Wilco 63 Corporation Warrant,Sin clasificar,Nasdaq,0,0,1,1
 WLDN,"Willdan Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 WLDS,Wearable Devices Ltd. Ordinary Share,Sin clasificar,Nasdaq,0,0,1,1
 WLDSW,Wearable Devices Ltd. Warrant,Sin clasificar,Nasdaq,0,0,1,1
@@ -8585,7 +8616,7 @@ WTMU,WisdomTree Trust WisdomTree Core Laddered Municipal Fund,Sin clasificar,Nas
 WTMY,WisdomTree Trust WisdomTree High Income Laddered Municipal Fund,Sin clasificar,Nasdaq,0,0,1,1
 WTW,Willis Towers Watson Public Limited Company Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 WULF,TeraWulf Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
-WVE,Wave Life Sciences Ltd. Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
+WVE,"Wave Life Sciences, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 WVVI,"Willamette Valley Vineyards, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 WVVIP,"Willamette Valley Vineyards, Inc. Series A Redeemable Preferred Stock",Sin clasificar,Nasdaq,0,0,1,1
 WW,"WW International, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8608,6 +8639,7 @@ XCBEU,X3 Acquisition Corp. Ltd. Unit,Sin clasificar,Nasdaq,0,0,1,1
 XCBEW,X3 Acquisition Corp. Ltd. Warrant,Sin clasificar,Nasdaq,0,0,1,1
 XCH,XCHG Limited American Depositary Share,Sin clasificar,Nasdaq,0,0,1,1
 XCNY,SPDR Index Shares Fund State Street SPDR S&P Emerging Markets ex-China ETF,Sin clasificar,Nasdaq,0,0,1,1
+XCSH,Tidal Trust II XFUNDS 1-3 Month BOX ETF,Sin clasificar,Nasdaq,0,0,1,1
 XCUR,"Exicure, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 XDEF,DBX ETF Trust Xtrackers Europe Defense Technologies ETF,Sin clasificar,Nasdaq,0,0,1,1
 XE,"X-Energy, Inc. Class A Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8621,6 +8653,7 @@ XFOR,"X4 Pharmaceuticals, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 XGN,Exagen Inc. Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 XHG,XChange TEC.INC American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 XHLD,"TEN Holdings, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
+XIIIU,Churchill Capital Corp XIII Units,Sin clasificar,Nasdaq,0,0,1,1
 XLO,"Xilio Therapeutics, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 XMAG,Tidal Trust II Defiance Large Cap ex-Mag 7 ETF,Sin clasificar,Nasdaq,0,0,1,1
 XMAX,"XMAX, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8653,6 +8686,7 @@ XSLLW,Xsolla SPAC 1 Warrants,Sin clasificar,Nasdaq,0,0,1,1
 XSPC,Tidal Trust IV VegaShares SpaceX & Beyond Earth ETF,Sin clasificar,Nasdaq,0,0,1,1
 XSPI,NEOS ETF Trust NEOS Boosted S&P 500 High Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 XT,iShares Trust iShares Future Exponential Technologies ETF,Sin clasificar,Nasdaq,0,0,1,1
+XTERU,Karman Line Acquisition Corp. Units,Sin clasificar,Nasdaq,0,0,1,1
 XTIA,"XTI Aerospace, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 XTLB,XTL Biopharmaceuticals Ltd. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 XWEL,"XWELL, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
@@ -8660,6 +8694,7 @@ XXII,"22nd Century Group, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 XXX,CYBER HORNET Trust S&P 500 and XRP 75/25 Strategy ETF,Sin clasificar,Nasdaq,0,0,1,1
 XYZG,Themes ETF Trust Leverage Shares 2X Long XYZ Daily ETF,Sin clasificar,Nasdaq,0,0,1,1
 YAAS,Youxin Technology Ltd Class A Ordinary shares,Sin clasificar,Nasdaq,0,0,1,1
+YARW,"Yarrow Bioscience, Inc. Common Stock",Sin clasificar,Nasdaq,0,0,1,1
 YB,Yuanbao Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 YBMN,ETF Series Solutions Defiance BMNR Option Income ETF,Sin clasificar,Nasdaq,0,0,1,1
 YBST,GraniteShares ETF Trust GraniteShares YieldBoost Single Stock Universe ETF,Sin clasificar,Nasdaq,0,0,1,1
@@ -8684,7 +8719,6 @@ YMAT,"J-Star Holding Co., Ltd. Class A Ordinary Shares",Sin clasificar,Nasdaq,0,
 YMT,Yimutian Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 YNOT,Horizon Funds Horizon Digital Frontier ETF,Sin clasificar,Nasdaq,0,0,1,1
 YOKE,EA Series Trust YOKE Core ETF,Sin clasificar,Nasdaq,0,0,1,1
-YOOV,Concorde International Group Ltd Class A Ordinary Shares,Sin clasificar,Nasdaq,0,0,1,1
 YORW,York Water Company (The) Common Stock,Sin clasificar,Nasdaq,0,0,1,1
 YOUL,Youlife Group Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1
 YQ,17 Education & Technology Group Inc. American Depositary Shares,Sin clasificar,Nasdaq,0,0,1,1

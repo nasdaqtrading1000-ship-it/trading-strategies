@@ -15,7 +15,7 @@
       <a class="mobile-brand" href="{{ url_for('mobile_index') }}">// Code Markets</a>
       <div class="mobile-top-actions">
         {% if current_user %}
-          <a href="{{ url_for('replicator_access') }}">Replicator</a>
+          <a href="{{ url_for('mobile_replicator') }}">Replicator</a>
           <a href="{{ url_for('account') }}">Cuenta</a>
         {% else %}
           <a href="{{ url_for('user_login') }}">Entrar</a>
@@ -42,7 +42,7 @@
       <a href="{{ url_for('mobile_messages') }}">Mensajes</a>
       <a href="{{ url_for('asset_filter') }}">Filtro</a>
       <a href="{{ url_for('market_news_page') }}">Noticias</a>
-      <a href="{{ url_for('replicator_access') }}">Replicator</a>
+      <a href="{{ url_for('mobile_replicator') }}">Replicator</a>
       {% if current_user %}
         <a href="{{ url_for('account') }}">Cuenta</a>
       {% else %}

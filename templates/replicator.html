@@ -37,10 +37,11 @@
     </div>
 
     <div class="d-flex gap-2 flex-wrap mb-4">
-      <a id="replicator-launch-button" class="btn btn-success fw-semibold" href="replicator://open"
-         data-installer-url="{{ replicator_installer_url }}">
+      <button id="replicator-launch-button" class="btn btn-success fw-semibold" type="button"
+              data-health-url="{{ replicator_local_url }}health"
+              data-installer-url="{{ replicator_installer_url }}">
         Abrir Replicator
-      </a>
+      </button>
       <a class="btn btn-outline-info fw-semibold" href="{{ replicator_installer_url }}" download>
         Descargar/Reinstalar Replicator
       </a>
@@ -48,6 +49,7 @@
         Volver a estrategias
       </a>
     </div>
+    <div id="replicator-launch-status" class="alert alert-info d-none mb-4" role="status"></div>
 
     <div class="border border-secondary-subtle rounded-2 p-3">
       <p class="text-secondary small mb-2">Estado operativo</p>
@@ -67,12 +69,36 @@
 <script>
   (() => {
     const button = document.getElementById("replicator-launch-button");
+    const status = document.getElementById("replicator-launch-status");
     if (!button) return;
-    button.addEventListener("click", (event) => {
-      if (localStorage.getItem("codeMarketsReplicatorInstalled") === "1") return;
-      event.preventDefault();
-      localStorage.setItem("codeMarketsReplicatorInstalled", "1");
-      window.location.href = button.dataset.installerUrl;
+    const showStatus = (html, kind = "info") => {
+      status.className = `alert alert-${kind} mb-4`;
+      status.innerHTML = html;
+    };
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      showStatus("Comprobando Replicator...");
+      let running = false;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 900);
+        const response = await fetch(button.dataset.healthUrl, {cache: "no-store", signal: controller.signal});
+        clearTimeout(timeout);
+        running = response.ok;
+      } catch (_) {}
+      window.location.href = "replicator://open";
+      window.setTimeout(() => {
+        if (running) {
+          showStatus("Replicator se esta abriendo como aplicacion de escritorio.", "success");
+        } else {
+          showStatus(
+            `Si Replicator no se ha abierto, todavia no esta instalado. ` +
+            `<a class="alert-link" href="${button.dataset.installerUrl}" download>Descargar e instalar Replicator</a>.`,
+            "warning"
+          );
+        }
+        button.disabled = false;
+      }, 1800);
     });
   })();
 </script>

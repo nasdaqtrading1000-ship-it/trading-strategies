@@ -34,6 +34,7 @@ TABLES_TO_COPY = [
     "strategy_signals",
     "simulated_operations",
     "strategy_equity_curve",
+    "strategy_equity_curve_intraday",
     "strategy_activity_stats",
     "asset_universe",
     "asset_snapshots",

@@ -474,15 +474,20 @@ def sync_file(path):
     for line in lines:
         signal_date = signal_date_from_line(line)
         if signal_date:
-            lines_by_date.setdefault(signal_date, set()).add(line)
+            asset = signal_asset_from_line(line)
+            identity = asset or line
+            # A strategy may recalculate price/score during the day.  The first
+            # signal for an asset is the actionable notice; later variations
+            # must not create additional notices or operations for that day.
+            lines_by_date.setdefault(signal_date, {}).setdefault(identity, line)
 
     if not lines_by_date:
         return len(lines), 0
 
-    current_keys = {
-        (signal_date, line)
+    current_lines_by_identity = {
+        (signal_date, identity): line
         for signal_date, current_lines in lines_by_date.items()
-        for line in current_lines
+        for identity, line in current_lines.items()
     }
     with engine.begin() as connection:
         existing_rows = connection.execute(
@@ -496,14 +501,16 @@ def sync_file(path):
             ).bindparams(bindparam("signal_dates", expanding=True)),
             {"txt_name": path.name, "signal_dates": sorted(lines_by_date)},
         ).mappings().fetchall()
-        existing_keys = set()
+        existing_identities = set()
         delete_ids = []
         for row in existing_rows:
-            key = (str(row["signal_date"]), row["line"])
-            if key not in current_keys or key in existing_keys:
+            signal_date = str(row["signal_date"])[:10]
+            identity = (signal_date, signal_asset_from_line(row["line"]) or row["line"])
+            expected_line = current_lines_by_identity.get(identity)
+            if expected_line != row["line"] or identity in existing_identities:
                 delete_ids.append(row["id"])
             else:
-                existing_keys.add(key)
+                existing_identities.add(identity)
         if delete_ids:
             connection.execute(
                 text("DELETE FROM strategy_signals WHERE id IN :ids").bindparams(
@@ -511,8 +518,12 @@ def sync_file(path):
                 ),
                 {"ids": delete_ids},
             )
-        new_keys = sorted(current_keys - existing_keys)
-        if new_keys:
+        new_rows = [
+            (signal_date, line)
+            for (signal_date, identity), line in sorted(current_lines_by_identity.items())
+            if (signal_date, identity) not in existing_identities
+        ]
+        if new_rows:
             created_at = datetime.now(UTC).replace(tzinfo=None)
             connection.execute(
                 text(
@@ -528,10 +539,10 @@ def sync_file(path):
                     "line": line,
                         "created_at": created_at,
                     }
-                    for signal_date, line in new_keys
+                    for signal_date, line in new_rows
                 ],
             )
-    return len(lines), len(new_keys)
+    return len(lines), len(new_rows)
 
 
 def sync_strategy_status():
@@ -639,6 +650,11 @@ def signal_date_from_line(line):
             value = part.split(":", 1)[1].strip()
             return value[:10]
     return datetime.now().date().isoformat()
+
+
+def signal_asset_from_line(line):
+    first_part = str(line).split("|", 1)[0].strip().upper()
+    return first_part if re.fullmatch(r"[A-Z0-9./-]{1,32}", first_part) else ""
 
 
 def valid_txt_name(txt_name):

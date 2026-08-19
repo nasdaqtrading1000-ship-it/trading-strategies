@@ -5520,7 +5520,7 @@ def create_app():
         return render_template(
             "replicator.html",
             user=user,
-            replicator_local_url=replicator_local_url(),
+            replicator_launch_uri=f"replicator://open?profile=user-{int(user['id'])}",
             replicator_installer_url=os.environ.get(
                 "REPLICATOR_INSTALLER_URL",
                 "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"

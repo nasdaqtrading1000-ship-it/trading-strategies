@@ -68,6 +68,7 @@ app = Flask(__name__)
 SCAN_LOCK = threading.Lock()
 AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
+PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 
 
 @app.after_request
@@ -81,7 +82,7 @@ def allow_local_health_check(response):
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "service": "code-markets-replicator"})
+    return jsonify({"ok": True, "service": "code-markets-replicator", "profile": PROFILE_ID})
 
 
 @dataclass
@@ -1233,6 +1234,7 @@ PAGE = """
   <div class="shell">
     <div class="panel">
       <h1>Code Markets Replicator</h1>
+      <p class="muted">Perfil local independiente: <strong>{{ profile_id }}</strong></p>
       <p class="muted">Modo seguro: lee operaciones del dia y registra replicas en paper. No envia dinero real.</p>
       <p>DB origen: <span class="ok">{{ main_db }}</span></p>
       <p>
@@ -1286,10 +1288,10 @@ PAGE = """
           </button>
         </div>
         <label class="field"><span class="field-label">Alpaca API Key</span>
-          <input class="field-control" name="alpaca_api_key" value="{{ config.alpaca_api_key }}">
+          <input class="field-control" type="password" name="alpaca_api_key" value="" placeholder="{% if config.alpaca_api_key %}Clave guardada{% else %}Sin configurar{% endif %}">
         </label>
         <label class="field"><span class="field-label">Alpaca Secret Key</span>
-          <input class="field-control" type="password" name="alpaca_secret_key" value="{{ config.alpaca_secret_key }}">
+          <input class="field-control" type="password" name="alpaca_secret_key" value="" placeholder="{% if config.alpaca_secret_key %}Clave guardada{% else %}Sin configurar{% endif %}">
         </label>
         <label class="field"><span class="field-label">Alpaca Base URL</span>
           <input class="field-control" name="alpaca_base_url" value="{{ config.alpaca_base_url }}">
@@ -1707,6 +1709,7 @@ def index():
     return render_template_string(
         PAGE,
         config=config,
+        profile_id=PROFILE_ID,
         strategies=strategies,
         rows=replication_rows(config.get("selected_txt_names") or []),
         operation_rows=operation_rows,
@@ -1754,8 +1757,12 @@ def settings():
     config["capital_profile"] = capital_profile
     config["capital_per_operation"] = CAPITAL_PROFILES[capital_profile]
     config["poll_seconds"] = max(10, int(float(request.form.get("poll_seconds") or 60)))
-    config["alpaca_api_key"] = request.form.get("alpaca_api_key", "").strip()
-    config["alpaca_secret_key"] = request.form.get("alpaca_secret_key", "").strip()
+    alpaca_api_key = request.form.get("alpaca_api_key", "").strip()
+    alpaca_secret_key = request.form.get("alpaca_secret_key", "").strip()
+    if alpaca_api_key:
+        config["alpaca_api_key"] = alpaca_api_key
+    if alpaca_secret_key:
+        config["alpaca_secret_key"] = alpaca_secret_key
     config["alpaca_base_url"] = (
         request.form.get("alpaca_base_url", "https://paper-api.alpaca.markets").strip()
         or "https://paper-api.alpaca.markets"

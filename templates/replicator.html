@@ -31,14 +31,14 @@
       <div class="col-md-4">
         <div class="border border-info-subtle rounded-2 p-3 h-100">
           <span class="text-secondary small d-block mb-1">App local</span>
-          <strong>{{ replicator_local_url }}</strong>
+          <strong>Perfil privado de {{ user.email }}</strong>
         </div>
       </div>
     </div>
 
     <div class="d-flex gap-2 flex-wrap mb-4">
       <button id="replicator-launch-button" class="btn btn-success fw-semibold" type="button"
-              data-health-url="{{ replicator_local_url }}health"
+              data-launch-uri="{{ replicator_launch_uri }}"
               data-installer-url="{{ replicator_installer_url }}">
         Abrir Replicator
       </button>
@@ -77,26 +77,14 @@
     };
     button.addEventListener("click", async () => {
       button.disabled = true;
-      showStatus("Comprobando Replicator...");
-      let running = false;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 900);
-        const response = await fetch(button.dataset.healthUrl, {cache: "no-store", signal: controller.signal});
-        clearTimeout(timeout);
-        running = response.ok;
-      } catch (_) {}
-      window.location.href = "replicator://open";
+      showStatus("Abriendo tu Replicator privado...");
+      window.location.href = button.dataset.launchUri;
       window.setTimeout(() => {
-        if (running) {
-          showStatus("Replicator se esta abriendo como aplicacion de escritorio.", "success");
-        } else {
-          showStatus(
-            `Si Replicator no se ha abierto, todavia no esta instalado. ` +
-            `<a class="alert-link" href="${button.dataset.installerUrl}" download>Descargar e instalar Replicator</a>.`,
-            "warning"
-          );
-        }
+        showStatus(
+          `Si Replicator no se ha abierto, instalalo y vuelve a pulsar este boton. ` +
+          `<a class="alert-link" href="${button.dataset.installerUrl}" download>Descargar/Reinstalar Replicator</a>.`,
+          "warning"
+        );
         button.disabled = false;
       }, 1800);
     });

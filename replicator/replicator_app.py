@@ -71,7 +71,7 @@ AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.6")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.7")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
@@ -1144,6 +1144,14 @@ def replication_rows(selected_txt_names: list[str] | None = None) -> list[dict[s
     return result
 
 
+def replication_view_revision() -> str:
+    with state_connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS total, COALESCE(MAX(created_at), '') AS latest FROM replicated_operations"
+        ).fetchone()
+    return f"{int(row['total'] or 0)}:{str(row['latest'] or '')}"
+
+
 def operation_status_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
     selected = list(config.get("selected_txt_names") or [])
     if not selected:
@@ -1294,6 +1302,7 @@ PAGE = """
       </p>
       <p class="actions">
         <a class="button primary" href="{{ url_for('alpaca_account') }}">Cuenta Alpaca</a>
+        <a class="button" href="{{ url_for('index') }}">Actualizar pantalla</a>
       </p>
     </div>
 
@@ -1351,7 +1360,7 @@ PAGE = """
         no tienes que copiar tokens de clientes. Estado: {% if config.web_access_token %}<span class="ok">cuenta conectada</span>{% else %}cuenta sin conectar{% endif %}.
       </p>
       <p class="muted">Auto ON funciona 24/7 mientras este proceso local siga abierto. Fuera de mercado escanea sin replicar.</p>
-      <p class="muted">La pantalla se actualiza automaticamente cada 30 minutos. Si estas editando la configuracion, el refresco se pospone para no perder cambios.</p>
+      <p class="muted">La pantalla se actualiza al registrar una orden nueva y hace una comprobacion de respaldo cada 5 minutos. Si estas editando la configuracion, el refresco se pospone para no perder cambios.</p>
       {% if config.last_connect_error %}
         <div class="warn">Ultimo error de conexion web: {{ config.last_connect_error }}</div>
       {% endif %}
@@ -1496,13 +1505,22 @@ PAGE = """
     });
     const settingsForm = document.querySelector('form[action="{{ url_for("settings") }}"]');
     let settingsDirty = false;
+    let viewRevision = {{ view_revision|tojson }};
     settingsForm?.addEventListener("input", () => { settingsDirty = true; });
     settingsForm?.addEventListener("submit", () => { settingsDirty = false; });
+    window.setInterval(async () => {
+      if (settingsDirty || document.visibilityState !== "visible") return;
+      try {
+        const response = await fetch("{{ url_for('api_view_revision') }}", { cache: "no-store" });
+        const data = await response.json();
+        if (data.revision !== viewRevision) window.location.reload();
+      } catch (_) {}
+    }, 2 * 1000);
     window.setInterval(() => {
       if (!settingsDirty && document.visibilityState === "visible") {
         window.location.reload();
       }
-    }, 1800 * 1000);
+    }, 5 * 60 * 1000);
     paintAuto(auto);
     checkForUpdate();
   </script>
@@ -1794,6 +1812,7 @@ def index():
         strategies=strategies,
         rows=replication_rows(config.get("selected_txt_names") or []),
         operation_rows=operation_rows,
+        view_revision=replication_view_revision(),
         closed_operations_profit_total=format_money(closed_operations_profit_value),
         closed_operations_profit_total_class=profit_class(closed_operations_profit_value),
         main_db=str(MAIN_DB),
@@ -1875,6 +1894,11 @@ def api_scan():
                 "scanned_at": datetime.now(MADRID_TZ).isoformat(sep=" ", timespec="seconds"),
             }
         )
+
+
+@app.route("/api/view-revision")
+def api_view_revision():
+    return jsonify({"ok": True, "revision": replication_view_revision()})
 
 
 @app.route("/api/auto", methods=["POST"])

@@ -335,6 +335,9 @@
                     {% if strategy.is_locked %}
                       <span class="locked-mini">Solo miembros</span>
                     {% endif %}
+                    {% if strategy.replicator_available %}
+                      <span class="badge rounded-pill text-bg-success">Disponible en Replicator</span>
+                    {% endif %}
                   </div>
                 </td>
                 <td><span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span></td>

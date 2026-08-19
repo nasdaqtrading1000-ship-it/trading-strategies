@@ -3239,6 +3239,7 @@ def create_app():
             "replicator_api_login",
             "replicator_api_strategies",
             "replicator_api_operations",
+            "replicator_latest_version",
             "strategy_equity_curve",
             "public_curve_diagnostics",
         }

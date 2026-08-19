@@ -71,7 +71,7 @@ AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.5")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.6")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
@@ -1413,8 +1413,8 @@ PAGE = """
         </tbody>
         <tfoot>
           <tr>
-            <th colspan="7">Total P/L operaciones abiertas del dia</th>
-            <th class="{{ open_operations_profit_total_class }}">{{ open_operations_profit_total }}</th>
+            <th colspan="7">Total P/L cierres del dia</th>
+            <th class="{{ closed_operations_profit_total_class }}">{{ closed_operations_profit_total }}</th>
             <th colspan="2"></th>
           </tr>
         </tfoot>
@@ -1780,8 +1780,10 @@ def index():
     except Exception as error:
         operation_rows = []
         operation_error = str(error)
-    open_operations_profit_value = sum(
-        safe_float(row.get("profit_value")) for row in operation_rows if row.get("is_open")
+    closed_operations_profit_value = sum(
+        safe_float(row.get("profit_value"))
+        for row in operation_rows
+        if str(row.get("action") or "").upper() == "CLOSE"
     )
     return render_template_string(
         PAGE,
@@ -1792,8 +1794,8 @@ def index():
         strategies=strategies,
         rows=replication_rows(config.get("selected_txt_names") or []),
         operation_rows=operation_rows,
-        open_operations_profit_total=format_money(open_operations_profit_value),
-        open_operations_profit_total_class=profit_class(open_operations_profit_value),
+        closed_operations_profit_total=format_money(closed_operations_profit_value),
+        closed_operations_profit_total_class=profit_class(closed_operations_profit_value),
         main_db=str(MAIN_DB),
         last_scan=strategy_error or operation_error or "Pulsa Escanear ahora para probar.",
         strategy_error=strategy_error or operation_error,

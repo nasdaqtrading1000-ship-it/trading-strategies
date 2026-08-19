@@ -71,7 +71,7 @@ AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.4")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.5")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
@@ -967,8 +967,10 @@ def alpaca_account_snapshot(config: dict[str, Any]) -> dict[str, Any]:
     account = broker.account()
     positions = broker.positions()
     formatted_positions = []
+    positions_profit_total = 0.0
     for position in positions:
         unrealized_pl = safe_float(position.get("unrealized_pl"))
+        positions_profit_total += unrealized_pl
         unrealized_plpc = safe_float(position.get("unrealized_plpc")) * 100
         formatted_positions.append(
             {
@@ -987,6 +989,8 @@ def alpaca_account_snapshot(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "account": account,
         "positions": formatted_positions,
+        "positions_profit_total": format_money(positions_profit_total),
+        "positions_profit_total_class": profit_class(positions_profit_total),
         "portfolio_charts": history_charts,
         "portfolio_history_error": history_error,
         "summary": {
@@ -1186,7 +1190,9 @@ def operation_status_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                         "order_price": order_price(operation, action),
                         "order_price_display": format_price(order_price(operation, action)),
                         "profit_display": close_profit_display(operation, action),
+                        "profit_value": operation_profit_value(operation),
                         "profit_class": profit_class(operation_profit_value(operation)),
+                        "is_open": action == "OPEN" and not source_operation_is_closed(operation),
                         "status": status,
                         "broker_status": stored["broker_status"] if stored else "",
                         "message": stored["message"] if stored else "",
@@ -1405,6 +1411,13 @@ PAGE = """
             </tr>
           {% endfor %}
         </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="7">Total P/L operaciones abiertas del dia</th>
+            <th class="{{ open_operations_profit_total_class }}">{{ open_operations_profit_total }}</th>
+            <th colspan="2"></th>
+          </tr>
+        </tfoot>
       </table>
     </div>
 
@@ -1618,6 +1631,13 @@ ALPACA_ACCOUNT_PAGE = """
               </tr>
             {% endfor %}
           </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="6">Total P/L posiciones abiertas</th>
+              <th class="{{ snapshot.positions_profit_total_class }}">{{ snapshot.positions_profit_total }}</th>
+              <th></th>
+            </tr>
+          </tfoot>
         </table>
       </div>
     {% endif %}
@@ -1760,6 +1780,9 @@ def index():
     except Exception as error:
         operation_rows = []
         operation_error = str(error)
+    open_operations_profit_value = sum(
+        safe_float(row.get("profit_value")) for row in operation_rows if row.get("is_open")
+    )
     return render_template_string(
         PAGE,
         config=config,
@@ -1769,6 +1792,8 @@ def index():
         strategies=strategies,
         rows=replication_rows(config.get("selected_txt_names") or []),
         operation_rows=operation_rows,
+        open_operations_profit_total=format_money(open_operations_profit_value),
+        open_operations_profit_total_class=profit_class(open_operations_profit_value),
         main_db=str(MAIN_DB),
         last_scan=strategy_error or operation_error or "Pulsa Escanear ahora para probar.",
         strategy_error=strategy_error or operation_error,

@@ -178,6 +178,7 @@
         </form>
       {% endif %}
       <a class="btn btn-info fw-semibold" href="{{ url_for('index') }}">Ver estrategias</a>
+      <a class="btn btn-outline-warning fw-semibold" href="{{ url_for('investment_account') }}">Cuenta de inversion integrada</a>
       <a class="btn btn-outline-info fw-semibold" href="{{ url_for('asset_filter') }}" target="_blank" rel="noopener">Filtrado de activos</a>
       <form method="post" action="{{ url_for('user_logout') }}">
         <button class="btn btn-outline-light" type="submit">Cerrar sesion</button>

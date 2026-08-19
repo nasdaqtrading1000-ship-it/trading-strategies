@@ -5116,6 +5116,49 @@ def create_app():
             telegram_bot_username=telegram_bot_username(),
         )
 
+    @app.route("/cuenta-inversion")
+    def investment_account():
+        user = current_user()
+        if not user:
+            session["user_next_url"] = url_for("investment_account")
+            flash("Entra con tu cuenta para acceder a esta zona.", "warning")
+            return redirect(url_for("user_login"))
+        return render_template(
+            "investment_account.html",
+            user=user,
+            broker_onboarding_enabled=os.environ.get("ALPACA_BROKER_ONBOARDING_ENABLED", "0").strip().lower()
+            in {"1", "true", "yes", "on"},
+        )
+
+    @app.route("/cuenta-inversion/solicitar", methods=["POST"])
+    def investment_account_request():
+        user = current_user()
+        if not user:
+            flash("Entra con tu cuenta para solicitar acceso.", "warning")
+            return redirect(url_for("user_login"))
+        if request.form.get("understood") != "on":
+            flash("Confirma que entiendes que esta solicitud todavia no abre una cuenta de inversion.", "warning")
+            return redirect(url_for("investment_account"))
+        requested_at = datetime.now(MADRID_TZ)
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET broker_onboarding_status = CASE
+                        WHEN COALESCE(broker_onboarding_status, '') = '' THEN 'INTERESTED'
+                        ELSE broker_onboarding_status
+                    END,
+                    broker_onboarding_requested_at = COALESCE(broker_onboarding_requested_at, :requested_at),
+                    broker_onboarding_updated_at = :requested_at
+                WHERE id = :id
+                """
+            ),
+            {"requested_at": requested_at, "id": user["id"]},
+        )
+        g.db.commit()
+        flash("Solicitud registrada. Te avisaremos cuando la apertura integrada este disponible.", "success")
+        return redirect(url_for("investment_account"))
+
     @app.route("/mi-cuenta/telegram/conectar", methods=["POST"])
     def account_telegram_connect():
         user = current_user()
@@ -10218,6 +10261,11 @@ def init_db():
         add_user_column(connection, "telegram_connect_token_created_at", "TIMESTAMP")
         add_user_column(connection, "telegram_connected_at", "TIMESTAMP")
         add_user_column(connection, "telegram_removed_at", "TIMESTAMP")
+        add_user_column(connection, "broker_onboarding_status", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "broker_account_id", "TEXT NOT NULL DEFAULT ''")
+        add_user_column(connection, "broker_onboarding_requested_at", "TIMESTAMP")
+        add_user_column(connection, "broker_onboarding_updated_at", "TIMESTAMP")
+        add_user_column(connection, "broker_last_error", "TEXT NOT NULL DEFAULT ''")
         ensure_payments_table(connection)
         ensure_universe_table(connection)
         ensure_strategy_signals_table(connection)
@@ -10909,6 +10957,11 @@ def ensure_users_table(connection):
                 telegram_connect_token_created_at TIMESTAMP,
                 telegram_connected_at TIMESTAMP,
                 telegram_removed_at TIMESTAMP,
+                broker_onboarding_status TEXT NOT NULL DEFAULT '',
+                broker_account_id TEXT NOT NULL DEFAULT '',
+                broker_onboarding_requested_at TIMESTAMP,
+                broker_onboarding_updated_at TIMESTAMP,
+                broker_last_error TEXT NOT NULL DEFAULT '',
                 age_confirmed INTEGER NOT NULL DEFAULT 0,
                 risk_accepted INTEGER NOT NULL DEFAULT 0,
                 accepted_terms_at TIMESTAMP,

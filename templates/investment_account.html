@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Cuenta de inversion integrada{% endblock %}
+{% block content %}
+<section class="container py-5">
+  <div class="strategy-card p-4 p-lg-5">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+      <div>
+        <p class="eyebrow mb-1">Nuevo camino independiente</p>
+        <h1 class="h3 fw-bold mb-2">Cuenta de inversion Code Markets</h1>
+        <p class="text-secondary mb-0">Futura apertura integrada mediante Alpaca Europe Broker API, sin salir de Code Markets.</p>
+      </div>
+      {% set status = user.broker_onboarding_status or '' %}
+      {% if user.broker_account_id %}<span class="badge text-bg-success fs-6">Cuenta vinculada</span>
+      {% elif status %}<span class="badge text-bg-info fs-6">Solicitud registrada</span>
+      {% else %}<span class="badge text-bg-warning fs-6">En preparacion</span>{% endif %}
+    </div>
+
+    <div class="alert alert-info border-0">
+      Esta opcion se construye en paralelo. <strong>Replicator y la conexion actual mediante API keys siguen disponibles y no cambian.</strong>
+    </div>
+
+    <div class="row g-3 my-2">
+      <div class="col-md-3"><div class="account-card h-100"><span class="text-info small">1</span><h2 class="h6 mt-2">Crear solicitud</h2><p class="text-secondary small mb-0">El cliente inicia el proceso desde Code Markets.</p></div></div>
+      <div class="col-md-3"><div class="account-card h-100"><span class="text-info small">2</span><h2 class="h6 mt-2">Identidad y adecuacion</h2><p class="text-secondary small mb-0">KYC, AML y evaluacion MiFID mediante el flujo aprobado.</p></div></div>
+      <div class="col-md-3"><div class="account-card h-100"><span class="text-info small">3</span><h2 class="h6 mt-2">Cuenta y fondos</h2><p class="text-secondary small mb-0">Aprobacion, saldo, depositos y cartera dentro de la plataforma.</p></div></div>
+      <div class="col-md-3"><div class="account-card h-100"><span class="text-info small">4</span><h2 class="h6 mt-2">Operativa</h2><p class="text-secondary small mb-0">Ordenes y automatizacion solo bajo el modelo contractual y regulatorio autorizado.</p></div></div>
+    </div>
+
+    <div class="account-section mt-4">
+      <h2 class="h5">Estado de esta integracion</h2>
+      <div class="account-status-list mb-3">
+        <div><span>Perfil Code Markets</span><strong class="text-success">{{ user.name or user.email }}</strong></div>
+        <div><span>Solicitud</span><strong>{% if status %}Registrada{% else %}No iniciada{% endif %}</strong></div>
+        <div><span>Cuenta Broker</span><strong>{% if user.broker_account_id %}Vinculada{% else %}Todavia no creada{% endif %}</strong></div>
+        <div><span>Broker API real</span><strong class="{% if broker_onboarding_enabled %}text-success{% else %}text-warning{% endif %}">{% if broker_onboarding_enabled %}Entorno habilitado{% else %}Pendiente de acuerdo y credenciales{% endif %}</strong></div>
+      </div>
+      {% if not status %}
+        <form method="post" action="{{ url_for('investment_account_request') }}">
+          <div class="form-check mb-3">
+            <input class="form-check-input" id="understood" name="understood" type="checkbox" required>
+            <label class="form-check-label" for="understood">Entiendo que esto registra mi interes, pero todavia no abre una cuenta ni autoriza operaciones.</label>
+          </div>
+          <button class="btn btn-warning fw-semibold" type="submit">Quiero acceso cuando este disponible</button>
+        </form>
+      {% else %}
+        <div class="alert alert-success border-0 mb-0">Tu interes esta registrado. No necesitas enviar documentacion todavia.</div>
+      {% endif %}
+    </div>
+
+    <div class="account-section mt-4">
+      <h2 class="h5">Privacidad y seguridad</h2>
+      <p class="text-secondary mb-2">Code Markets no solicita todavia DNI, direccion, datos fiscales ni documentacion KYC en esta pantalla. Esos datos solo se incorporaran cuando exista un flujo aprobado, cifrado y conectado al entorno europeo correspondiente.</p>
+      <p class="text-secondary small mb-0">La disponibilidad final dependera del acuerdo con Alpaca Europe y de las autorizaciones aplicables al servicio ofrecido.</p>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap mt-4">
+      <a class="btn btn-outline-light" href="{{ url_for('account') }}">Volver a Mi cuenta</a>
+      <a class="btn btn-outline-success" href="{{ url_for('replicator_access') }}">Abrir Replicator actual</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

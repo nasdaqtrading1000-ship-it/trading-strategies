@@ -20,6 +20,7 @@
             <span class="text-info small fw-semibold d-none d-md-inline">
               {{ current_user.name or current_user.email }}
             </span>
+            <a class="btn btn-outline-warning btn-sm" href="{{ url_for('investment_account') }}">Cuenta de inversion</a>
             <a class="btn btn-outline-success btn-sm" href="{{ url_for('replicator_access') }}" target="_blank" rel="noopener">Replicator</a>
             <a class="btn btn-outline-info btn-sm" href="{{ url_for('account') }}">Mi cuenta</a>
             {% if not member_has_access %}

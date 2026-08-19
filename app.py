@@ -5973,12 +5973,17 @@ self.addEventListener("fetch", () => {});
         curve_series = {}
         for key, period in equity_curve_period_definitions().items():
             if key == "all":
-                curve_series[key] = points
+                curve_series[key] = strategy_equity_curve_points(
+                    txt_name,
+                    strategy_name=strategy_name,
+                    limit=selected_strategy_chart_limit(key),
+                )
             else:
                 curve_series[key] = strategy_equity_curve_period_points(
                     txt_name,
                     strategy_name=strategy_name,
                     period=period,
+                    limit=selected_strategy_chart_limit(key),
                 )
         curve_summaries = equity_curve_summaries_for_strategy(strategy, curve_series)
         latest_summary = equity_curve_account_summary_for_strategy(strategy, points)

@@ -4,6 +4,7 @@ import argparse
 from email.utils import parsedate_to_datetime
 import json
 import os
+import re
 import sqlite3
 import sys
 import threading
@@ -70,6 +71,8 @@ AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.4")
+INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
 @app.after_request
@@ -84,6 +87,40 @@ def allow_local_health_check(response):
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "service": "code-markets-replicator", "profile": PROFILE_ID})
+
+
+def version_parts(value: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in re.findall(r"\d+", value)[:3])
+
+
+@app.route("/api/update")
+def api_update():
+    config = load_config()
+    latest_version = APP_VERSION
+    installer_url = INSTALLER_URL
+    error = ""
+    try:
+        base_url = str(config.get("web_base_url") or "https://nasdaq-trading-strategies-pro.onrender.com").rstrip("/")
+        update_request = urllib.request.Request(
+            base_url + "/api/replicator/latest",
+            headers={"User-Agent": "Code-Markets-Replicator"},
+        )
+        with urllib.request.urlopen(update_request, timeout=4) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        latest_version = str(payload.get("version") or APP_VERSION)
+        installer_url = str(payload.get("installer_url") or INSTALLER_URL)
+    except Exception as exc:
+        error = str(exc)
+    return jsonify(
+        {
+            "ok": not error,
+            "current_version": APP_VERSION,
+            "latest_version": latest_version,
+            "update_available": version_parts(latest_version) > version_parts(APP_VERSION),
+            "installer_url": installer_url,
+            "error": error,
+        }
+    )
 
 
 @dataclass
@@ -1236,6 +1273,11 @@ PAGE = """
     <div class="panel">
       <h1>Code Markets Replicator</h1>
       <p class="muted">Cuenta activa: <strong>{{ profile_name }}</strong></p>
+      <p class="muted">Version instalada: <strong>{{ app_version }}</strong></p>
+      <div id="update-notice" class="warn" hidden>
+        Hay una nueva version: <strong id="latest-version"></strong>.
+        <a id="update-link" class="button primary" href="#">Descargar actualizacion</a>
+      </div>
       <p class="muted">Modo seguro: lee operaciones del dia y registra replicas en paper. No envia dinero real.</p>
       <p>DB origen: <span class="ok">{{ main_db }}</span></p>
       <p>
@@ -1395,6 +1437,16 @@ PAGE = """
   <script>
     let auto = {{ "true" if config.auto_enabled else "false" }};
     const toggleButton = document.getElementById("toggle-auto");
+    async function checkForUpdate() {
+      try {
+        const response = await fetch("{{ url_for('api_update') }}", { cache: "no-store" });
+        const data = await response.json();
+        if (!data.update_available) return;
+        document.getElementById("latest-version").textContent = data.latest_version;
+        document.getElementById("update-link").href = data.installer_url;
+        document.getElementById("update-notice").hidden = false;
+      } catch (_) {}
+    }
     function paintAuto(nextAuto) {
       auto = Boolean(nextAuto);
       toggleButton.textContent = auto ? "Auto ON" : "Auto OFF";
@@ -1439,6 +1491,7 @@ PAGE = """
       }
     }, 1800 * 1000);
     paintAuto(auto);
+    checkForUpdate();
   </script>
 </body>
 </html>
@@ -1712,6 +1765,7 @@ def index():
         config=config,
         profile_id=PROFILE_ID,
         profile_name=PROFILE_NAME,
+        app_version=APP_VERSION,
         strategies=strategies,
         rows=replication_rows(config.get("selected_txt_names") or []),
         operation_rows=operation_rows,

@@ -12,6 +12,7 @@ REGISTRY_PATH = INSTALL_DIR / "profiles.json"
 LEGACY_PID_PATH = INSTALL_DIR / "replicator.pid"
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\CodeMarketsReplicator"
 PORT_FIRST, PORT_LAST = 5075, 5175
+APP_VERSION = "1.0.4"
 
 
 def safe_profile_id(value: str | None) -> str:
@@ -111,7 +112,7 @@ def register_protocol(executable: Path) -> None:
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base + r"\shell\open\command") as key:
         winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f'"{executable}" "%1"')
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as key:
-        values = {"DisplayName": "Code Markets Replicator", "DisplayVersion": "1.0.3", "Publisher": "Code Markets", "InstallLocation": str(INSTALL_DIR), "DisplayIcon": str(executable), "UninstallString": f'"{executable}" --uninstall'}
+        values = {"DisplayName": "Code Markets Replicator", "DisplayVersion": APP_VERSION, "Publisher": "Code Markets", "InstallLocation": str(INSTALL_DIR), "DisplayIcon": str(executable), "UninstallString": f'"{executable}" --uninstall'}
         for name, value in values.items():
             winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
         winreg.SetValueEx(key, "NoModify", 0, winreg.REG_DWORD, 1)
@@ -209,6 +210,7 @@ def serve(profile: str, port: int) -> None:
     os.environ["REPLICATOR_DATA_DIR"] = str(profile_dir)
     os.environ["REPLICATOR_PROFILE"] = profile
     os.environ["REPLICATOR_PROFILE_NAME"] = str(load_registry().get("profiles", {}).get(profile, {}).get("name") or profile)
+    os.environ["REPLICATOR_VERSION"] = APP_VERSION
     from replicator_app import app, start_auto_worker
     pid_path.write_text(str(os.getpid()), encoding="utf-8")
     try:

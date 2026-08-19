@@ -2618,6 +2618,9 @@ def build_totalizer(strategies):
 
 
 def selected_strategy_chart_limit(value):
+    if value == "day":
+        # Keep the intraday preview identical to the full strategy chart.
+        return 1600
     if value == "all":
         return 360
     return 420

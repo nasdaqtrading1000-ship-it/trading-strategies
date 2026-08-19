@@ -5517,10 +5517,15 @@ def create_app():
         if not member_has_replicator_access(user):
             flash("Code Markets Replicator requiere cuenta Premium activa.", "warning")
             return redirect(url_for("payment_page", product="code_markets_premium", plan="monthly"))
+        replicator_profile_name = str(user["name"] or user["email"]).strip()
+        replicator_query = urllib.parse.urlencode(
+            {"profile": f"user-{int(user['id'])}", "name": replicator_profile_name}
+        )
         return render_template(
             "replicator.html",
             user=user,
-            replicator_launch_uri=f"replicator://open?profile=user-{int(user['id'])}",
+            replicator_profile_name=replicator_profile_name,
+            replicator_launch_uri=f"replicator://open?{replicator_query}",
             replicator_installer_url=os.environ.get(
                 "REPLICATOR_INSTALLER_URL",
                 "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"

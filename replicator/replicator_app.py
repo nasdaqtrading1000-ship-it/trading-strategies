@@ -69,6 +69,7 @@ SCAN_LOCK = threading.Lock()
 AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
+PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
 
 
 @app.after_request
@@ -1234,7 +1235,7 @@ PAGE = """
   <div class="shell">
     <div class="panel">
       <h1>Code Markets Replicator</h1>
-      <p class="muted">Perfil local independiente: <strong>{{ profile_id }}</strong></p>
+      <p class="muted">Cuenta activa: <strong>{{ profile_name }}</strong></p>
       <p class="muted">Modo seguro: lee operaciones del dia y registra replicas en paper. No envia dinero real.</p>
       <p>DB origen: <span class="ok">{{ main_db }}</span></p>
       <p>
@@ -1710,6 +1711,7 @@ def index():
         PAGE,
         config=config,
         profile_id=PROFILE_ID,
+        profile_name=PROFILE_NAME,
         strategies=strategies,
         rows=replication_rows(config.get("selected_txt_names") or []),
         operation_rows=operation_rows,

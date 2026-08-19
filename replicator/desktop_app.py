@@ -24,6 +24,11 @@ def profile_from_uri(uri: str | None) -> str:
     return safe_profile_id((query.get("profile") or ["default"])[0])
 
 
+def profile_name_from_uri(uri: str | None) -> str:
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(uri or "").query)
+    return str((query.get("name") or [""])[0]).strip()[:120]
+
+
 def load_registry() -> dict:
     try:
         value = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
@@ -66,11 +71,13 @@ def migrate_legacy_profile(profile_dir: Path, registry: dict) -> None:
     registry["legacy_profile_migrated"] = profile_dir.name
 
 
-def profile_context(profile: str) -> tuple[Path, Path, int, str]:
+def profile_context(profile: str, profile_name: str = "") -> tuple[Path, Path, int, str]:
     profile = safe_profile_id(profile)
     registry = load_registry()
     profiles = registry.setdefault("profiles", {})
     entry = profiles.setdefault(profile, {})
+    if profile_name:
+        entry["name"] = profile_name
     used = {int(v.get("port")) for k, v in profiles.items() if k != profile and isinstance(v, dict) and str(v.get("port", "")).isdigit()}
     port = int(entry.get("port") or 0)
     if not (PORT_FIRST <= port < PORT_LAST) or port in used:
@@ -104,7 +111,7 @@ def register_protocol(executable: Path) -> None:
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, base + r"\shell\open\command") as key:
         winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f'"{executable}" "%1"')
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as key:
-        values = {"DisplayName": "Code Markets Replicator", "DisplayVersion": "1.0.2", "Publisher": "Code Markets", "InstallLocation": str(INSTALL_DIR), "DisplayIcon": str(executable), "UninstallString": f'"{executable}" --uninstall'}
+        values = {"DisplayName": "Code Markets Replicator", "DisplayVersion": "1.0.3", "Publisher": "Code Markets", "InstallLocation": str(INSTALL_DIR), "DisplayIcon": str(executable), "UninstallString": f'"{executable}" --uninstall'}
         for name, value in values.items():
             winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
         winreg.SetValueEx(key, "NoModify", 0, winreg.REG_DWORD, 1)
@@ -201,6 +208,7 @@ def serve(profile: str, port: int) -> None:
     if port != assigned_port: raise RuntimeError("El puerto solicitado no pertenece a este perfil.")
     os.environ["REPLICATOR_DATA_DIR"] = str(profile_dir)
     os.environ["REPLICATOR_PROFILE"] = profile
+    os.environ["REPLICATOR_PROFILE_NAME"] = str(load_registry().get("profiles", {}).get(profile, {}).get("name") or profile)
     from replicator_app import app, start_auto_worker
     pid_path.write_text(str(os.getpid()), encoding="utf-8")
     try:
@@ -220,7 +228,9 @@ def main() -> int:
     if args.uninstall: return uninstall()
     if args.serve: serve(safe_profile_id(args.profile), args.port); return 0
     if not getattr(sys, "frozen", False) or Path(sys.executable).resolve() != INSTALLED_EXE.resolve(): install(); return 0
-    return open_replicator(profile_from_uri(args.uri))
+    profile = profile_from_uri(args.uri)
+    profile_context(profile, profile_name_from_uri(args.uri))
+    return open_replicator(profile)
 
 
 if __name__ == "__main__": raise SystemExit(main())

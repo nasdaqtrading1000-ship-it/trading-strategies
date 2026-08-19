@@ -6181,9 +6181,9 @@ self.addEventListener("fetch", () => {});
             text(
                 """
                 SELECT id, email, name, telegram_user_id, telegram_username, has_access, has_replicator_access,
-                       payment_status, membership_plan,
-                       membership_amount, membership_started_at, membership_expires_at,
-                       telegram_removed_at, admin_notes, created_at
+                        payment_status, membership_plan,
+                        membership_amount, membership_started_at, membership_expires_at,
+                        telegram_removed_at, admin_notes, email_verified_at, created_at
                 FROM users
                 ORDER BY created_at DESC
                 LIMIT 50
@@ -6555,6 +6555,34 @@ self.addEventListener("fetch", () => {});
         g.db.commit()
         flash("Usuario creado manualmente.", "success")
         return redirect(url_for("admin_dashboard", _anchor="admin-users"))
+
+    @app.route("/admin/users/<int:user_id>/confirm-email", methods=["POST"])
+    @login_required
+    def admin_user_confirm_email(user_id):
+        user = g.db.execute(
+            text("SELECT id, email, email_verified_at FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).mappings().fetchone()
+        if not user:
+            abort(404)
+        if user.get("email_verified_at"):
+            flash(f"El email de {user['email']} ya estaba confirmado.", "info")
+            return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
+        g.db.execute(
+            text(
+                """
+                UPDATE users
+                SET email_verified_at = :now,
+                    email_verification_token = '',
+                    email_verification_sent_at = NULL
+                WHERE id = :id
+                """
+            ),
+            {"now": datetime.now(UTC).replace(tzinfo=None), "id": user_id},
+        )
+        g.db.commit()
+        flash(f"Email de {user['email']} confirmado manualmente. No se ha enviado ningun correo.", "success")
+        return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
 
     @app.route("/admin/market-data/update", methods=["POST"])
     @login_required

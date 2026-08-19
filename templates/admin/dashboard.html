@@ -155,6 +155,7 @@
         <button class="btn btn-info btn-sm fw-semibold w-100" type="submit">Crear usuario</button>
       </div>
     </form>
+    <p class="text-secondary small mb-4">Los usuarios creados desde Admin quedan con el email confirmado inmediatamente; no se envia correo de confirmacion.</p>
     <div class="border border-warning rounded-2 p-3 mb-4" id="telegram-removals">
       <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
         <div>
@@ -235,6 +236,13 @@
                 <div class="small text-info mt-1">
                   Telegram: {% if user.telegram_username %}@{{ user.telegram_username }}{% else %}Sin usuario publico{% endif %}
                 </div>
+                <div class="mt-2">
+                  {% if user.email_verified_at %}
+                    <span class="badge text-bg-success">Email confirmado</span>
+                  {% else %}
+                    <span class="badge text-bg-warning">Email pendiente</span>
+                  {% endif %}
+                </div>
               </td>
               <td>
                 <div class="row g-2">
@@ -273,6 +281,11 @@
                 <div class="d-flex justify-content-end gap-2 flex-wrap">
                   <form id="user-row-form-{{ user.id }}" method="post" action="{{ url_for('admin_user_update', user_id=user.id) }}"></form>
                   <button class="btn btn-info btn-sm fw-semibold" form="user-row-form-{{ user.id }}" type="submit">Guardar</button>
+                  {% if not user.email_verified_at %}
+                    <form method="post" action="{{ url_for('admin_user_confirm_email', user_id=user.id) }}">
+                      <button class="btn btn-outline-success btn-sm" type="submit">Confirmar email</button>
+                    </form>
+                  {% endif %}
                   <form method="post" action="{{ url_for('user_toggle_access', user_id=user.id) }}">
                     <button class="btn btn-outline-warning btn-sm" type="submit">
                       {% if user.has_access %}Quitar{% else %}Dar{% endif %}

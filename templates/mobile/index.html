@@ -52,7 +52,7 @@
           </div>
           <h3>{{ item.title_es }}</h3>
           <p>{{ item.summary_es }}</p>
-          <small>{{ item.symbols or item.sector_tags or "Mercado general" }}</small>
+          <small class="notranslate" translate="no">{{ item.symbols or item.sector_tags or "Mercado general" }}</small>
         </article>
       {% endfor %}
     </div>
@@ -74,7 +74,7 @@
       <div class="mobile-assets-list">
         {% for asset in top_money_volume_assets %}
           <div>
-            <strong>{{ asset.symbol }}</strong>
+            <strong class="notranslate" translate="no">{{ asset.symbol }}</strong>
             <span>{{ asset.name }}</span>
             {% if asset.money_volume_display %}
               <em>{{ asset.money_volume_display }}</em>

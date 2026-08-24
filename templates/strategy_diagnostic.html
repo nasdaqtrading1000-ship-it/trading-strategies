@@ -8,7 +8,7 @@
     <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
       <div>
         <p class="eyebrow mb-2">Diagnostico de activo</p>
-        <h1 class="h2 mb-2">{{ signal.symbol }}</h1>
+        <h1 class="h2 mb-2 notranslate" translate="no">{{ signal.symbol }}</h1>
         <p class="text-secondary mb-0">{{ strategy.name }} · Riesgo {{ strategy.risk_level }}</p>
       </div>
       {% if signal.side %}
@@ -152,7 +152,7 @@
           </div>
           <div>
             <span>Ticker</span>
-            <strong>{{ signal.symbol }}</strong>
+            <strong class="notranslate" translate="no">{{ signal.symbol }}</strong>
           </div>
           <div>
             <span>Direccion</span>

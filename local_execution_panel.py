@@ -69,6 +69,9 @@ LAST_DAILY_QUEUE_RESET = ""
 UPLOAD_STATUS_SYNC_LAST = 0.0
 PANEL_STARTED_AT = datetime.now()
 QUEUE_DAILY_RESET_TIME = "22:00"
+ORDER_TASK_START_TIME = "15:30"
+ORDER_TASK_END_TIME = "22:00"
+ORDER_CAPABLE_TASKS = {"strategies", "simulated_operations", "strategies_v2"}
 COMMAND_ERROR_CONTEXT_LINES = 120
 TASK_STATE = {
     "running": False,
@@ -1284,6 +1287,32 @@ def cancel_running_task():
 
 
 def run_command(task_key, task, trigger, queue_item=None):
+    allowed, reason = task_execution_allowed(task_key)
+    if not allowed:
+        add_log(f"No se ejecuta {task['label']}: {reason}.")
+        update_task_status(
+            task_key,
+            {
+                "status": "IDLE",
+                "last_finished_at": now_text(),
+                "last_returncode": 130,
+                "last_trigger": trigger,
+                "message": f"Ejecucion bloqueada: {reason}.",
+            },
+        )
+        with TASK_LOCK:
+            if TASK_STATE.get("task_key") == task_key:
+                TASK_STATE.update(
+                    {
+                        "running": False,
+                        "task_key": "",
+                        "name": "",
+                        "finished_at": now_text(),
+                        "returncode": 130,
+                    }
+                )
+        dispatch_next_queued_execution()
+        return
     lock_handle = acquire_task_run_lock()
     if not lock_handle:
         add_log(f"{task['label']} queda en cola: otra tarea local ya esta en ejecucion.")
@@ -2515,6 +2544,10 @@ def process_due_automations():
         config["executed_slots"].append(due_item["slot_key"])
         config["executed_slots"] = clean_executed_slots(config["executed_slots"])
         changed = True
+        allowed, reason = task_execution_allowed(key, due_item["slot_time"])
+        if not allowed:
+            add_log(f"Reloj descarta {task['label']} ({due_item['slot_key']}): {reason}")
+            continue
         if task.get("independent"):
             if independent_task_lock_available(key):
                 add_log(f"Reloj automatico lanza {task['label']} independiente ({due_item['slot_key']}).")
@@ -2601,6 +2634,18 @@ def dispatch_next_queued_execution():
         if TASK_STATE["running"]:
             return False
     queue_items = load_execution_queue()
+    now = datetime.now()
+    queue_changed = False
+    while queue_items:
+        candidate = queue_items[0]
+        allowed, reason = queued_execution_allowed(candidate, now)
+        if allowed:
+            break
+        discarded = queue_items.pop(0)
+        queue_changed = True
+        add_log(f"Cola descarta {discarded['label']}: {reason}")
+    if queue_changed:
+        save_execution_queue(queue_items)
     if not queue_items:
         return False
     if not task_run_lock_available():
@@ -2629,6 +2674,34 @@ def dispatch_next_queued_execution():
     trigger = original_trigger if original_trigger.startswith("cola ") else f"cola {original_trigger}"
     threading.Thread(target=run_command, args=(task_key, task, trigger, item), daemon=True).start()
     return True
+
+
+def queued_execution_allowed(item, now):
+    trigger = clean_queue_trigger(item.get("trigger") or "automatico").lower()
+    if "automatico" in trigger:
+        slot_at = str(item.get("slot_at") or "").strip()
+        try:
+            slot_time = datetime.fromisoformat(slot_at)
+        except ValueError:
+            return False, "la tarea automatica no tiene una fecha de ciclo valida"
+        if slot_time.date() != now.date():
+            return False, "pertenece a un dia anterior"
+    return task_execution_allowed(str(item.get("task_key") or ""), now)
+
+
+def task_execution_allowed(task_key, moment=None):
+    if task_key not in ORDER_CAPABLE_TASKS:
+        return True, ""
+    current = moment or datetime.now()
+    if current.weekday() >= 5:
+        return False, "bloqueado durante sabado o domingo"
+    start_hour, start_minute = parse_time_parts(ORDER_TASK_START_TIME)
+    end_hour, end_minute = parse_time_parts(ORDER_TASK_END_TIME)
+    start = current.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
+    end = current.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
+    if not start <= current <= end:
+        return False, f"fuera del horario {ORDER_TASK_START_TIME}-{ORDER_TASK_END_TIME} Madrid"
+    return True, ""
 
 
 def task_run_lock_available():
@@ -2677,20 +2750,16 @@ def reset_queue_at_market_close():
     if now < close_time or LAST_DAILY_QUEUE_RESET == reset_key:
         return
     LAST_DAILY_QUEUE_RESET = reset_key
-    terminate_active_process_for_daily_reset()
     clear_queue()
-    clear_all_running_statuses("Cierre diario 22:00: RUNNING liberado y cola limpiada.")
     with TASK_LOCK:
-        TASK_STATE.update(
-            {
-                "running": False,
-                "task_key": "",
-                "name": "",
-                "finished_at": now_text(),
-                "returncode": 130,
-            }
+        running_name = TASK_STATE.get("name") if TASK_STATE.get("running") else ""
+    if running_name:
+        add_log(
+            "Cierre diario 22:00: cola pendiente limpiada. "
+            f"{running_name} ya estaba en marcha y terminara normalmente."
         )
-    add_log("Cierre diario 22:00: cola limpiada, proceso activo terminado y tarjetas RUNNING liberadas.")
+    else:
+        add_log("Cierre diario 22:00: cola pendiente limpiada; no hay tareas operativas en marcha.")
 
 
 def terminate_active_process_for_daily_reset():

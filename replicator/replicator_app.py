@@ -1410,7 +1410,7 @@ PAGE = """
               <td class="{% if row.status in ['Operacion realizada', 'Operacion cerrada en Code Markets'] %}status-done{% else %}status-pending{% endif %}">{{ row.status }}</td>
               <td>{{ row.source_updated_at }}</td>
               <td>{{ row.strategy_name }}</td>
-              <td>{{ row.symbol }}</td>
+              <td class="notranslate" translate="no">{{ row.symbol }}</td>
               <td>{{ row.action }}</td>
               <td>{{ row.direction }}</td>
               <td>{{ row.order_price_display }}</td>
@@ -1443,7 +1443,7 @@ PAGE = """
               <td>{{ row.created_at }}</td>
               <td class="{% if row.selection_status == 'Seleccionada' %}status-done{% else %}status-unselected{% endif %}">{{ row.selection_status }}</td>
               <td>{{ row.strategy_name }}</td>
-              <td>{{ row.symbol }}</td>
+              <td class="notranslate" translate="no">{{ row.symbol }}</td>
               <td>{{ row.action }}</td>
               <td>{{ row.order_price_display }}</td>
               <td class="{{ row.profit_class }}">{{ row.profit_display }}</td>
@@ -1638,7 +1638,7 @@ ALPACA_ACCOUNT_PAGE = """
           <tbody>
             {% for position in snapshot.positions %}
               <tr>
-                <td>{{ position.symbol }}</td>
+                <td class="notranslate" translate="no">{{ position.symbol }}</td>
                 <td>{{ position.side }}</td>
                 <td>{{ position.qty }}</td>
                 <td>{{ position.market_value }}</td>

@@ -99,7 +99,7 @@
                       <strong class="{{ item.impact_class }}">{{ item.impact_label }}</strong>
                       <span class="news-row-affected">
                         <span>Afecta</span>
-                        <strong>{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
+                        <strong class="notranslate" translate="no">{{ item.symbols or item.sector_tags or "Mercado general" }}</strong>
                       </span>
                     </div>
                     <div class="news-row-main">
@@ -160,7 +160,7 @@
               <div class="top-asset-item d-flex gap-2 align-items-start border border-secondary-subtle rounded-2 h-100">
                 <span class="text-info fw-semibold small">{{ asset.rank }}.</span>
                 <div class="min-w-0">
-                  <strong class="d-block">{{ asset.symbol }}</strong>
+                  <strong class="d-block notranslate" translate="no">{{ asset.symbol }}</strong>
                   <span class="text-secondary small">{{ asset.name }}</span>
                   <span class="top-asset-volume">{{ asset.money_volume|money_usd }}</span>
                   {% if asset.source == "tickers" %}
@@ -200,6 +200,93 @@
         <small class="text-warning d-block mt-2">Tu cuenta Miembro no incluye Replicator.</small>
       {% endif %}
     </div>
+  </div>
+</section>
+
+<section id="operation-search" class="container pt-3">
+  <div class="strategy-card operation-search-card">
+    <div class="operation-search-heading">
+      <div>
+        <p class="eyebrow mb-1">Buscador de operaciones</p>
+        <h2 class="h5 fw-bold mb-1">Historial por ticker</h2>
+        <p class="text-secondary small mb-0">Consulta todas las operaciones de un activo en una estrategia concreta o en todas.</p>
+      </div>
+      {% if operation_search.submitted and not operation_search.error %}
+        <span class="operation-search-count">{{ operation_search.count }} operaciones</span>
+      {% endif %}
+    </div>
+
+    <form class="operation-search-form" method="get" action="{{ url_for('index', _anchor='operation-search') }}">
+      <input type="hidden" name="operation_search" value="1">
+      <div>
+        <label for="operation-ticker">Ticker</label>
+        <input class="form-control notranslate" translate="no" id="operation-ticker" name="operation_ticker" value="{{ operation_search.ticker }}" placeholder="Ej. MSFT" maxlength="15" autocomplete="off" spellcheck="false" required>
+      </div>
+      <div>
+        <label for="operation-strategy">Estrategia</label>
+        <select class="form-select" id="operation-strategy" name="operation_strategy">
+          <option value="all" {% if operation_search.strategy == 'all' %}selected{% endif %}>Todas las estrategias</option>
+          {% for strategy in operation_search.strategies %}
+            <option value="{{ strategy.id }}" {% if operation_search.strategy == strategy.id|string %}selected{% endif %}>{{ strategy.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="operation-status">Estado</label>
+        <select class="form-select" id="operation-status" name="operation_status">
+          <option value="all" {% if operation_search.status == 'all' %}selected{% endif %}>Todas</option>
+          <option value="open" {% if operation_search.status == 'open' %}selected{% endif %}>Abiertas</option>
+          <option value="closed" {% if operation_search.status == 'closed' %}selected{% endif %}>Cerradas</option>
+        </select>
+      </div>
+      <button class="btn btn-info fw-semibold" type="submit">Buscar operaciones</button>
+    </form>
+
+    {% if operation_search.error %}
+      <div class="alert alert-warning mt-3 mb-0">{{ operation_search.error }}</div>
+    {% elif operation_search.submitted %}
+      {% if operation_search.operations %}
+        <div class="table-responsive operation-search-results mt-3">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Estrategia</th>
+                <th>Ticker</th>
+                <th>Direccion</th>
+                <th>Apertura</th>
+                <th>Cierre</th>
+                <th>Entrada</th>
+                <th>Precio actual/salida</th>
+                <th>Resultado</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for operation in operation_search.operations %}
+                <tr>
+                  <td><span class="status-pill {% if operation.status == 'OPEN' %}status-running{% else %}status-ok{% endif %}">{{ operation.status_label }}</span></td>
+                  <td>{{ operation.strategy_name }}</td>
+                  <td><strong class="text-info notranslate" translate="no">{{ operation.symbol }}</strong></td>
+                  <td>{{ operation.direction }}</td>
+                  <td>{{ operation.opened_at_display }}</td>
+                  <td>{{ operation.closed_at_display if operation.status != 'OPEN' else '—' }}</td>
+                  <td>{{ operation.entry_price_display }}</td>
+                  <td>{{ operation.current_price_display }}</td>
+                  <td>
+                    <strong class="{{ operation.profit_class }}">{{ operation.profit_usd_display }}</strong>
+                    <small class="d-block {{ operation.profit_class }}">{{ operation.profit_pct_display }}</small>
+                  </td>
+                  <td>{{ operation.close_reason or ('En curso' if operation.status == 'OPEN' else 'Cerrada') }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="operation-search-empty mt-3">No hay operaciones de <strong class="notranslate" translate="no">{{ operation_search.ticker }}</strong> con esos filtros.</div>
+      {% endif %}
+    {% endif %}
   </div>
 </section>
 

@@ -47,7 +47,7 @@
                     <a class="signal-card-hitbox" href="{{ url_for('strategy_signals', strategy_id=strategy.id, symbol=group.symbol) if grouped_mode else url_for('strategy_signals', strategy_id=strategy.id, key=group.single_key) }}" aria-label="Ver diagnostico de {{ group.display_symbol or group.symbol }}"></a>
                     <span class="signal-row-main">
                       <span class="signal-symbol-cell">
-                        <span class="signal-symbol">{{ group.display_symbol or group.symbol }}</span>
+                        <span class="signal-symbol notranslate" translate="no">{{ group.display_symbol or group.symbol }}</span>
                         <span class="badge {{ signal.action_badge_class or 'text-bg-warning' }}">{{ signal.action_label or "PENDIENTE" }}</span>
                         {% if grouped_mode %}
                           <span class="signal-count-chip">{{ group.group_count_label }}</span>
@@ -103,7 +103,7 @@
             <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
               <div>
                 <p class="eyebrow mb-2">Diagnostico de aviso</p>
-                <h2 class="h3 mb-2">{{ selected_group.display_symbol if selected_group else selected_signal.display_symbol or selected_signal.symbol }}</h2>
+                <h2 class="h3 mb-2 notranslate" translate="no">{{ selected_group.display_symbol if selected_group else selected_signal.display_symbol or selected_signal.symbol }}</h2>
                 <span class="badge {{ selected_signal.action_badge_class or 'text-bg-warning' }}">{{ selected_signal.action_label or "PENDIENTE" }}</span>
                 <p class="text-secondary mb-0">{{ strategy.name }} &middot; Fecha datos {{ selected_signal.notice_datetime }}</p>
               </div>
@@ -138,7 +138,7 @@
                 <div class="diagnostic-summary-grid">
                   <div><span>Estado</span><strong>Pendiente de ejecucion</strong></div>
                   <div><span>Fecha datos aviso</span><strong>{{ selected_signal.notice_datetime or selected_signal.fields.Fecha or "No indicada" }}</strong></div>
-                  <div><span>Ticker</span><strong>{{ selected_signal.symbol }}</strong></div>
+                  <div><span>Ticker</span><strong class="notranslate" translate="no">{{ selected_signal.symbol }}</strong></div>
                   <div><span>Direccion</span><strong>{{ selected_signal.common.direccion or "No indicada" }}</strong></div>
                   <div><span>Entrada prevista</span><strong>{{ selected_signal.common.apertura or "No indicada" }}</strong></div>
                   <div><span>Cierre objetivo</span><strong>{{ selected_signal.common.cierre or "No indicado" }}</strong></div>

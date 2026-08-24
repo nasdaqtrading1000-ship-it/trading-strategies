@@ -5475,6 +5475,79 @@ def create_app():
             "periods": periods,
         }
 
+    def homepage_operation_search(strategies):
+        available_strategies = [
+            {
+                "id": int(strategy["id"]),
+                "name": strategy.get("name", ""),
+                "txt_name": strategy.get("signals_txt_name", ""),
+            }
+            for strategy in strategies
+            if not strategy.get("is_locked") and strategy.get("signals_txt_name")
+        ]
+        selected_strategy = str(request.args.get("operation_strategy") or "all").strip()
+        selected_status = str(request.args.get("operation_status") or "all").strip().lower()
+        ticker = normalize_signal_symbol(request.args.get("operation_ticker", ""))
+        submitted = request.args.get("operation_search") == "1"
+        result = {
+            "submitted": submitted,
+            "ticker": ticker,
+            "strategy": selected_strategy,
+            "status": selected_status if selected_status in {"all", "open", "closed"} else "all",
+            "strategies": available_strategies,
+            "operations": [],
+            "count": 0,
+            "error": "",
+        }
+        if not submitted:
+            return result
+        if not ticker or not SIGNAL_SYMBOL_RE.fullmatch(ticker):
+            result["error"] = "Introduce un ticker valido, por ejemplo MSFT."
+            return result
+
+        strategies_by_id = {str(strategy["id"]): strategy for strategy in available_strategies}
+        if selected_strategy == "all":
+            selected_txt_names = [strategy["txt_name"] for strategy in available_strategies]
+        elif selected_strategy in strategies_by_id:
+            selected_txt_names = [strategies_by_id[selected_strategy]["txt_name"]]
+        else:
+            result["error"] = "La estrategia seleccionada no esta disponible."
+            return result
+        if not selected_txt_names:
+            result["error"] = "No hay estrategias disponibles para buscar."
+            return result
+
+        filters = ["UPPER(symbol) = :ticker", "txt_name IN :txt_names"]
+        parameters = {"ticker": ticker, "txt_names": selected_txt_names}
+        if result["status"] == "open":
+            filters.append("status = 'OPEN'")
+        elif result["status"] == "closed":
+            filters.append("status = 'CLOSED'")
+        try:
+            rows = g.db.execute(
+                text(
+                    f"""
+                    SELECT strategy_name, txt_name, symbol, direction, status,
+                           signal_date, opened_at, closed_at, entry_price,
+                           target_price, stop_loss, shares, current_price,
+                           investment_value, profit_usd, profit_pct,
+                           close_reason, updated_at
+                    FROM simulated_operations
+                    WHERE {' AND '.join(filters)}
+                    ORDER BY COALESCE(closed_at, opened_at, updated_at) DESC,
+                             strategy_name ASC
+                    """
+                ).bindparams(bindparam("txt_names", expanding=True)),
+                parameters,
+            ).mappings().fetchall()
+        except Exception:
+            rollback_request_db()
+            result["error"] = "No se pudo consultar el historial en este momento."
+            return result
+        result["operations"] = [format_simulated_operation(dict(row)) for row in rows]
+        result["count"] = len(result["operations"])
+        return result
+
     @app.route("/")
     def index():
         user = current_user()
@@ -5531,6 +5604,7 @@ def create_app():
         news_preview = relevant_market_news(limit=60, days=3)
         totalizer = build_totalizer(strategies)
         selected_curve_panel = selected_strategy_curve_cards(strategies)
+        operation_search = homepage_operation_search(strategies)
         simulator = load_user_simulator(user["id"], strategies) if user else default_simulator_state(strategies)
         if user and request.args.get("simulator_ops") == "1":
             simulator["operations"] = simulator_operations(simulator["settings"], simulator["strategies"])
@@ -5540,6 +5614,7 @@ def create_app():
             strategies=strategies,
             totalizer=totalizer,
             selected_curve_panel=selected_curve_panel,
+            operation_search=operation_search,
             simulator=simulator,
             top_money_volume_assets=top_assets["rows"],
             top_money_volume_updated_at=top_assets["updated_at"],

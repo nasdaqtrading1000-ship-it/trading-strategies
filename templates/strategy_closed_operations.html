@@ -72,7 +72,7 @@
           <tbody id="history-operations-body">
             {% for operation in operations %}
               <tr>
-                <td><strong class="text-info">{{ operation.symbol }}</strong></td>
+                <td><strong class="text-info notranslate" translate="no">{{ operation.symbol }}</strong></td>
                 <td>{{ operation.direction }}</td>
                 <td>{{ operation.opened_at_display }}</td>
                 <td>{{ operation.closed_at_display }}</td>
@@ -124,7 +124,8 @@
     const row = document.createElement("tr");
     const symbolCell = document.createElement("td");
     const symbol = document.createElement("strong");
-    symbol.className = "text-info";
+    symbol.className = "text-info notranslate";
+    symbol.setAttribute("translate", "no");
     setText(symbol, operation.symbol);
     symbolCell.appendChild(symbol);
     row.appendChild(symbolCell);

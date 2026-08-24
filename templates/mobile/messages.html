@@ -68,7 +68,10 @@
     `;
     card.querySelector(".mobile-message-head span").textContent = message.strategy_name || "";
     card.querySelector("time").textContent = message.created_at || message.signal_date || "";
-    card.querySelector("h2").textContent = message.title || message.symbol || "Senal";
+    const messageTitle = card.querySelector("h2");
+    messageTitle.textContent = message.title || message.symbol || "Senal";
+    messageTitle.classList.add("notranslate");
+    messageTitle.setAttribute("translate", "no");
     const meta = card.querySelector(".mobile-message-meta");
     [message.risk_level, message.price].filter(Boolean).forEach((value) => {
       const item = document.createElement("span");

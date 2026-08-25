@@ -13,7 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -715,6 +715,35 @@ def source_operation_is_closed(operation: dict[str, Any]) -> bool:
     return str(operation.get("status") or "").upper() == "CLOSED" or bool(operation.get("closed_at"))
 
 
+def source_action_happened_today(operation: dict[str, Any], action: str) -> bool:
+    """Only replicate the event that actually happened today.
+
+    ``updated_at`` changes whenever prices/results refresh and must never turn an
+    old position into a new trading signal.
+    """
+    today = datetime.now(MADRID_TZ).date()
+    field = "closed_at" if str(action).upper() == "CLOSE" else "opened_at"
+    value = operation.get(field)
+    if value:
+        try:
+            parsed = parsedate_to_datetime(str(value))
+        except (TypeError, ValueError, OverflowError):
+            try:
+                parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except (TypeError, ValueError, OverflowError):
+                parsed = None
+        if parsed is not None:
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=MADRID_TZ)
+            return parsed.astimezone(MADRID_TZ).date() == today
+    if str(action).upper() == "OPEN":
+        try:
+            return date.fromisoformat(str(operation.get("signal_date") or "")[:10]) == today
+        except ValueError:
+            return False
+    return False
+
+
 def alpaca_position_matches_close(operation: dict[str, Any], position: dict[str, Any] | None) -> bool:
     if not position:
         return False
@@ -951,6 +980,7 @@ def scan_once() -> dict[str, Any]:
         (operation, action)
         for operation in operations
         for action in operation_actions(operation)
+        if source_action_happened_today(operation, action)
     ]
     action_items.sort(key=lambda item: 0 if item[1] == "OPEN" else 1)
     with state_connection() as conn:

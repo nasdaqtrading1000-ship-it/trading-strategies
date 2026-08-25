@@ -5646,7 +5646,11 @@ def create_app():
             return redirect(url_for("payment_page", product="code_markets_premium", plan="monthly"))
         replicator_profile_name = str(user["name"] or user["email"]).strip()
         replicator_query = urllib.parse.urlencode(
-            {"profile": f"user-{int(user['id'])}", "name": replicator_profile_name}
+            {
+                "profile": f"user-{int(user['id'])}",
+                "name": replicator_profile_name,
+                "email": str(user["email"] or "").strip().lower(),
+            }
         )
         return render_template(
             "replicator.html",

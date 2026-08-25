@@ -47,6 +47,7 @@ DEFAULT_CONFIG = {
     "mode": "paper",
     "order_generation": "initial",
     "last_connect_error": "",
+    "live_trading_confirmed": False,
     "poll_seconds": 60,
     "selected_txt_names": [],
     "source_mode": "web",
@@ -54,6 +55,9 @@ DEFAULT_CONFIG = {
     "web_base_url": "https://nasdaq-trading-strategies-pro.onrender.com",
     "web_user_email": "",
 }
+ALPACA_PAPER_URL = "https://paper-api.alpaca.markets"
+ALPACA_LIVE_URL = "https://api.alpaca.markets"
+LIVE_CONFIRMATION_PHRASE = "OPERAR CON DINERO REAL"
 CAPITAL_PROFILES = {
     "conservador": 500.0,
     "normal": 1000.0,
@@ -73,7 +77,7 @@ AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.7")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.8")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
@@ -320,6 +324,10 @@ def load_config() -> dict[str, Any]:
 
 def save_config(config: dict[str, Any]) -> None:
     CONFIG_PATH.write_text(json.dumps(config, indent=2, ensure_ascii=True), encoding="utf-8")
+
+
+def alpaca_url_for_mode(mode: str) -> str:
+    return ALPACA_LIVE_URL if str(mode or "").lower() == "alpaca_live" else ALPACA_PAPER_URL
 
 
 def set_auto_enabled(enabled: bool) -> dict[str, Any]:
@@ -928,11 +936,13 @@ def scan_once() -> dict[str, Any]:
             "scanned_at": datetime.now(MADRID_TZ).isoformat(sep=" ", timespec="seconds"),
         }
     mode = str(config.get("mode") or "paper").lower()
-    if mode not in {"paper", "alpaca_paper"}:
+    if mode not in {"paper", "alpaca_paper", "alpaca_live"}:
         mode = "paper"
     selected = config["selected_txt_names"]
     operations = fetch_today_operations(config, selected)
     broker = broker_for_config(config, mode)
+    if mode == "alpaca_live":
+        validate_live_account(config, broker)
     created: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     skipped_details: list[dict[str, Any]] = []
@@ -996,7 +1006,7 @@ def scan_once() -> dict[str, Any]:
                             }
                         )
                         continue
-                if action == "OPEN" and mode == "alpaca_paper":
+                if action == "OPEN" and mode in {"alpaca_paper", "alpaca_live"}:
                     opposite_position = opposite_strategy_position(conn, operation)
                     if opposite_position is not None:
                         skipped += 1
@@ -1077,21 +1087,33 @@ def scan_once() -> dict[str, Any]:
 
 
 def broker_for_config(config: dict[str, Any], mode: str):
-    if mode == "alpaca_paper":
+    if mode in {"alpaca_paper", "alpaca_live"}:
         return AlpacaPaperBroker(
             str(config.get("alpaca_api_key") or ""),
             str(config.get("alpaca_secret_key") or ""),
-            str(config.get("alpaca_base_url") or "https://paper-api.alpaca.markets"),
+            alpaca_url_for_mode(mode),
             str(config.get("order_generation") or ""),
         )
     return PaperBroker()
 
 
+def validate_live_account(config: dict[str, Any], broker: AlpacaPaperBroker) -> dict[str, Any]:
+    if not bool(config.get("live_trading_confirmed")):
+        raise RuntimeError("Alpaca Live bloqueado: falta confirmar expresamente el uso de dinero real.")
+    account = broker.account()
+    if str(account.get("status") or "").upper() != "ACTIVE":
+        raise RuntimeError("Alpaca Live bloqueado: la cuenta real no esta activa.")
+    if bool(account.get("trading_blocked")) or bool(account.get("account_blocked")):
+        raise RuntimeError("Alpaca Live bloqueado: Alpaca indica que la cuenta no puede operar.")
+    return account
+
+
 def alpaca_account_snapshot(config: dict[str, Any]) -> dict[str, Any]:
+    mode = str(config.get("mode") or "paper").lower()
     broker = AlpacaPaperBroker(
         str(config.get("alpaca_api_key") or ""),
         str(config.get("alpaca_secret_key") or ""),
-        str(config.get("alpaca_base_url") or "https://paper-api.alpaca.markets"),
+        alpaca_url_for_mode(mode),
     )
     account = broker.account()
     positions = broker.positions()
@@ -1304,7 +1326,7 @@ def operation_status_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                 if stored:
                     status = "Operacion realizada"
                 elif action == "CLOSE" and not has_position:
-                    if str(config.get("mode") or "paper").lower() == "alpaca_paper":
+                    if str(config.get("mode") or "paper").lower() in {"alpaca_paper", "alpaca_live"}:
                         status = "CLOSE pendiente: comprobar Alpaca"
                     else:
                         status = (
@@ -1421,7 +1443,11 @@ PAGE = """
         Hay una nueva version: <strong id="latest-version"></strong>.
         <a id="update-link" class="button primary" href="#">Descargar actualizacion</a>
       </div>
-      <p class="muted">Modo seguro: lee operaciones del dia y registra replicas en paper. No envia dinero real.</p>
+      {% if config.mode == 'alpaca_live' %}
+        <div class="warn"><strong>ALPACA LIVE · DINERO REAL</strong><br>Las ordenes de este perfil se envian a una cuenta real.</div>
+      {% else %}
+        <p class="muted">Modo seguro: lee operaciones del dia y registra replicas en paper. No envia dinero real.</p>
+      {% endif %}
       <p>DB origen: <span class="ok">{{ main_db }}</span></p>
       <p>
         Horario operativo:
@@ -1435,7 +1461,7 @@ PAGE = """
       </p>
     </div>
 
-    <form class="panel" method="post" action="{{ url_for('settings') }}">
+    <form class="panel" method="post" action="{{ url_for('settings') }}" autocomplete="off">
       <h2>Configuracion</h2>
       <div class="grid">
         <label class="field"><span class="field-label">Origen de datos</span>
@@ -1448,16 +1474,20 @@ PAGE = """
           <input class="field-control" name="web_base_url" value="{{ config.web_base_url }}">
         </label>
         <label class="field"><span class="field-label">Email cuenta Code Markets</span>
-          <input class="field-control" name="web_user_email" value="{{ config.web_user_email }}">
+          <input class="field-control" name="web_user_email" value="{{ config.web_user_email }}" autocomplete="section-codemarkets username">
         </label>
         <label class="field"><span class="field-label">Contrasena cuenta Code Markets</span>
-          <input class="field-control" type="password" name="web_user_password" value="">
+          <input class="field-control" id="codemarkets-login-secret" type="password" name="codemarkets_login_secret" value="" autocomplete="one-time-code" readonly onfocus="this.removeAttribute('readonly')" data-lpignore="true" data-1p-ignore>
         </label>
         <label class="field"><span class="field-label">Modo</span>
           <select class="field-control" name="mode">
             <option value="paper" {% if config.mode == 'paper' %}selected{% endif %}>paper</option>
             <option value="alpaca_paper" {% if config.mode == 'alpaca_paper' %}selected{% endif %}>alpaca paper</option>
+            <option value="alpaca_live" {% if config.mode == 'alpaca_live' %}selected{% endif %}>ALPACA LIVE · DINERO REAL</option>
           </select>
+        </label>
+        <label class="field"><span class="field-label">Confirmacion Alpaca Live</span>
+          <input class="field-control" name="live_confirmation" value="" autocomplete="off" placeholder="OPERAR CON DINERO REAL">
         </label>
         <label class="field"><span class="field-label">Capital operacion</span>
           <select class="field-control" name="capital_profile">
@@ -1475,13 +1505,13 @@ PAGE = """
           </button>
         </div>
         <label class="field"><span class="field-label">Alpaca API Key</span>
-          <input class="field-control" type="password" name="alpaca_api_key" value="" placeholder="{% if config.alpaca_api_key %}Clave guardada{% else %}Sin configurar{% endif %}">
+          <input class="field-control" type="password" name="alpaca_api_key" value="" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" data-lpignore="true" data-1p-ignore placeholder="{% if config.alpaca_api_key %}Clave guardada{% else %}Sin configurar{% endif %}">
         </label>
         <label class="field"><span class="field-label">Alpaca Secret Key</span>
-          <input class="field-control" type="password" name="alpaca_secret_key" value="" placeholder="{% if config.alpaca_secret_key %}Clave guardada{% else %}Sin configurar{% endif %}">
+          <input class="field-control" type="password" name="alpaca_secret_key" value="" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')" data-lpignore="true" data-1p-ignore placeholder="{% if config.alpaca_secret_key %}Clave guardada{% else %}Sin configurar{% endif %}">
         </label>
         <label class="field"><span class="field-label">Alpaca Base URL</span>
-          <input class="field-control" name="alpaca_base_url" value="{{ config.alpaca_base_url }}">
+          <input class="field-control" value="{% if config.mode == 'alpaca_live' %}https://api.alpaca.markets{% else %}https://paper-api.alpaca.markets{% endif %}" readonly>
         </label>
       </div>
       <p class="muted">
@@ -1516,6 +1546,17 @@ PAGE = """
       </div>
       <button class="primary" type="submit">Guardar</button>
     </form>
+    <script>
+      (() => {
+        const secret = document.getElementById("codemarkets-login-secret");
+        if (!secret) return;
+        const clearRestoredSecret = () => {
+          if (document.activeElement !== secret) secret.value = "";
+        };
+        window.addEventListener("pageshow", clearRestoredSecret);
+        [0, 100, 400, 1000, 2000].forEach((delay) => window.setTimeout(clearRestoredSecret, delay));
+      })();
+    </script>
 
     <div class="panel">
       <h2>Escaneo</h2>
@@ -1618,13 +1659,19 @@ PAGE = """
       setTimeout(() => window.location.reload(), 700);
     }
     async function toggleAuto() {
+      const liveMode = {{ "true" if config.mode == "alpaca_live" else "false" }};
+      let liveConfirmation = false;
+      if (!auto && liveMode) {
+        liveConfirmation = window.confirm("ALPACA LIVE: Auto enviara ordenes con DINERO REAL. Confirmas activarlo?");
+        if (!liveConfirmation) return;
+      }
       const response = await fetch("{{ url_for('api_auto') }}", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: !auto }),
+        body: JSON.stringify({ enabled: !auto, live_confirmation: liveConfirmation }),
       });
       const data = await response.json();
-      paintAuto(Boolean(data.auto_enabled));
+      if (response.ok) paintAuto(Boolean(data.auto_enabled));
       document.getElementById("scan-result").textContent = JSON.stringify(data, null, 2);
     }
     document.getElementById("scan-now").addEventListener("click", scan);
@@ -1980,8 +2027,27 @@ def settings():
     )
     config["web_user_email"] = request.form.get("web_user_email", "").strip().lower()
     config["last_connect_error"] = ""
-    web_password = request.form.get("web_user_password", "")
-    config["mode"] = request.form.get("mode", "paper")
+    web_password = request.form.get("codemarkets_login_secret", "")
+    previous_mode = str(config.get("mode") or "paper").lower()
+    requested_mode = str(request.form.get("mode") or "paper").lower()
+    if requested_mode not in {"paper", "alpaca_paper", "alpaca_live"}:
+        requested_mode = "paper"
+    if requested_mode == "alpaca_live":
+        confirmation = str(request.form.get("live_confirmation") or "").strip().upper()
+        already_confirmed = previous_mode == "alpaca_live" and bool(config.get("live_trading_confirmed"))
+        if not already_confirmed and confirmation != LIVE_CONFIRMATION_PHRASE:
+            config["last_connect_error"] = (
+                "Alpaca Live no se activo. Escribe OPERAR CON DINERO REAL para confirmar."
+            )
+            config["auto_enabled"] = False
+            save_config(config)
+            return redirect(url_for("index"))
+        config["live_trading_confirmed"] = True
+        if previous_mode != "alpaca_live":
+            config["auto_enabled"] = False
+    else:
+        config["live_trading_confirmed"] = False
+    config["mode"] = requested_mode
     capital_profile = request.form.get("capital_profile", "normal").strip().lower()
     if capital_profile not in CAPITAL_PROFILES:
         capital_profile = "normal"
@@ -1994,10 +2060,7 @@ def settings():
         config["alpaca_api_key"] = alpaca_api_key
     if alpaca_secret_key:
         config["alpaca_secret_key"] = alpaca_secret_key
-    config["alpaca_base_url"] = (
-        request.form.get("alpaca_base_url", "https://paper-api.alpaca.markets").strip()
-        or "https://paper-api.alpaca.markets"
-    )
+    config["alpaca_base_url"] = alpaca_url_for_mode(requested_mode)
     connect_error = ""
     save_config(config)
     if config["source_mode"] == "web" and config["web_user_email"] and web_password:
@@ -2033,7 +2096,21 @@ def api_view_revision():
 @app.route("/api/auto", methods=["POST"])
 def api_auto():
     payload = request.get_json(silent=True) or {}
-    config = set_auto_enabled(bool(payload.get("enabled")))
+    current = load_config()
+    enabling = bool(payload.get("enabled"))
+    if (
+        enabling
+        and str(current.get("mode") or "paper").lower() == "alpaca_live"
+        and payload.get("live_confirmation") is not True
+    ):
+        return jsonify(
+            {
+                "ok": False,
+                "auto_enabled": False,
+                "message": "Auto Live no activado: confirma de nuevo que operara con dinero real.",
+            }
+        ), 400
+    config = set_auto_enabled(enabling)
     result: dict[str, Any] = {
         "ok": True,
         "auto_enabled": bool(config.get("auto_enabled")),

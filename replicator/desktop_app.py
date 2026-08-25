@@ -12,7 +12,7 @@ REGISTRY_PATH = INSTALL_DIR / "profiles.json"
 LEGACY_PID_PATH = INSTALL_DIR / "replicator.pid"
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\CodeMarketsReplicator"
 PORT_FIRST, PORT_LAST = 5075, 5175
-APP_VERSION = "1.0.7"
+APP_VERSION = "1.0.8"
 
 
 def safe_profile_id(value: str | None) -> str:
@@ -186,10 +186,26 @@ def desktop_browser() -> Path | None:
     return next((candidate for candidate in candidates if candidate.is_file()), None)
 
 
-def open_desktop_window(url: str) -> None:
+def open_desktop_window(url: str, profile: str) -> None:
     edge = desktop_browser()
     if edge:
-        subprocess.Popen([str(edge), f"--app={url}", "--new-window", "--window-size=1280,900", "--disable-features=msEdgeSidebarV2"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        browser_profile = INSTALL_DIR / "browser-profiles" / safe_profile_id(profile)
+        browser_profile.mkdir(parents=True, exist_ok=True)
+        subprocess.Popen(
+            [
+                str(edge),
+                f"--user-data-dir={browser_profile}",
+                f"--app={url}",
+                "--new-window",
+                "--no-first-run",
+                "--disable-sync",
+                "--window-size=1280,900",
+                "--disable-features=msEdgeSidebarV2",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     else: webbrowser.open(url)
 
 
@@ -200,7 +216,7 @@ def open_replicator(profile: str) -> int:
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline and not is_running(profile, url): time.sleep(0.25)
     if not is_running(profile, url): return 1
-    open_desktop_window(url)
+    open_desktop_window(url, profile)
     return 0
 
 

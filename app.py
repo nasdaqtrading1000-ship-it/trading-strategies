@@ -5664,7 +5664,7 @@ def create_app():
     def replicator_latest_version():
         return jsonify(
             {
-                "version": "1.0.7",
+                "version": "1.0.8",
                 "installer_url": os.environ.get(
                     "REPLICATOR_INSTALLER_URL",
                     "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"

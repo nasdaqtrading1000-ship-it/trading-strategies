@@ -1008,7 +1008,12 @@ def scan_once() -> dict[str, Any]:
         for action in operation_actions(operation)
         if source_action_happened_today(operation, action)
     ]
-    action_items.sort(key=lambda item: 0 if item[1] == "OPEN" else 1)
+    action_items.sort(
+        key=lambda item: (
+            0 if item[1] == "OPEN" else 1,
+            0 if item[1] == "OPEN" and is_accumulation_operation(item[0]) else 1,
+        )
+    )
     with state_connection() as conn:
         for operation, action in action_items:
                 rep_id = replication_id(operation, action)

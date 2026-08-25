@@ -34,7 +34,13 @@
             Sin plan activo
           {% endif %}
         </strong>
-        <p class="text-secondary small mb-0 mt-2">{{ user.membership_amount or membership_price_text }}</p>
+        <p class="text-secondary small mb-0 mt-2">
+          {% if user.has_replicator_access %}
+            {{ premium_price_text }}
+          {% else %}
+            {{ user.membership_amount or membership_price_text }}
+          {% endif %}
+        </p>
       </article>
 
       <article class="account-card">

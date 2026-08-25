@@ -148,13 +148,29 @@
           <input class="form-check-input" type="checkbox" role="switch" id="manual_user_replicator" name="has_replicator_access">
           <label class="form-check-label small" for="manual_user_replicator">Premium</label>
         </div>
+        <div class="small text-info" id="manual_user_price" data-member-price="{{ membership_price_text }}" data-premium-price="{{ premium_price_text }}">{{ membership_price_text }}</div>
       </div>
       <input type="hidden" name="membership_plan" value="Miembro">
-      <input type="hidden" name="membership_amount" value="{{ membership_price_text }}">
+      <input type="hidden" id="manual_user_amount" name="membership_amount" value="{{ membership_price_text }}">
       <div class="col-lg-1">
         <button class="btn btn-info btn-sm fw-semibold w-100" type="submit">Crear usuario</button>
       </div>
     </form>
+    <script>
+      (() => {
+        const premium = document.getElementById("manual_user_replicator");
+        const price = document.getElementById("manual_user_price");
+        const amount = document.getElementById("manual_user_amount");
+        if (!premium || !price || !amount) return;
+        const updatePrice = () => {
+          const value = premium.checked ? price.dataset.premiumPrice : price.dataset.memberPrice;
+          price.textContent = value;
+          amount.value = value;
+        };
+        premium.addEventListener("change", updatePrice);
+        updatePrice();
+      })();
+    </script>
     <p class="text-secondary small mb-4">Los usuarios creados desde Admin quedan con el email confirmado inmediatamente; no se envia correo de confirmacion.</p>
     <div class="border border-warning rounded-2 p-3 mb-4" id="telegram-removals">
       <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">

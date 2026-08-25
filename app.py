@@ -4222,13 +4222,17 @@ def create_app():
             "member_has_access": member_has_full_access(user),
             "member_has_replicator_access": member_has_replicator_access(user),
             "membership_price_text": membership_price_text(),
+            "premium_price_text": premium_price_text(),
         }
 
     def free_trial_enabled():
         return os.environ.get("FREE_TRIAL_ACCESS", "0").strip().lower() in {"1", "true", "yes", "on"}
 
     def membership_price_text():
-        return os.environ.get("MEMBERSHIP_PRICE_TEXT", "30 USD/mes").strip() or "30 USD/mes"
+        return os.environ.get("MEMBERSHIP_PRICE_TEXT", "30 EUR/mes").strip() or "30 EUR/mes"
+
+    def premium_price_text():
+        return os.environ.get("PREMIUM_PRICE_TEXT", "60 EUR/mes").strip() or "60 EUR/mes"
 
     def membership_payment_url():
         return os.environ.get("MEMBERSHIP_PAYMENT_URL", "").strip()
@@ -4245,7 +4249,7 @@ def create_app():
                 "plans": {
                     "monthly": {
                         "label": "Mensual",
-                        "price_text": os.environ.get("MEMBERSHIP_PRICE_TEXT", "30 USD/mes").strip() or "30 USD/mes",
+                        "price_text": membership_price_text(),
                         "stripe_price_id": os.environ.get("STRIPE_PRICE_TRADING_MONTHLY", "").strip(),
                         "mode": "subscription",
                     },
@@ -4264,7 +4268,7 @@ def create_app():
                 "plans": {
                     "monthly": {
                         "label": "Mensual",
-                        "price_text": os.environ.get("PREMIUM_PRICE_TEXT", "50 USD/mes").strip() or "50 USD/mes",
+                        "price_text": premium_price_text(),
                         "stripe_price_id": os.environ.get("STRIPE_PRICE_PREMIUM_MONTHLY", "").strip(),
                         "mode": "subscription",
                     },
@@ -6301,8 +6305,9 @@ self.addEventListener("fetch", () => {});
                    s.python_file, s.auto_execute, s.schedule_start_time, s.schedule_end_time,
                    s.schedule_interval_minutes, s.schedule_last_status, s.schedule_last_message,
                    s.schedule_last_run_at, s.run_status, s.run_message, s.run_at,
-                   s.run_txt_updated, s.run_returncode, s.include_in_totalizer,
-                   s.public_visible, s.web_visible, s.run_locally, s.is_active, s.created_at,
+                    s.run_txt_updated, s.run_returncode, s.include_in_totalizer,
+                    s.public_visible, s.web_visible, s.replicator_available,
+                    s.run_locally, s.is_active, s.created_at,
                    s.closed_operations_count,
                    COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS daily_operations_count,
                    COALESCE(a.open_operations_today, a.operations_today, s.daily_operations_count, 0) AS open_operations_today,
@@ -6501,6 +6506,10 @@ self.addEventListener("fetch", () => {});
         has_replicator_access = 1 if has_access and request.form.get("has_replicator_access") == "on" else 0
         if has_replicator_access:
             membership_plan = "Premium"
+            membership_amount = premium_price_text()
+        elif membership_plan.strip().lower() in {"premium", "code markets premium"}:
+            membership_plan = "Miembro"
+            membership_amount = membership_price_text()
 
         if not email or "@" not in email:
             flash("Email de usuario no valido.", "danger")
@@ -6615,18 +6624,29 @@ self.addEventListener("fetch", () => {});
             )
 
         cleanup_tables = (
+            "user_telegram_channel_access",
             "user_strategy_selections",
             "user_simulator_settings",
             "user_simulator_strategies",
             "payments",
         )
-        for table_name in cleanup_tables:
-            g.db.execute(
-                text(f"DELETE FROM {table_name} WHERE user_id = :user_id"),
-                {"user_id": user_id},
+        try:
+            for table_name in cleanup_tables:
+                g.db.execute(
+                    text(f"DELETE FROM {table_name} WHERE user_id = :user_id"),
+                    {"user_id": user_id},
+                )
+            deleted = g.db.execute(
+                text("DELETE FROM users WHERE id = :id"),
+                {"id": user_id},
             )
-        g.db.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
-        g.db.commit()
+            if int(deleted.rowcount or 0) != 1:
+                raise RuntimeError("La base de datos no confirmo la eliminacion del usuario.")
+            g.db.commit()
+        except Exception as error:
+            rollback_request_db()
+            flash(f"No se pudo eliminar el usuario: {error}", "danger")
+            return redirect(url_for("admin_dashboard", _anchor=f"user-{user_id}"))
 
         if session.get("user_id") == user_id:
             session.pop("user_id", None)
@@ -6654,6 +6674,7 @@ self.addEventListener("fetch", () => {});
         requested_membership_plan = request.form.get("membership_plan", "Miembro").strip() or "Miembro"
         if has_replicator_access:
             requested_membership_plan = "Premium"
+        membership_amount = premium_price_text() if has_replicator_access else membership_price_text()
         payment_status = request.form.get("payment_status", "").strip()
         if not payment_status:
             payment_status = "active" if has_access else "manual_pending"
@@ -6693,7 +6714,7 @@ self.addEventListener("fetch", () => {});
                 "has_replicator_access": has_replicator_access,
                 "payment_status": payment_status,
                 "membership_plan": requested_membership_plan,
-                "membership_amount": request.form.get("membership_amount", membership_price_text()).strip(),
+                "membership_amount": membership_amount,
                 "accepted_terms_at": datetime.now(UTC).replace(tzinfo=None),
                 "email_verified_at": datetime.now(UTC).replace(tzinfo=None),
             },

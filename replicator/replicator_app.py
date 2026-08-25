@@ -42,7 +42,7 @@ DEFAULT_CONFIG = {
     "alpaca_base_url": "https://paper-api.alpaca.markets",
     "alpaca_secret_key": "",
     "auto_enabled": False,
-    "capital_profile": "normal",
+    "capital_profile": "1_300",
     "capital_per_operation": 1000.0,
     "mode": "paper",
     "order_generation": "initial",
@@ -58,15 +58,18 @@ DEFAULT_CONFIG = {
 ALPACA_PAPER_URL = "https://paper-api.alpaca.markets"
 ALPACA_LIVE_URL = "https://api.alpaca.markets"
 LIVE_CONFIRMATION_PHRASE = "OPERAR CON DINERO REAL"
-CAPITAL_PROFILES = {
-    "conservador": 500.0,
-    "normal": 1000.0,
-    "agresivo": 2000.0,
+CAPITAL_DIVISORS = {
+    "1_1000": 1000,
+    "1_600": 600,
+    "1_400": 400,
+    "1_300": 300,
+    "1_200": 200,
 }
-CAPITAL_PROFILE_LABELS = {
-    "conservador": "Conservador 1/400",
-    "normal": "Normal 1/300",
-    "agresivo": "Agresivo 1/200",
+CAPITAL_PROFILE_LABELS = {key: key.replace("_", "/") for key in CAPITAL_DIVISORS}
+LEGACY_CAPITAL_PROFILES = {
+    "conservador": "1_400",
+    "normal": "1_300",
+    "agresivo": "1_200",
 }
 ACCUMULATION_STRATEGY_NAMES = {"acumula metales", "acumulacion"}
 ACCUMULATION_TXT_NAMES = {"acumula_metales.txt", "acumulacion.txt"}
@@ -313,13 +316,26 @@ def load_config() -> dict[str, Any]:
         for value in config.get("selected_txt_names", [])
         if str(value).strip()
     ]
-    profile = str(config.get("capital_profile") or "normal").strip().lower()
-    if profile not in CAPITAL_PROFILES:
-        profile = "normal"
+    profile = str(config.get("capital_profile") or "1_300").strip().lower()
+    profile = LEGACY_CAPITAL_PROFILES.get(profile, profile)
+    if profile not in CAPITAL_DIVISORS:
+        profile = "1_300"
     config["capital_profile"] = profile
-    config["capital_per_operation"] = CAPITAL_PROFILES[profile]
     config["capital_profile_label"] = CAPITAL_PROFILE_LABELS[profile]
     return config
+
+
+def dynamic_capital_per_operation(config: dict[str, Any], account: dict[str, Any]) -> tuple[float, float, int]:
+    profile = str(config.get("capital_profile") or "1_300").strip().lower()
+    profile = LEGACY_CAPITAL_PROFILES.get(profile, profile)
+    divisor = CAPITAL_DIVISORS.get(profile, 300)
+    equity = safe_float(account.get("equity"))
+    if equity <= 0:
+        raise RuntimeError("No se puede calcular el capital: Alpaca no devuelve un equity positivo.")
+    capital = round(equity / divisor, 2)
+    if capital <= 0:
+        raise RuntimeError("El capital calculado por operacion no es valido.")
+    return capital, equity, divisor
 
 
 def save_config(config: dict[str, Any]) -> None:
@@ -970,8 +986,18 @@ def scan_once() -> dict[str, Any]:
     selected = config["selected_txt_names"]
     operations = fetch_today_operations(config, selected)
     broker = broker_for_config(config, mode)
+    account = None
     if mode == "alpaca_live":
-        validate_live_account(config, broker)
+        account = validate_live_account(config, broker)
+    elif mode == "alpaca_paper":
+        account = broker.account()
+    capital_per_operation = float(config.get("capital_per_operation") or 0)
+    capital_equity = 0.0
+    capital_divisor = CAPITAL_DIVISORS.get(str(config.get("capital_profile") or "1_300"), 300)
+    if account is not None:
+        capital_per_operation, capital_equity, capital_divisor = dynamic_capital_per_operation(config, account)
+        config["capital_per_operation"] = capital_per_operation
+        save_config(config)
     created: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     skipped_details: list[dict[str, Any]] = []
@@ -1061,7 +1087,7 @@ def scan_once() -> dict[str, Any]:
                     result = broker.place_order(
                         operation,
                         action,
-                        float(config.get("capital_per_operation") or 0),
+                        capital_per_operation,
                         qty_override,
                     )
                 except Exception as error:
@@ -1083,7 +1109,7 @@ def scan_once() -> dict[str, Any]:
                         operation,
                         action,
                         result,
-                        float(config.get("capital_per_operation") or 0),
+                        capital_per_operation,
                     )
                     conn.commit()
                 elif action == "CLOSE":
@@ -1104,6 +1130,9 @@ def scan_once() -> dict[str, Any]:
         "mode": mode,
         "source_mode": str(config.get("source_mode") or "web").lower(),
         "selected_count": len(selected),
+        "account_equity": capital_equity,
+        "capital_divisor": capital_divisor,
+        "capital_per_operation": capital_per_operation,
         "source_operations": len(operations),
         "created_count": len(created),
         "error_count": len(errors),
@@ -1521,9 +1550,11 @@ PAGE = """
         </label>
         <label class="field"><span class="field-label">Capital operacion</span>
           <select class="field-control" name="capital_profile">
-            <option value="conservador" {% if config.capital_profile == 'conservador' %}selected{% endif %}>Conservador 1/400</option>
-            <option value="normal" {% if config.capital_profile == 'normal' %}selected{% endif %}>Normal 1/300</option>
-            <option value="agresivo" {% if config.capital_profile == 'agresivo' %}selected{% endif %}>Agresivo 1/200</option>
+            <option value="1_1000" {% if config.capital_profile == '1_1000' %}selected{% endif %}>Muy conservador 1/1000</option>
+            <option value="1_600" {% if config.capital_profile == '1_600' %}selected{% endif %}>Conservador 1/600</option>
+            <option value="1_400" {% if config.capital_profile == '1_400' %}selected{% endif %}>Moderado 1/400</option>
+            <option value="1_300" {% if config.capital_profile == '1_300' %}selected{% endif %}>Dinámico 1/300</option>
+            <option value="1_200" {% if config.capital_profile == '1_200' %}selected{% endif %}>Agresivo 1/200</option>
           </select>
         </label>
         <label class="field"><span class="field-label">Refresco automatico segundos</span>
@@ -2078,11 +2109,10 @@ def settings():
     else:
         config["live_trading_confirmed"] = False
     config["mode"] = requested_mode
-    capital_profile = request.form.get("capital_profile", "normal").strip().lower()
-    if capital_profile not in CAPITAL_PROFILES:
-        capital_profile = "normal"
+    capital_profile = request.form.get("capital_profile", "1_300").strip().lower()
+    if capital_profile not in CAPITAL_DIVISORS:
+        capital_profile = "1_300"
     config["capital_profile"] = capital_profile
-    config["capital_per_operation"] = CAPITAL_PROFILES[capital_profile]
     config["poll_seconds"] = max(10, int(float(request.form.get("poll_seconds") or 60)))
     alpaca_api_key = request.form.get("alpaca_api_key", "").strip()
     alpaca_secret_key = request.form.get("alpaca_secret_key", "").strip()

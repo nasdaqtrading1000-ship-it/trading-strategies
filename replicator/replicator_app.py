@@ -64,6 +64,8 @@ CAPITAL_PROFILE_LABELS = {
     "normal": "Normal 1/300",
     "agresivo": "Agresivo 1/200",
 }
+ACCUMULATION_STRATEGY_NAMES = {"acumula metales", "acumulacion"}
+ACCUMULATION_TXT_NAMES = {"acumula_metales.txt", "acumulacion.txt"}
 
 app = Flask(__name__)
 SCAN_LOCK = threading.Lock()
@@ -143,10 +145,11 @@ class PaperBroker:
         broker_side = broker_side_for(direction, action)
         shares = qty_override if qty_override is not None else suggested_shares(operation, capital_per_operation, action)
         now = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        action_label = f"CLOSE ({broker_side})" if action == "CLOSE" else broker_side
         return PaperOrder(
             broker_order_id=f"PAPER-{now}",
             status="PAPER_FILLED",
-            message=f"{broker_side} {shares:.4f} {symbol}",
+            message=f"{action_label} {shares:.4f} {symbol}",
         )
 
 
@@ -174,6 +177,12 @@ class AlpacaPaperBroker:
             raise ValueError("Operacion sin simbolo.")
         if qty <= 0:
             raise ValueError(f"No se pudo calcular cantidad para {symbol}.")
+        if action == "CLOSE":
+            if qty_override is None:
+                raise ValueError(
+                    f"Cierre seguro bloqueado para {symbol}: falta la cantidad registrada para esta estrategia."
+                )
+            self._validate_strategy_close_quantity(operation, qty)
         client_order_id = alpaca_client_order_id(replication_id(operation, action), self.order_generation)
         payload = {
             "symbol": symbol,
@@ -184,11 +193,35 @@ class AlpacaPaperBroker:
             "client_order_id": client_order_id,
         }
         response = self._request("POST", "/v2/orders", payload)
+        action_label = f"CLOSE ({side.upper()})" if action == "CLOSE" else side.upper()
         return PaperOrder(
             broker_order_id=str(response.get("id") or response.get("client_order_id") or client_order_id),
             status=str(response.get("status") or "submitted"),
-            message=f"ALPACA {side.upper()} {payload['qty']} {symbol}",
+            message=f"ALPACA {action_label} {payload['qty']} {symbol}",
         )
+
+    def _validate_strategy_close_quantity(self, operation: dict[str, Any], requested_qty: float) -> None:
+        symbol = str(operation.get("symbol") or "").strip().upper()
+        position = self.position(symbol)
+        if not position:
+            raise ValueError(
+                f"Cierre seguro bloqueado para {symbol}: Alpaca no tiene una posicion abierta en ese activo."
+            )
+        if not alpaca_position_matches_close(operation, position):
+            raise ValueError(
+                f"Cierre seguro bloqueado para {symbol}: la direccion de Alpaca no coincide con la estrategia."
+            )
+        try:
+            available_qty = abs(float(position.get("qty") or 0))
+        except (TypeError, ValueError):
+            available_qty = 0.0
+        tolerance = max(1e-6, requested_qty * 1e-6)
+        if requested_qty > available_qty + tolerance:
+            raise ValueError(
+                f"Cierre seguro bloqueado para {symbol}: esta estrategia tiene registradas "
+                f"{format_qty(requested_qty)} acciones, pero Alpaca solo tiene "
+                f"{format_qty(available_qty)} disponibles."
+            )
 
     def account(self) -> dict[str, Any]:
         return self._request("GET", "/v2/account")
@@ -712,6 +745,64 @@ def open_position_row(conn: sqlite3.Connection, operation_key: str) -> sqlite3.R
     return row
 
 
+def is_accumulation_operation(operation: dict[str, Any] | sqlite3.Row) -> bool:
+    strategy_name = str(operation["strategy_name"] if isinstance(operation, sqlite3.Row) else operation.get("strategy_name") or "").strip().lower()
+    txt_name = str(operation["txt_name"] if isinstance(operation, sqlite3.Row) else operation.get("txt_name") or "").strip().lower()
+    return strategy_name in ACCUMULATION_STRATEGY_NAMES or txt_name in ACCUMULATION_TXT_NAMES
+
+
+def accumulation_position_for_symbol(
+    conn: sqlite3.Connection,
+    symbol: str,
+) -> sqlite3.Row | None:
+    clean_symbol = str(symbol or "").strip().upper()
+    if not clean_symbol:
+        return None
+    placeholders_names = ",".join("?" for _ in ACCUMULATION_STRATEGY_NAMES)
+    placeholders_txt = ",".join("?" for _ in ACCUMULATION_TXT_NAMES)
+    return conn.execute(
+        f"""
+        SELECT operation_key, strategy_name, txt_name, direction, shares
+        FROM replicated_positions
+        WHERE symbol = ?
+          AND status = 'OPEN'
+          AND (
+              LOWER(TRIM(strategy_name)) IN ({placeholders_names})
+              OR LOWER(TRIM(txt_name)) IN ({placeholders_txt})
+          )
+        ORDER BY opened_at ASC
+        LIMIT 1
+        """,
+        (
+            clean_symbol,
+            *sorted(ACCUMULATION_STRATEGY_NAMES),
+            *sorted(ACCUMULATION_TXT_NAMES),
+        ),
+    ).fetchone()
+
+
+def opposite_strategy_position(
+    conn: sqlite3.Connection,
+    operation: dict[str, Any],
+) -> sqlite3.Row | None:
+    symbol = str(operation.get("symbol") or "").strip().upper()
+    direction = str(operation.get("direction") or "LONG").strip().upper()
+    if not symbol:
+        return None
+    return conn.execute(
+        """
+        SELECT operation_key, strategy_name, direction, shares
+        FROM replicated_positions
+        WHERE symbol = ?
+          AND status = 'OPEN'
+          AND direction <> ?
+        ORDER BY opened_at ASC
+        LIMIT 1
+        """,
+        (symbol, direction),
+    ).fetchone()
+
+
 def record_position_open(
     conn: sqlite3.Connection,
     operation: dict[str, Any],
@@ -885,6 +976,44 @@ def scan_once() -> dict[str, Any]:
                         }
                     )
                     continue
+                if action == "OPEN" and not is_accumulation_operation(operation):
+                    accumulation_position = accumulation_position_for_symbol(
+                        conn,
+                        str(operation.get("symbol") or ""),
+                    )
+                    if accumulation_position is not None:
+                        skipped += 1
+                        skipped_details.append(
+                            {
+                                "replication_id": rep_id,
+                                "strategy_name": operation.get("strategy_name"),
+                                "symbol": operation.get("symbol"),
+                                "action": action,
+                                "message": (
+                                    "OPEN bloqueado: Acumulacion tiene preferencia y ya mantiene "
+                                    "una posicion abierta en este activo."
+                                ),
+                            }
+                        )
+                        continue
+                if action == "OPEN" and mode == "alpaca_paper":
+                    opposite_position = opposite_strategy_position(conn, operation)
+                    if opposite_position is not None:
+                        skipped += 1
+                        skipped_details.append(
+                            {
+                                "replication_id": rep_id,
+                                "strategy_name": operation.get("strategy_name"),
+                                "symbol": operation.get("symbol"),
+                                "action": action,
+                                "message": (
+                                    "OPEN bloqueado: Alpaca agrupa por ticker y ya existe una posicion "
+                                    f"{opposite_position['direction']} de "
+                                    f"{opposite_position['strategy_name'] or 'otra estrategia'}."
+                                ),
+                            }
+                        )
+                        continue
                 qty_override = None
                 if action == "CLOSE" and position is not None:
                     qty_override = float(position["shares"] or 0)

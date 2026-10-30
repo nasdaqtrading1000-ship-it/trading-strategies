@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Diagnostico {{ signal.symbol }} - {{ strategy.name }}{% endblock %}
+{% block title %}Diagnostico {{ signal.symbol }} - {{ strategy.name|strategy_name }}{% endblock %}
 
 {% block content %}
 <section class="container py-5">
@@ -9,7 +9,7 @@
       <div>
         <p class="eyebrow mb-2">Diagnostico de activo</p>
         <h1 class="h2 mb-2 notranslate" translate="no">{{ signal.symbol }}</h1>
-        <p class="text-secondary mb-0">{{ strategy.name }} · Riesgo {{ strategy.risk_level }}</p>
+        <p class="text-secondary mb-0">{{ strategy.name|strategy_name }} · Riesgo {{ strategy.risk_level }}</p>
       </div>
       {% if signal.side %}
         <div class="diagnostic-side">{{ signal.side }}</div>

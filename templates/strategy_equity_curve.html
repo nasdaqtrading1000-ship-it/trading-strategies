@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Curva de capital {{ strategy.name }}{% endblock %}
+{% block title %}Curva de capital {{ strategy.name|strategy_name }}{% endblock %}
 
 {% block content %}
 <section class="container py-5">
@@ -8,7 +8,7 @@
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
       <div>
         <p class="eyebrow mb-2">Curva de capital</p>
-        <h1 class="h2 mb-2">{{ strategy.name }}</h1>
+        <h1 class="h2 mb-2">{{ strategy.name|strategy_name }}</h1>
         <p class="text-secondary mb-0">
           Evolucion diaria del capital calculada desde operaciones simuladas/backset.
         </p>
@@ -72,7 +72,7 @@
                   <small>{{ summary.date_range }}</small>
                 </div>
               </div>
-              <canvas class="equity-curve-canvas" data-range="{{ key }}" height="{{ period.height }}" aria-label="Curva {{ period.label }} {{ strategy.name }}"></canvas>
+              <canvas class="equity-curve-canvas" data-range="{{ key }}" height="{{ period.height }}" aria-label="Curva {{ period.label }} {{ strategy.name|strategy_name }}"></canvas>
               <div class="selected-curve-card-foot equity-range-foot">
                 <div>
                   <span>Actual</span>
@@ -112,7 +112,7 @@
 </section>
 
 {% if points and has_curve_access %}
-  <script type="application/json" id="equity-curve-data">{{ curve_series|tojson }}</script>
+  <script type="application/json" id="equity-curve-data">{{ curve_series|strategy_labels|tojson }}</script>
   <script>
   (() => {
     const node = document.getElementById("equity-curve-data");

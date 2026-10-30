@@ -227,7 +227,7 @@
         <select class="form-select" id="operation-strategy" name="operation_strategy">
           <option value="all" {% if operation_search.strategy == 'all' %}selected{% endif %}>Todas las estrategias</option>
           {% for strategy in operation_search.strategies %}
-            <option value="{{ strategy.id }}" {% if operation_search.strategy == strategy.id|string %}selected{% endif %}>{{ strategy.name }}</option>
+            <option value="{{ strategy.id }}" {% if operation_search.strategy == strategy.id|string %}selected{% endif %}>{{ strategy.name|strategy_name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -266,7 +266,7 @@
               {% for operation in operation_search.operations %}
                 <tr>
                   <td><span class="status-pill {% if operation.status == 'OPEN' %}status-running{% else %}status-ok{% endif %}">{{ operation.status_label }}</span></td>
-                  <td>{{ operation.strategy_name }}</td>
+                  <td>{{ operation.strategy_name|strategy_name }}</td>
                   <td><strong class="text-info notranslate" translate="no">{{ operation.symbol }}</strong></td>
                   <td>{{ operation.direction }}</td>
                   <td>{{ operation.opened_at_display }}</td>
@@ -349,10 +349,10 @@
             {% for card in selected_curve_panel.cards %}
               <a class="selected-curve-card" href="{{ card.url }}" target="_blank" rel="noopener" data-selected-curve-card="{{ loop.index0 }}">
                 <div class="selected-curve-card-head">
-                  <span>{{ card.short_name or card.name }}</span>
-                  <strong>{{ card.name }}</strong>
+                  <span>{{ card.short_name or card.name|strategy_name }}</span>
+                  <strong>{{ card.name|strategy_name }}</strong>
                 </div>
-                <canvas class="selected-curve-canvas" height="92" aria-label="Curva seleccionada {{ card.name }}"></canvas>
+                <canvas class="selected-curve-canvas" height="92" aria-label="Curva seleccionada {{ card.name|strategy_name }}"></canvas>
                 <div class="selected-curve-card-foot">
                   <div>
                     <span>Actual</span>
@@ -405,19 +405,19 @@
             {% for strategy in strategies %}
               <tr class="{% if strategy.is_locked %}report-row-locked{% endif %}">
                 <td class="curve-link-col">
-                  <a class="curve-mini-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_equity_curve', strategy_id=strategy.id) }}{% endif %}" aria-label="Curva de capital de {{ strategy.name }}" title="Curva de capital" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                  <a class="curve-mini-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_equity_curve', strategy_id=strategy.id) }}{% endif %}" aria-label="Curva de capital de {{ strategy.name|strategy_name }}" title="Curva de capital" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                     <span></span><span></span><span></span>
                   </a>
                 </td>
                 <td>
                   <form class="strategy-select-form report-select-form" method="post" action="{% if current_user %}{{ url_for('user_select_strategy_totalizer', strategy_id=strategy.id) }}{% else %}{{ url_for('user_login') }}{% endif %}">
-                    <input class="form-check-input" type="checkbox" name="selected" aria-label="Seleccionar {{ strategy.name }}" {% if strategy.selected_for_totalizer %}checked{% endif %} {% if strategy.is_locked %}disabled{% endif %} onchange="this.form.submit()">
+                    <input class="form-check-input" type="checkbox" name="selected" aria-label="Seleccionar {{ strategy.name|strategy_name }}" {% if strategy.selected_for_totalizer %}checked{% endif %} {% if strategy.is_locked %}disabled{% endif %} onchange="this.form.submit()">
                   </form>
                 </td>
                 <td>
                   <div class="report-strategy-name">
                     <span class="ranking-strategy-link ranking-strategy-link-disabled" aria-disabled="true">
-                      {{ strategy.name }}
+                      {{ strategy.name|strategy_name }}
                     </span>
                     {% if strategy.is_locked %}
                       <span class="locked-mini">Solo miembros</span>
@@ -488,7 +488,7 @@
                 <td class="text-secondary small">{{ strategy.signals_updated_at or "Sin actualizar" }}</td>
                 <td>
                   <div class="report-actions">
-                    <a class="btn btn-outline-info btn-sm report-signals-btn report-tooltip-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" data-tooltip="Avisos y operaciones abiertas" aria-label="Avisos y operaciones abiertas de {{ strategy.name }}" title="Avisos y operaciones abiertas" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
+                    <a class="btn btn-outline-info btn-sm report-signals-btn report-tooltip-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_signals', strategy_id=strategy.id) }}{% endif %}" data-tooltip="Avisos y operaciones abiertas" aria-label="Avisos y operaciones abiertas de {{ strategy.name|strategy_name }}" title="Avisos y operaciones abiertas" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
                       Avisos {{ strategy.signals_count|compact_count }}
                     </a>
                     <a class="btn btn-outline-light btn-sm report-history-btn {% if strategy.is_locked %}disabled{% endif %}" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_closed_operations', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
@@ -628,7 +628,7 @@
   }, 600000);
 </script>
 {% if selected_curve_panel.cards %}
-  <script type="application/json" id="selected-curves-data">{{ selected_curve_panel|tojson }}</script>
+  <script type="application/json" id="selected-curves-data">{{ selected_curve_panel|strategy_labels|tojson }}</script>
   <script>
   (() => {
     const dataNode = document.getElementById("selected-curves-data");

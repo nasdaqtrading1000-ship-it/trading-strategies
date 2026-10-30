@@ -9,7 +9,7 @@
       <div>
         <p class="text-info fw-semibold mb-1">Panel</p>
         <h1 class="h2 mb-1">{{ title }}</h1>
-        <p class="text-secondary mb-0">{{ strategy.name }}</p>
+        <p class="text-secondary mb-0">{{ strategy.name|strategy_name }}</p>
       </div>
       <a class="btn btn-outline-light btn-sm" href="{{ url_for('admin_dashboard', _anchor='strategy-' ~ strategy.id) }}">Volver</a>
     </div>

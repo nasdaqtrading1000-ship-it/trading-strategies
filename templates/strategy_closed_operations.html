@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Historial {{ strategy.name }}{% endblock %}
+{% block title %}Historial {{ strategy.name|strategy_name }}{% endblock %}
 
 {% block content %}
 {% macro sortable_history_header(sort_key, label) -%}
@@ -17,7 +17,7 @@
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
       <div>
         <p class="eyebrow mb-2">Historial de operaciones cerradas</p>
-        <h1 class="h2 mb-2">{{ strategy.name }}</h1>
+        <h1 class="h2 mb-2">{{ strategy.name|strategy_name }}</h1>
         <p class="text-secondary mb-0" id="history-loaded-status">
           {{ history_totalizer.loaded_count }} de {{ history_totalizer.count }} operaciones cerradas cargadas.
         </p>

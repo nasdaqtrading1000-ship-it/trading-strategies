@@ -1,12 +1,12 @@
 {% extends "mobile/base.html" %}
 
-{% block title %}Avisos {{ strategy.name }}{% endblock %}
+{% block title %}Avisos {{ strategy.name|strategy_name }}{% endblock %}
 
 {% block content %}
 <section class="mobile-hero compact">
   <a class="mobile-back" href="{{ url_for('mobile_index') }}">Volver</a>
   <p class="mobile-eyebrow">avisos actuales</p>
-  <h1>{{ strategy.name }}</h1>
+  <h1>{{ strategy.name|strategy_name }}</h1>
   <p>{{ signals|length }} avisos. Refresh {{ page_refreshed_at }}</p>
 </section>
 

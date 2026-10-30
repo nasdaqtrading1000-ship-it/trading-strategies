@@ -111,7 +111,7 @@
       <div class="mobile-strategy-top">
         <div>
           <span class="mobile-short">{{ strategy.short_name }}</span>
-          <h3>{{ strategy.name }}</h3>
+          <h3>{{ strategy.name|strategy_name }}</h3>
         </div>
         <span class="mobile-risk risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
       </div>

@@ -38,6 +38,7 @@ from flask import (
 from sqlalchemy import bindparam, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from strategy_names import strategy_display_name, strategy_internal_name, strategy_labels
 from db import SQLITE_DATABASE, engine
 from market_scanner import (
     available_markets,
@@ -2539,6 +2540,9 @@ STRATEGY_SHORT_NAMES = {
 
 
 def strategy_short_name(name):
+    branded = strategy_display_name(name)
+    if branded != name:
+        return branded
     key = strategy_info_key(name)
     if key in STRATEGY_SHORT_NAMES:
         return STRATEGY_SHORT_NAMES[key]
@@ -3172,10 +3176,22 @@ def create_app():
     app.config["ADMIN_PASSWORD_HASH"] = os.environ.get(
         "ADMIN_PASSWORD_HASH", generate_password_hash("admin123")
     )
+    app.jinja_env.filters["strategy_name"] = strategy_display_name
+    app.jinja_env.filters["strategy_labels"] = strategy_labels
     app.jinja_env.globals["technical_term_help"] = technical_term_help
     app.jinja_env.filters["money_usd"] = format_money_usd
     app.jinja_env.filters["one_decimal"] = format_one_decimal
     app.jinja_env.filters["compact_count"] = format_compact_count
+
+    @app.after_request
+    def brand_strategy_json(response):
+        # Change response labels only, after all engine calculations and persistence.
+        if response.is_json and request.endpoint in {
+            'replicator_api_strategies', 'replicator_api_operations',
+            'account_simulator_operations', 'strategy_closed_operations_data',
+        }:
+            response.set_data(app.json.dumps(strategy_labels(response.get_json())))
+        return response
 
     @app.before_request
     def before_request():
@@ -3576,7 +3592,7 @@ def create_app():
         message = {
             "id": int(row["id"]),
             "strategy_id": int(row["strategy_id"]),
-            "strategy_name": row["strategy_name"],
+            "strategy_name": strategy_display_name(row["strategy_name"], row.get("txt_name")),
             "risk_level": row["risk_level"],
             "symbol": symbol,
             "side": side,
@@ -5668,7 +5684,7 @@ def create_app():
     def replicator_latest_version():
         return jsonify(
             {
-                "version": "1.0.9",
+                "version": "1.0.10",
                 "installer_url": os.environ.get(
                     "REPLICATOR_INSTALLER_URL",
                     "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"
@@ -6930,7 +6946,7 @@ self.addEventListener("fetch", () => {});
     @login_required
     def strategy_quick_update(strategy_id):
         get_strategy_or_404(strategy_id)
-        name = request.form.get("name", "").strip()
+        name = strategy_internal_name(request.form.get("name", "").strip())
         risk_level = request.form.get("risk_level", "Medio")
         signal_frequency = request.form.get("signal_frequency", "").strip()
         historical_return = request.form.get("historical_return", "").strip()
@@ -7079,7 +7095,7 @@ self.addEventListener("fetch", () => {});
     def strategy_bulk_update_payload(strategy_id):
         prefix = f"{strategy_id}__"
         return {
-            "name": request.form.get(prefix + "name", "").strip(),
+            "name": strategy_internal_name(request.form.get(prefix + "name", "").strip()),
             "risk_level": request.form.get(prefix + "risk_level", "Medio"),
             "signal_frequency": request.form.get(prefix + "signal_frequency", "").strip(),
             "historical_return": request.form.get(prefix + "historical_return", "").strip(),
@@ -7192,7 +7208,7 @@ self.addEventListener("fetch", () => {});
         chat_id = (strategy.get("telegram_chat_id") or "").strip()
         message = (
             "Code Markets | prueba Telegram\n"
-            f"Estrategia: {strategy.get('name', '')}\n"
+            f"Estrategia: {strategy_display_name(strategy.get('name', ''), strategy.get('signals_txt_name'))}\n"
             f"Fecha: {datetime.now(MADRID_TZ).strftime('%H:%M %d/%m/%Y')}"
         )
         ok, error = telegram_send_message(chat_id, message)
@@ -7211,7 +7227,7 @@ self.addEventListener("fetch", () => {});
         return strategy
 
     def save_strategy(strategy_id=None):
-        name = request.form.get("name", "").strip()
+        name = strategy_internal_name(request.form.get("name", "").strip())
         description = request.form.get("description", "").strip()
         risk_level = request.form.get("risk_level", "Medio")
         signal_frequency = request.form.get("signal_frequency", "").strip()

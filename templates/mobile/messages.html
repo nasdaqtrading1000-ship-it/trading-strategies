@@ -15,7 +15,7 @@
   {% for message in messages %}
     <article class="mobile-message-card" data-message-id="{{ message.id }}">
       <div class="mobile-message-head">
-        <span>{{ message.strategy_name }}</span>
+        <span>{{ message.strategy_name|strategy_name }}</span>
         <time>{{ message.created_at or message.signal_date }}</time>
       </div>
       <h2>{{ message.title }}</h2>

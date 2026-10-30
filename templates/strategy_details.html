@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Como funciona {{ strategy.name }}{% endblock %}
+{% block title %}Como funciona {{ strategy.name|strategy_name }}{% endblock %}
 
 {% block content %}
 <section class="container py-5">
@@ -8,7 +8,7 @@
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
       <div>
         <p class="eyebrow mb-2">Funcionamiento de estrategia</p>
-        <h1 class="h2 mb-2">{{ strategy.name }}</h1>
+        <h1 class="h2 mb-2">{{ strategy.name|strategy_name }}</h1>
         <p class="text-secondary mb-0">{{ explanation.summary }}</p>
       </div>
       <div class="d-flex gap-2 align-items-start">

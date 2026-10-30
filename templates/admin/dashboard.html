@@ -346,7 +346,7 @@
               <td>
                 <div class="admin-strategy-name-box mb-2">
                   <span class="admin-strategy-name-label">Estrategia</span>
-                  <input class="form-control form-control-sm admin-inline-control admin-strategy-name-input admin-strategy-name-highlight" form="strategy-row-form-{{ strategy.id }}" name="name" value="{{ strategy.name }}" required>
+                  <input class="form-control form-control-sm admin-inline-control admin-strategy-name-input admin-strategy-name-highlight" form="strategy-row-form-{{ strategy.id }}" name="name" value="{{ strategy.name|strategy_name }}" required>
                 </div>
                 <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="telegram_url" value="{{ strategy.telegram_url or '' }}" placeholder="https://t.me/tu_canal">
                 <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="telegram_chat_id" value="{{ strategy.telegram_chat_id or '' }}" placeholder="Chat ID Telegram -100...">

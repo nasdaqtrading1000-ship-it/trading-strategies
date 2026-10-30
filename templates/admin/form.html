@@ -16,7 +16,7 @@
     <form method="post" class="row g-3 guarded-form">
       <div class="col-md-8">
         <label class="form-label" for="name">Nombre</label>
-        <input class="form-control" id="name" name="name" value="{{ strategy.name if strategy else '' }}" required>
+        <input class="form-control" id="name" name="name" value="{{ strategy.name|strategy_name if strategy else '' }}" required>
       </div>
       <div class="col-md-4">
         <label class="form-label" for="risk_level">Nivel de riesgo</label>

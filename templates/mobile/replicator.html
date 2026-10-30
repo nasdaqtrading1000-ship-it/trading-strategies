@@ -56,7 +56,7 @@
       {% for strategy in replicator_strategies %}
         <article>
           <div>
-            <strong>{{ strategy.name }}</strong>
+            <strong>{{ strategy.name|strategy_name }}</strong>
             <span>{{ strategy.signals_txt_name }}</span>
           </div>
           <em>{{ strategy.risk_level }}</em>

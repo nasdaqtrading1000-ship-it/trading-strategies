@@ -164,7 +164,7 @@
     <div class="strategy-return-summary mb-4">
       {% for strategy in strategies %}
         <a class="strategy-return-item" href="#strategy-{{ strategy.id }}">
-          <span title="{{ strategy.name }}">{{ strategy.short_name }}</span>
+          <span title="{{ strategy.name|strategy_name }}">{{ strategy.short_name }}</span>
           <strong class="{{ strategy.return_badge_class }}" title="{{ strategy.historical_return_public }}">{{ strategy.return_badge }}</strong>
         </a>
       {% endfor %}
@@ -192,7 +192,7 @@
                 <span class="strategy-short-badge">{{ strategy.short_name }}</span>
                 <h2 class="h4 mb-0">
                   <a class="strategy-title-button" href="{% if strategy.is_locked %}{{ url_for('user_register') }}{% else %}{{ url_for('strategy_details', strategy_id=strategy.id) }}{% endif %}" {% if not strategy.is_locked %}target="_blank" rel="noopener"{% endif %}>
-                    {{ strategy.name }}
+                    {{ strategy.name|strategy_name }}
                   </a>
                 </h2>
               </div>

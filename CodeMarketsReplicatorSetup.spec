@@ -3,7 +3,7 @@
 
 a = Analysis(
     ['replicator\\desktop_app.py'],
-    pathex=['replicator'],
+    pathex=['.', 'replicator'],
     binaries=[],
     datas=[],
     hiddenimports=['replicator_app'],

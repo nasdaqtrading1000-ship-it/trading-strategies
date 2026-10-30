@@ -23,6 +23,9 @@ from flask import Flask, jsonify, redirect, render_template_string, request, url
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+from strategy_names import strategy_display_name
 if os.environ.get("REPLICATOR_DATA_DIR"):
     APP_DIR = Path(os.environ["REPLICATOR_DATA_DIR"]).expanduser().resolve()
 elif getattr(sys, "frozen", False):
@@ -66,12 +69,13 @@ ACCUMULATION_STRATEGY_NAMES = {"acumula metales", "acumulacion"}
 ACCUMULATION_TXT_NAMES = {"acumula_metales.txt", "acumulacion.txt"}
 
 app = Flask(__name__)
+app.jinja_env.filters["strategy_name"] = strategy_display_name
 SCAN_LOCK = threading.Lock()
 AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.9")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.10")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
@@ -1602,7 +1606,7 @@ PAGE = """
           <label>
             <input type="checkbox" name="selected_txt_names" value="{{ strategy.signals_txt_name or strategy.name }}"
               {% if (strategy.signals_txt_name or strategy.name) in config.selected_txt_names %}checked{% endif %}>
-            {{ strategy.name }} <span class="muted">{{ strategy.signals_txt_name or strategy.name }}</span>
+            {{ strategy.name|strategy_name }} <span class="muted">{{ strategy.signals_txt_name or strategy.name }}</span>
           </label>
         {% endfor %}
       </div>
@@ -1641,7 +1645,7 @@ PAGE = """
             <tr>
               <td class="{% if row.status in ['Operacion realizada', 'Operacion cerrada en Code Markets'] %}status-done{% else %}status-pending{% endif %}">{{ row.status }}</td>
               <td>{{ row.source_updated_at }}</td>
-              <td>{{ row.strategy_name }}</td>
+              <td>{{ row.strategy_name|strategy_name }}</td>
               <td class="notranslate" translate="no">{{ row.symbol }}</td>
               <td>{{ row.action }}</td>
               <td>{{ row.direction }}</td>
@@ -1674,7 +1678,7 @@ PAGE = """
             <tr>
               <td>{{ row.created_at }}</td>
               <td class="{% if row.selection_status == 'Seleccionada' %}status-done{% else %}status-unselected{% endif %}">{{ row.selection_status }}</td>
-              <td>{{ row.strategy_name }}</td>
+              <td>{{ row.strategy_name|strategy_name }}</td>
               <td class="notranslate" translate="no">{{ row.symbol }}</td>
               <td>{{ row.action }}</td>
               <td>{{ row.order_price_display }}</td>

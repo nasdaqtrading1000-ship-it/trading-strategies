@@ -17,4 +17,4 @@
 
 En el motor local se han actualizado las cabeceras de señales y mensajes OPEN/CLOSE de Telegram. Se mantienen los Chat IDs, variables de entorno y registros de deduplicación. Los nombres de los canales y grupos los modifica el propietario manualmente. No se han enviado mensajes de prueba.
 
-Replicator 1.0.9 recibe los nombres nuevos del catálogo y de las operaciones futuras desde la API web; no necesita cambiar las selecciones basadas en TXT. Replicator 1.0.12 muestra también los alias para los históricos locales. Las instalaciones anteriores deben actualizar el ejecutable para cambiar la presentación de las filas guardadas en su disco.
+Replicator 1.0.9 recibe los nombres nuevos del catálogo y de las operaciones futuras desde la API web; no necesita cambiar las selecciones basadas en TXT. Replicator 1.0.13 muestra también los alias para los históricos locales. Las instalaciones anteriores deben actualizar el ejecutable para cambiar la presentación de las filas guardadas en su disco.

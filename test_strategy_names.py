@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import re
+import shutil
+import subprocess
 from html.parser import HTMLParser
 from unittest.mock import patch
 
@@ -111,6 +114,13 @@ class StrategyBrandTests(unittest.TestCase):
             self.assertNotIn(old,content)
             self.assertNotIn(txt,content)
         self.assertIn('value="Momentum.txt"',html)
+        if shutil.which('node'):
+            scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,re.S)
+            with tempfile.TemporaryDirectory() as folder:
+                js = Path(folder)/'rendered.js'
+                js.write_text('\n'.join(scripts),encoding='utf-8')
+                checked = subprocess.run(['node','--check',str(js)],text=True,capture_output=True)
+                self.assertEqual(checked.returncode,0,checked.stderr)
 
 
 class WebBrandTests(unittest.TestCase):

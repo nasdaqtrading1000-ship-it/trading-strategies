@@ -38,7 +38,7 @@ from flask import (
 from sqlalchemy import bindparam, text
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from strategy_names import strategy_display_name, strategy_internal_name, strategy_labels
+from strategy_names import strategy_display_name, strategy_internal_name, strategy_labels, strategy_public_text, strategy_public_filename, strategy_internal_filename
 from db import SQLITE_DATABASE, engine
 from market_scanner import (
     available_markets,
@@ -3158,7 +3158,7 @@ def strategy_explanation_for(strategy):
     key = strategy_info_key(strategy.get("name"))
     explanation = STRATEGY_EXPLANATIONS.get(key)
     if explanation:
-        return {**explanation, "manual": STRATEGY_MANUAL_GUIDES.get(key, [])}
+        return strategy_public_text({**explanation, "manual": STRATEGY_MANUAL_GUIDES.get(key, [])})
     return {
         "summary": strategy.get("description") or "Estrategia personalizada.",
         "universe": "Usa la configuracion indicada en el panel de administracion.",
@@ -3178,6 +3178,8 @@ def create_app():
     )
     app.jinja_env.filters["strategy_name"] = strategy_display_name
     app.jinja_env.filters["strategy_labels"] = strategy_labels
+    app.jinja_env.filters["strategy_text"] = strategy_public_text
+    app.jinja_env.filters["strategy_file"] = strategy_public_filename
     app.jinja_env.globals["technical_term_help"] = technical_term_help
     app.jinja_env.filters["money_usd"] = format_money_usd
     app.jinja_env.filters["one_decimal"] = format_one_decimal
@@ -3597,7 +3599,7 @@ def create_app():
             "symbol": symbol,
             "side": side,
             "price": price or "",
-            "line": row["line"],
+            "line": strategy_public_text(row["line"]),
             "created_at": format_madrid_datetime(created_at) if hasattr(created_at, "astimezone") else str(created_at or ""),
             "signal_date": row.get("signal_date") or signal.get("notice_datetime") or "",
             "url": url_for("strategy_signals", strategy_id=row["strategy_id"], key=signal_key),
@@ -5684,7 +5686,7 @@ def create_app():
     def replicator_latest_version():
         return jsonify(
             {
-                "version": "1.0.11",
+                "version": "1.0.12",
                 "installer_url": os.environ.get(
                     "REPLICATOR_INSTALLER_URL",
                     "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"
@@ -5890,7 +5892,7 @@ self.addEventListener("fetch", () => {});
 
     @app.route("/terminal-feed")
     def terminal_feed():
-        return jsonify(terminal_feed_payload())
+        return jsonify(strategy_public_text(terminal_feed_payload()))
 
     @app.route("/noticias")
     def market_news_page():
@@ -6013,7 +6015,7 @@ self.addEventListener("fetch", () => {});
 
         invite_link, error = telegram_create_single_use_invite(
             strategy.get("telegram_chat_id", ""),
-            f"Code Markets {strategy.get('name', '')}",
+            f"Code Markets {strategy_display_name(strategy.get('name', ''))}",
             expire_seconds=600,
         )
         if invite_link:
@@ -6953,8 +6955,8 @@ self.addEventListener("fetch", () => {});
         telegram_url = request.form.get("telegram_url", "").strip()
         telegram_chat_id = request.form.get("telegram_chat_id", "").strip()
         has_telegram = 1 if request.form.get("has_telegram") == "on" else 0
-        signals_txt_name = request.form.get("signals_txt_name", "").strip()
-        python_file = request.form.get("python_file", "").strip()
+        signals_txt_name = strategy_internal_filename(request.form.get("signals_txt_name", "").strip())
+        python_file = strategy_internal_filename(request.form.get("python_file", "").strip())
         include_in_totalizer = 1 if request.form.get("include_in_totalizer") == "on" else 0
         public_visible = 1 if request.form.get("public_visible") == "on" else 0
         web_visible = 1 if request.form.get("web_visible") == "on" else 0
@@ -7102,8 +7104,8 @@ self.addEventListener("fetch", () => {});
             "telegram_url": request.form.get(prefix + "telegram_url", "").strip(),
             "telegram_chat_id": request.form.get(prefix + "telegram_chat_id", "").strip(),
             "has_telegram": 1 if request.form.get(prefix + "has_telegram") == "on" else 0,
-            "signals_txt_name": request.form.get(prefix + "signals_txt_name", "").strip(),
-            "python_file": request.form.get(prefix + "python_file", "").strip(),
+            "signals_txt_name": strategy_internal_filename(request.form.get(prefix + "signals_txt_name", "").strip()),
+            "python_file": strategy_internal_filename(request.form.get(prefix + "python_file", "").strip()),
             "include_in_totalizer": 1 if request.form.get(prefix + "include_in_totalizer") == "on" else 0,
             "public_visible": 1 if request.form.get(prefix + "public_visible") == "on" else 0,
             "web_visible": 1 if request.form.get(prefix + "web_visible") == "on" else 0,
@@ -7235,8 +7237,8 @@ self.addEventListener("fetch", () => {});
         telegram_url = request.form.get("telegram_url", "").strip()
         telegram_chat_id = request.form.get("telegram_chat_id", "").strip()
         has_telegram = 1 if request.form.get("has_telegram") == "on" else 0
-        signals_txt_name = request.form.get("signals_txt_name", "").strip()
-        python_file = request.form.get("python_file", "").strip()
+        signals_txt_name = strategy_internal_filename(request.form.get("signals_txt_name", "").strip())
+        python_file = strategy_internal_filename(request.form.get("python_file", "").strip())
         auto_execute = 1 if request.form.get("auto_execute") == "on" else 0
         schedule_start_time = request.form.get("schedule_start_time", "15:30").strip()
         schedule_end_time = request.form.get("schedule_end_time", "21:30").strip()

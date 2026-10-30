@@ -12,7 +12,7 @@ REGISTRY_PATH = INSTALL_DIR / "profiles.json"
 LEGACY_PID_PATH = INSTALL_DIR / "replicator.pid"
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\CodeMarketsReplicator"
 PORT_FIRST, PORT_LAST = 5075, 5175
-APP_VERSION = "1.0.11"
+APP_VERSION = "1.0.12"
 
 
 def safe_profile_id(value: str | None) -> str:

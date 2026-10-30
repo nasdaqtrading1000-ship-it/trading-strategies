@@ -21,6 +21,43 @@ def _key(value):
 
 _PUBLIC = {_key(value): brand for name, txt, brand in STRATEGY_BRANDS for value in (name, txt, brand, brand.split(' (')[0])}
 _CANONICAL = {_key(value): name for name, txt, brand in STRATEGY_BRANDS for value in (brand, brand.split(' (')[0])}
+_PYTHON_FILES = dict(zip((name for name, txt, brand in STRATEGY_BRANDS), (
+    'Momentum.py', 'BreaKout.py', 'Mean Reversion.py', 'TrendFollowing.py',
+    'PairsTrading.py', 'SectorRotation.py', 'FollowTheMoney.py',
+    'EntradaDineroDireccional.py', 'Acumulacion.py', 'AcumulaMetales.py',
+)))
+_TXT_FILES = {name: txt for name, txt, brand in STRATEGY_BRANDS}
+
+
+def strategy_public_filename(value):
+    value = str(value or '')
+    stem, dot, extension = value.rpartition('.')
+    label = _PUBLIC.get(_key(stem))
+    return label.split(' (')[0] + dot + extension if label and extension.lower() in ('txt', 'py') else value
+
+
+def strategy_internal_filename(value):
+    value = str(value or '')
+    stem, dot, extension = value.rpartition('.')
+    name = strategy_internal_name(stem)
+    files = _TXT_FILES if extension.lower() == 'txt' else _PYTHON_FILES if extension.lower() == 'py' else {}
+    return files.get(name, value)
+
+
+_TEXT_ALIASES = {variant: brand for name, txt, brand in STRATEGY_BRANDS
+                 for variant in (name, txt[:-4], _PYTHON_FILES[name][:-3])}
+_TEXT_PATTERN = re.compile(r'(?<![\w])(' + '|'.join(re.escape(v) for v in sorted(_TEXT_ALIASES, key=len, reverse=True)) + r')(?![\w])')
+
+
+def strategy_public_text(value):
+    """Brand human-facing text only; never apply to engine data or persisted keys."""
+    if isinstance(value, dict):
+        return {key: strategy_public_text(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [strategy_public_text(item) for item in value]
+    if isinstance(value, str):
+        return _TEXT_PATTERN.sub(lambda match: _TEXT_ALIASES[match.group()], value)
+    return value
 
 
 def strategy_display_name(value, txt_name=None):
@@ -43,5 +80,8 @@ def strategy_labels(payload):
         for key in ('name', 'strategy_name', 'short_name'):
             if key in result:
                 result[key] = strategy_display_name(result[key], txt)
+        for key in ('message', 'error', 'reason'):
+            if key in result:
+                result[key] = strategy_public_text(result[key])
         return result
     return payload

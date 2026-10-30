@@ -198,7 +198,7 @@
               </div>
               <span class="badge risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
             </div>
-            <p class="text-secondary strategy-description">{{ strategy.description }}</p>
+            <p class="text-secondary strategy-description">{{ (strategy.description)|strategy_text }}</p>
             <dl class="strategy-meta">
               <div>
                 <dt>Frecuencia</dt>

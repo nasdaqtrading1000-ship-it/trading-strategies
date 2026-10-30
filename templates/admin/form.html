@@ -28,7 +28,7 @@
       </div>
       <div class="col-12">
         <label class="form-label" for="description">Descripcion</label>
-        <textarea class="form-control" id="description" name="description" rows="4">{{ strategy.description if strategy else '' }}</textarea>
+        <textarea class="form-control" id="description" name="description" rows="4">{{ (strategy.description if strategy else '')|strategy_text }}</textarea>
       </div>
       <div class="col-md-6">
         <label class="form-label" for="signal_frequency">Frecuencia de senales</label>
@@ -54,12 +54,12 @@
       </div>
       <div class="col-12">
         <label class="form-label" for="signals_txt_name">Nombre del TXT de avisos</label>
-        <input class="form-control" id="signals_txt_name" name="signals_txt_name" value="{{ strategy.signals_txt_name if strategy else '' }}" placeholder="Momentum.txt">
-        <div class="form-text">Solo el nombre del archivo, por ejemplo Momentum.txt o Gap_and_Go.txt.</div>
+        <input class="form-control" id="signals_txt_name" name="signals_txt_name" value="{{ (strategy.signals_txt_name if strategy else '')|strategy_file }}" placeholder="Everest.txt">
+        <div class="form-text">Solo el nombre del archivo, por ejemplo Everest.txt o K2.txt.</div>
       </div>
       <div class="col-md-6">
         <label class="form-label" for="python_file">Archivo Python de la estrategia</label>
-        <input class="form-control" id="python_file" name="python_file" value="{{ strategy.python_file if strategy else '' }}" placeholder="Gap and Go.py">
+        <input class="form-control" id="python_file" name="python_file" value="{{ (strategy.python_file if strategy else '')|strategy_file }}" placeholder="Estrategia.py">
         <div class="form-text">Solo vincula el archivo dentro de la carpeta Estrategias. La ejecucion y horarios se gestionan desde local.</div>
       </div>
       <div class="col-12">

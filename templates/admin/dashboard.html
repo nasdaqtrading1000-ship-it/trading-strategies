@@ -88,20 +88,20 @@
           <div class="col-xl-6">
             <div class="failure-box">
               <div class="d-flex justify-content-between gap-2 mb-2">
-                <strong>{{ failure.name }}</strong>
+                <strong>{{ failure.name|strategy_name }}</strong>
                 <span class="badge text-bg-danger">Fallo</span>
               </div>
               <p class="text-secondary small mb-2">
-                PY: {{ failure.file or "No indicado" }} · TXT: {{ failure.txt or "No indicado" }} · Hora: {{ failure.ran_at or "Sin hora" }}
+                PY: {{ (failure.file or "No indicado")|strategy_file }} · TXT: {{ (failure.txt or "No indicado")|strategy_file }} · Hora: {{ failure.ran_at or "Sin hora" }}
               </p>
-              <pre class="failure-pre mb-0">{{ failure.error }}</pre>
+              <pre class="failure-pre mb-0">{{ failure.error|strategy_text }}</pre>
             </div>
           </div>
         {% endfor %}
       </div>
       <label class="form-label mt-3">Bloque para copiar</label>
-      <textarea class="form-control failure-copy" rows="12" readonly>{% for failure in strategy_failures %}{{ failure.name }} | {{ failure.file }} | {{ failure.txt }} | {{ failure.ran_at }}
-{{ failure.error }}
+      <textarea class="form-control failure-copy" rows="12" readonly>{% for failure in strategy_failures %}{{ failure.name|strategy_name }} | {{ failure.file|strategy_file }} | {{ failure.txt|strategy_file }} | {{ failure.ran_at }}
+{{ failure.error|strategy_text }}
 
 {% endfor %}</textarea>
     {% else %}
@@ -354,8 +354,8 @@
                   <input class="form-check-input" form="strategy-row-form-{{ strategy.id }}" type="checkbox" role="switch" id="has_telegram_{{ strategy.id }}" name="has_telegram" {% if strategy.has_telegram %}checked{% endif %}>
                   <label class="form-check-label small" for="has_telegram_{{ strategy.id }}">Tiene Telegram</label>
                 </div>
-                <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="signals_txt_name" value="{{ strategy.signals_txt_name or '' }}" placeholder="TXT de avisos">
-                <input class="form-control form-control-sm admin-inline-control" form="strategy-row-form-{{ strategy.id }}" name="python_file" value="{{ strategy.python_file or '' }}" placeholder="Archivo Python">
+                <input class="form-control form-control-sm admin-inline-control mb-2" form="strategy-row-form-{{ strategy.id }}" name="signals_txt_name" value="{{ (strategy.signals_txt_name or '')|strategy_file }}" placeholder="TXT de avisos">
+                <input class="form-control form-control-sm admin-inline-control" form="strategy-row-form-{{ strategy.id }}" name="python_file" value="{{ (strategy.python_file or '')|strategy_file }}" placeholder="Archivo Python">
               </td>
               <td>
                 <select class="form-select form-select-sm admin-inline-control" form="strategy-row-form-{{ strategy.id }}" name="risk_level">

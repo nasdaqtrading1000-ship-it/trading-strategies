@@ -115,7 +115,7 @@
         </div>
         <span class="mobile-risk risk-{{ strategy.risk_level|lower }}">{{ strategy.risk_level }}</span>
       </div>
-      <p>{{ strategy.description }}</p>
+      <p>{{ (strategy.description)|strategy_text }}</p>
       <div class="mobile-strategy-grid">
         <div>
           <span>Avisos</span>

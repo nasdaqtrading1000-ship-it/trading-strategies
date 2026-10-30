@@ -16,7 +16,7 @@
 
     <form method="post" class="guarded-form">
       <label class="form-label" for="description">Descripcion</label>
-      <textarea class="form-control" id="description" name="description" rows="10">{{ strategy.description or '' }}</textarea>
+      <textarea class="form-control" id="description" name="description" rows="10">{{ (strategy.description or '')|strategy_text }}</textarea>
       <div class="form-text">El resto de campos se cambia directamente desde la tabla del panel.</div>
 
       <div class="d-flex justify-content-end gap-2 pt-3">

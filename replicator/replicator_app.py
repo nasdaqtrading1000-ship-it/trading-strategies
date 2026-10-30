@@ -25,7 +25,7 @@ from flask import Flask, jsonify, redirect, render_template_string, request, url
 BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
-from strategy_names import strategy_display_name
+from strategy_names import strategy_display_name, strategy_public_text, strategy_labels
 if os.environ.get("REPLICATOR_DATA_DIR"):
     APP_DIR = Path(os.environ["REPLICATOR_DATA_DIR"]).expanduser().resolve()
 elif getattr(sys, "frozen", False):
@@ -70,12 +70,13 @@ ACCUMULATION_TXT_NAMES = {"acumula_metales.txt", "acumulacion.txt"}
 
 app = Flask(__name__)
 app.jinja_env.filters["strategy_name"] = strategy_display_name
+app.jinja_env.filters["strategy_text"] = strategy_public_text
 SCAN_LOCK = threading.Lock()
 AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.11")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.12")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
@@ -1587,11 +1588,11 @@ PAGE = """
       <p class="muted">Auto ON funciona 24/7 mientras este proceso local siga abierto. Fuera de mercado escanea sin replicar.</p>
       <p class="muted">La pantalla se actualiza al registrar una orden nueva y hace una comprobacion de respaldo cada 5 minutos. Si estas editando la configuracion, el refresco se pospone para no perder cambios.</p>
       {% if config.last_connect_error %}
-        <div class="warn">Ultimo error de conexion web: {{ config.last_connect_error }}</div>
+        <div class="warn">Ultimo error de conexion web: {{ config.last_connect_error|strategy_text }}</div>
       {% endif %}
       <h2>Estrategias a replicar</h2>
       {% if strategy_error %}
-        <div class="warn">{{ strategy_error }}</div>
+        <div class="warn">{{ strategy_error|strategy_text }}</div>
       {% endif %}
       {% if not strategies %}
         <p class="muted">
@@ -1606,7 +1607,7 @@ PAGE = """
           <label>
             <input type="checkbox" name="selected_txt_names" value="{{ strategy.signals_txt_name or strategy.name }}"
               {% if (strategy.signals_txt_name or strategy.name) in config.selected_txt_names %}checked{% endif %}>
-            {{ strategy.name|strategy_name }} <span class="muted">{{ strategy.signals_txt_name or strategy.name }}</span>
+            {{ strategy.name|strategy_name }}
           </label>
         {% endfor %}
       </div>
@@ -1627,7 +1628,7 @@ PAGE = """
     <div class="panel">
       <h2>Escaneo</h2>
       <button class="primary" id="scan-now" type="button">Escanear ahora</button>
-      <pre id="scan-result" class="muted">{{ last_scan }}</pre>
+      <pre id="scan-result" class="muted">{{ last_scan|strategy_text }}</pre>
     </div>
 
     <div class="panel">
@@ -1652,7 +1653,7 @@ PAGE = """
               <td>{{ row.order_price_display }}</td>
               <td class="{{ row.profit_class }}">{{ row.profit_display }}</td>
               <td>{{ row.broker_status }}</td>
-              <td>{{ row.message }}</td>
+              <td>{{ row.message|strategy_text }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -1685,7 +1686,7 @@ PAGE = """
               <td class="{{ row.profit_class }}">{{ row.profit_display }}</td>
               <td>{{ row.broker_side }}</td>
               <td>{{ row.broker_status }}</td>
-              <td>{{ row.message }}</td>
+              <td>{{ row.message|strategy_text }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -1714,14 +1715,24 @@ PAGE = """
     async function scan() {
       const response = await fetch("{{ url_for('api_scan') }}", { method: "POST" });
       const data = await response.json();
-      document.getElementById("scan-result").textContent = JSON.stringify(data, null, 2);
+      document.getElementById("scan-result").textContent = [
+        data.ok ? "Escaneo terminado." : "No se ha podido completar el escaneo.",
+        "Operaciones realizadas: " + (data.created_count || 0),
+        "Avisos: " + (data.error_count || 0),
+        ...(data.errors || []).map(item => (item.strategy_name || "") + ": " + (item.message || item.error || "Revisar aviso"))
+      ].join("\n");
       if (data.created_count > 0) setTimeout(() => window.location.reload(), 900);
     }
     async function clearToday() {
       if (!window.confirm("Esto solo borra el registro local de replicas de hoy. Las operaciones pueden volver a quedar pendientes. Continuar?")) return;
       const response = await fetch("{{ url_for('api_clear_today') }}", { method: "POST" });
       const data = await response.json();
-      document.getElementById("scan-result").textContent = JSON.stringify(data, null, 2);
+      document.getElementById("scan-result").textContent = [
+        data.ok ? "Escaneo terminado." : "No se ha podido completar el escaneo.",
+        "Operaciones realizadas: " + (data.created_count || 0),
+        "Avisos: " + (data.error_count || 0),
+        ...(data.errors || []).map(item => (item.strategy_name || "") + ": " + (item.message || item.error || "Revisar aviso"))
+      ].join("\n");
       setTimeout(() => window.location.reload(), 700);
     }
     async function toggleAuto() {
@@ -1738,7 +1749,12 @@ PAGE = """
       });
       const data = await response.json();
       if (response.ok) paintAuto(Boolean(data.auto_enabled));
-      document.getElementById("scan-result").textContent = JSON.stringify(data, null, 2);
+      document.getElementById("scan-result").textContent = [
+        data.ok ? "Escaneo terminado." : "No se ha podido completar el escaneo.",
+        "Operaciones realizadas: " + (data.created_count || 0),
+        "Avisos: " + (data.error_count || 0),
+        ...(data.errors || []).map(item => (item.strategy_name || "") + ": " + (item.message || item.error || "Revisar aviso"))
+      ].join("\n");
     }
     document.getElementById("scan-now").addEventListener("click", scan);
     document.getElementById("clear-today").addEventListener("click", clearToday);
@@ -2142,7 +2158,7 @@ def settings():
 @app.route("/api/scan", methods=["POST"])
 def api_scan():
     try:
-        return jsonify(safe_scan_once())
+        return jsonify(strategy_labels(safe_scan_once()))
     except Exception as error:
         return jsonify(
             {

@@ -75,7 +75,7 @@ AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.10")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.11")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 

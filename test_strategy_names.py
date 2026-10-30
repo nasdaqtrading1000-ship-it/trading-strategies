@@ -20,6 +20,8 @@ class StrategyBrandTests(unittest.TestCase):
             self.assertEqual(strategy_display_name(old), brand)
             self.assertEqual(strategy_display_name(txt[:-4]), brand)
             self.assertEqual(strategy_display_name(brand), brand)
+            self.assertEqual(strategy_display_name(brand.split(' (')[0]), brand)
+            self.assertEqual(strategy_internal_name(brand.split(' (')[0]), old)
             self.assertEqual(strategy_internal_name(brand), old)
             operation = {'strategy_name':old,'txt_name':txt,'operation_key':'stable-id','shares':1.25,'entry_price':123.4}
             branded = strategy_labels(operation)
@@ -113,7 +115,7 @@ class WebBrandTests(unittest.TestCase):
         operations = self.client.post('/api/replicator/operations',headers={'Authorization':'Bearer '+login.json['access_token']},json={'selected_txt_names':['Acumulacion.txt']})
         self.assertEqual(operations.status_code,200)
         row = operations.json['operations'][0]
-        self.assertEqual(row['strategy_name'],'Lhotse')
+        self.assertEqual(row['strategy_name'],'Lhotse (ACU)')
         self.assertEqual(row['txt_name'],'Acumulacion.txt')
         self.assertEqual(row['operation_key'],'keep-same-key')
         self.assertEqual(row['shares'],1.25)

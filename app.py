@@ -2541,7 +2541,7 @@ STRATEGY_SHORT_NAMES = {
 
 def strategy_short_name(name):
     branded = strategy_display_name(name)
-    if branded != name:
+    if strategy_internal_name(branded) != branded:
         return branded
     key = strategy_info_key(name)
     if key in STRATEGY_SHORT_NAMES:
@@ -5684,7 +5684,7 @@ def create_app():
     def replicator_latest_version():
         return jsonify(
             {
-                "version": "1.0.10",
+                "version": "1.0.11",
                 "installer_url": os.environ.get(
                     "REPLICATOR_INSTALLER_URL",
                     "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"

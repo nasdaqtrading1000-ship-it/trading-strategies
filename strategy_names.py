@@ -2,16 +2,16 @@
 import re
 
 STRATEGY_BRANDS = (
-    ('Momentum', 'Momentum.txt', 'Everest'),
-    ('BreaKout', 'BreaKout.txt', 'K2'),
-    ('Mean Reversion', 'Mean_Reversion.txt', 'Annapurna'),
-    ('Trend Following', 'TrendFollowing.txt', 'Makalu'),
-    ('Pairs Trading', 'PairsTrading.txt', 'Manaslu'),
-    ('Sector Rotation', 'SectorRotation.txt', 'Dhaulagiri'),
-    ('Follow The Money', 'Follow_The_Money.txt', 'Nanga Parbat'),
-    ('Entrada Dinero Direccional', 'Entrada_Dinero_Direccional.txt', 'Kangchenjunga'),
-    ('Acumulacion', 'Acumulacion.txt', 'Lhotse'),
-    ('Acumula Metales', 'Acumula_Metales.txt', 'Cho Oyu'),
+    ('Momentum', 'Momentum.txt', 'Everest (MOM)'),
+    ('BreaKout', 'BreaKout.txt', 'K2 (BRK)'),
+    ('Mean Reversion', 'Mean_Reversion.txt', 'Annapurna (MRV)'),
+    ('Trend Following', 'TrendFollowing.txt', 'Makalu (TRF)'),
+    ('Pairs Trading', 'PairsTrading.txt', 'Manaslu (PAR)'),
+    ('Sector Rotation', 'SectorRotation.txt', 'Dhaulagiri (SEC)'),
+    ('Follow The Money', 'Follow_The_Money.txt', 'Nanga Parbat (FTM)'),
+    ('Entrada Dinero Direccional', 'Entrada_Dinero_Direccional.txt', 'Kangchenjunga (EDD)'),
+    ('Acumulacion', 'Acumulacion.txt', 'Lhotse (ACU)'),
+    ('Acumula Metales', 'Acumula_Metales.txt', 'Cho Oyu (MET)'),
 )
 
 
@@ -19,8 +19,8 @@ def _key(value):
     return re.sub(r'[^a-z0-9]', '', str(value or '').removesuffix('.txt').lower())
 
 
-_PUBLIC = {_key(value): brand for name, txt, brand in STRATEGY_BRANDS for value in (name, txt, brand)}
-_CANONICAL = {_key(brand): name for name, txt, brand in STRATEGY_BRANDS}
+_PUBLIC = {_key(value): brand for name, txt, brand in STRATEGY_BRANDS for value in (name, txt, brand, brand.split(' (')[0])}
+_CANONICAL = {_key(value): name for name, txt, brand in STRATEGY_BRANDS for value in (brand, brand.split(' (')[0])}
 
 
 def strategy_display_name(value, txt_name=None):

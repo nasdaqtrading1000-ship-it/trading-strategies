@@ -3517,6 +3517,7 @@ def create_app():
                    close_reason, updated_at
             FROM simulated_operations
             WHERE txt_name IN :txt_names
+              AND operation_key NOT LIKE 'ACU_SLICE|%'
               AND (
                 (opened_at >= :start_at AND opened_at < :end_at)
                 OR (closed_at >= :start_at AND closed_at < :end_at)
@@ -3538,6 +3539,9 @@ def create_app():
                 "end": end,
             }
         )
+
+    from risk_events_api import register_risk_events_api
+    register_risk_events_api(app, require_replicator_api_access)
 
     def can_view_strategy(strategy):
         if session.get("admin_logged_in"):
@@ -5686,7 +5690,7 @@ def create_app():
     def replicator_latest_version():
         return jsonify(
             {
-                "version": "1.0.13",
+                "version": "1.0.15",
                 "installer_url": os.environ.get(
                     "REPLICATOR_INSTALLER_URL",
                     "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/"

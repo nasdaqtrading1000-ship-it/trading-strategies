@@ -32,6 +32,8 @@ TABLES_TO_COPY = [
     "user_simulator_strategies",
     "automation_schedules",
     "strategy_signals",
+    "strategy_risk_events",
+    "strategy_risk_status",
     "simulated_operations",
     "strategy_equity_curve",
     "strategy_equity_curve_intraday",
@@ -73,6 +75,9 @@ def main():
     )
     configure_sqlite_engine(sqlite_engine)
     ensure_sqlite_schema()
+    with sqlite_engine.begin() as connection:
+        connection.execute(text("CREATE TABLE IF NOT EXISTS strategy_risk_events (event_id TEXT PRIMARY KEY, txt_name TEXT NOT NULL, occurred_at TEXT NOT NULL, payload TEXT NOT NULL)"))
+        connection.execute(text("CREATE TABLE IF NOT EXISTS strategy_risk_status (txt_name TEXT PRIMARY KEY, payload TEXT NOT NULL)"))
 
     total_rows = 0
     for table_name in TABLES_TO_COPY:

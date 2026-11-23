@@ -20,6 +20,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from flask import Flask, jsonify, redirect, render_template_string, request, url_for
+from replicator_reductions import process_reductions
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -62,8 +63,8 @@ DEFAULT_CONFIG = {
 ALPACA_PAPER_URL = "https://paper-api.alpaca.markets"
 ALPACA_LIVE_URL = "https://api.alpaca.markets"
 LIVE_CONFIRMATION_PHRASE = "OPERAR CON DINERO REAL"
-CAPITAL_DIVISORS = {"1_1000": 1000}
-CAPITAL_PROFILE_LABELS = {"1_1000": "Buying power / 1000"}
+CAPITAL_DIVISORS = {"1_1000": 1000, "1_2000": 2000}
+CAPITAL_PROFILE_LABELS = {"1_1000": "Buying power / 1000", "1_2000": "Buying power / 2000"}
 LEGACY_CAPITAL_PROFILES = {}
 ACCUMULATION_STRATEGY_NAMES = {"acumula metales", "acumulacion"}
 ACCUMULATION_TXT_NAMES = {"acumula_metales.txt", "acumulacion.txt"}
@@ -76,7 +77,7 @@ AUTO_WAKE_EVENT = threading.Event()
 AUTO_THREAD_STARTED = False
 PROFILE_ID = os.environ.get("REPLICATOR_PROFILE", "default")
 PROFILE_NAME = os.environ.get("REPLICATOR_PROFILE_NAME", PROFILE_ID)
-APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.13")
+APP_VERSION = os.environ.get("REPLICATOR_VERSION", "1.0.15")
 INSTALLER_URL = "https://github.com/nasdaqtrading1000-ship-it/trading-strategies/releases/latest/download/CodeMarketsReplicatorSetup.exe"
 
 
@@ -331,12 +332,12 @@ def dynamic_capital_per_operation(config: dict[str, Any], account: dict[str, Any
     if not buying_power.is_finite() or buying_power <= 0:
         raise RuntimeError("Alpaca no devuelve un buying power positivo y finito.")
     try:
-        capital = (buying_power / Decimal(1000)).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+        capital = (buying_power / Decimal(CAPITAL_DIVISORS.get(str(config.get("capital_profile") or "1_1000"), 1000))).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
     except InvalidOperation:
         raise RuntimeError("El buying power de Alpaca esta fuera de rango.") from None
     if capital <= 0:
         raise RuntimeError("Buying power insuficiente: el importe calculado es inferior a 0.01.")
-    return float(capital), float(buying_power), 1000
+    return float(capital), float(buying_power), CAPITAL_DIVISORS.get(str(config.get("capital_profile") or "1_1000"), 1000)
 
 
 
@@ -581,6 +582,8 @@ def connect_web_account(config: dict[str, Any], email: str, password: str) -> di
 
 def operation_actions(operation: dict[str, Any]) -> list[str]:
     actions: list[str] = []
+    if str(operation.get("operation_key") or "").startswith("ACU_SLICE|"):
+        return []
     opened_at = operation_datetime_in_madrid(operation.get("opened_at"))
     closed_at = operation_datetime_in_madrid(operation.get("closed_at"))
     today = datetime.now(MADRID_TZ).date()
@@ -995,6 +998,20 @@ def scan_once() -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
     skipped_details: list[dict[str, Any]] = []
     skipped = 0
+    reduction_events = []
+    reduction_fetch_failed = False
+    reduction_blocked = set()
+    reductions_processed = False
+    if "Acumulacion.txt" in selected:
+        try:
+            if str(config.get("source_mode") or "web").lower() == "web":
+                reduction_events = list(web_request(config, "POST", "/api/replicator/reductions", {"selected_txt_names": selected}).get("events") or [])
+            else:
+                with main_db_connection() as main_conn:
+                    reduction_events = [json.loads(r[0]) for r in main_conn.execute("SELECT payload FROM strategy_risk_events ORDER BY occurred_at,event_id")]
+        except Exception as error:
+            reduction_fetch_failed = True
+            errors.append({"strategy_name":"Acumulacion", "symbol":"", "action":"REDUCE", "broker_status":"ERROR", "message":"No se pudieron consultar recortes: " + str(error)})
     action_items = [
         (operation, action)
         for operation in operations
@@ -1009,6 +1026,15 @@ def scan_once() -> dict[str, Any]:
     )
     with state_connection() as conn:
         for operation, action in action_items:
+                if action == "CLOSE" and not reductions_processed:
+                    if mode == "alpaca_live" and reduction_events:
+                        validate_live_account(config, broker)
+                    reduction_blocked, reduction_errors = process_reductions(sys.modules[__name__], conn, config, broker, reduction_events, mode)
+                    errors.extend({"strategy_name":"Acumulacion", "symbol":e.get("symbol"), "action":"REDUCE", "broker_status":"ERROR", "message":e["error"]} for e in reduction_errors)
+                    reductions_processed = True
+                if action == "CLOSE" and (str(operation.get("operation_key")) in reduction_blocked or (reduction_fetch_failed and operation.get("txt_name")=="Acumulacion.txt")):
+                    skipped += 1
+                    continue
                 rep_id = replication_id(operation, action)
                 if already_replicated(conn, rep_id):
                     skipped += 1
@@ -1134,6 +1160,11 @@ def scan_once() -> dict[str, Any]:
                         "account_buying_power": capital_buying_power if action == "OPEN" else None,
                     }
                 )
+        if not reductions_processed:
+            if mode == "alpaca_live" and reduction_events:
+                validate_live_account(config, broker)
+            reduction_blocked, reduction_errors = process_reductions(sys.modules[__name__], conn, config, broker, reduction_events, mode)
+            errors.extend({"strategy_name":"Acumulacion", "symbol":e.get("symbol"), "action":"REDUCE", "broker_status":"ERROR", "message":e["error"]} for e in reduction_errors)
     return {
         "ok": True,
         "mode": mode,
@@ -1560,7 +1591,8 @@ PAGE = """
         </label>
         <label class="field"><span class="field-label">Tamano de nuevas aperturas en Alpaca</span>
           <select class="field-control" name="capital_profile">
-            <option value="1_1000" selected>1/1000 del buying power disponible</option>
+            <option value="1_1000" {% if config.capital_profile == "1_1000" %}selected{% endif %}>1/1000 del buying power disponible</option>
+            <option value="1_2000" {% if config.capital_profile == "1_2000" %}selected{% endif %}>1/2000 del buying power disponible</option>
           </select>
         </label>
         <label class="field"><span class="field-label">Refresco automatico segundos</span>
